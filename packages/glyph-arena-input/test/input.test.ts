@@ -195,4 +195,41 @@ describe("createInput", () => {
     dispatchKey(target, "keydown", "KeyB");
     assert.equal(input.snapshot().keys.size, 0);
   });
+
+  it("attach after dispose is a no-op and does not listen", () => {
+    const input = createInput();
+    const target = new TestTarget();
+
+    input.attach(target);
+    dispatchKey(target, "keydown", "KeyA");
+    input.dispose();
+
+    input.attach(target);
+    dispatchKey(target, "keydown", "KeyB");
+    dispatchPointer(target, "pointerdown", {
+      pointerId: 1,
+      clientX: 1,
+      clientY: 2,
+      buttons: 1,
+    });
+
+    const snapshot = input.snapshot();
+    assert.equal(snapshot.keys.size, 0);
+    assert.equal(snapshot.pointers.length, 0);
+  });
+
+  it("detach and snapshot remain safe after dispose", () => {
+    const input = createInput();
+    const target = new TestTarget();
+
+    input.attach(target);
+    input.dispose();
+
+    input.detach();
+    input.dispose();
+
+    const snapshot = input.snapshot();
+    assert.equal(snapshot.keys.size, 0);
+    assert.equal(snapshot.pointers.length, 0);
+  });
 });

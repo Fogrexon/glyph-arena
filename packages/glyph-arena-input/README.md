@@ -25,3 +25,4 @@ input.dispose();
 - Attaching a different target detaches the previous one; same target is a no-op
 - `detach` and `blur` clear keys and pointers
 - Without `blur`, keys may remain held after focus loss
+- After `dispose`, `attach` is a no-op and `snapshot` stays empty; `detach` remains safe
