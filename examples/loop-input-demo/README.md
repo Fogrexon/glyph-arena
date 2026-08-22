@@ -37,3 +37,17 @@ pnpm build
 ```
 
 Output goes to `dist/`.
+
+## GitHub Pages
+
+After merge to `main`, the [Deploy loop-input demo to GitHub Pages](../../.github/workflows/demo-pages.yml) workflow builds this demo (with `base: /glyph-arena/`) and publishes `examples/loop-input-demo/dist` to GitHub Pages.
+
+- **URL:** https://fogrexon.github.io/glyph-arena/
+- **Setup:** Repository Settings → Pages → Source: **GitHub Actions** (one-time, if not already enabled).
+
+To preview the Pages asset paths locally:
+
+```bash
+pnpm build:pages
+pnpm preview
+```

@@ -1,0 +1,58 @@
+name: Deploy loop-input demo to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "examples/loop-input-demo/**"
+      - "packages/glyph-arena-loop/**"
+      - "packages/glyph-arena-input/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/demo-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install
+
+      - run: pnpm --filter @fogrexon/glyph-arena-loop build
+      - run: pnpm --filter @fogrexon/glyph-arena-input build
+      - run: pnpm --filter @fogrexon/glyph-arena-loop-input-demo build
+        env:
+          GITHUB_PAGES: "true"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: examples/loop-input-demo/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
