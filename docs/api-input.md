@@ -61,4 +61,4 @@ input.dispose();
 
 ### `dispose()`
 
-Detaches listeners, clears state, and prevents further listener registration. Subsequent events on a previously attached target are not tracked.
+Detaches listeners, clears state, and prevents further listener registration. Subsequent events on a previously attached target are not tracked. `attach()` after `dispose()` is a no-op.
