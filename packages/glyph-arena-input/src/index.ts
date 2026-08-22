@@ -132,7 +132,7 @@ export function createInput(): Input {
     },
 
     snapshot(): InputSnapshot {
-      if (target === null) {
+      if (disposed || target === null) {
         return { keys: EMPTY_KEYS, pointers: EMPTY_POINTERS };
       }
 
