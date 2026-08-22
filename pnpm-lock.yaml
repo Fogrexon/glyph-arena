@@ -23,6 +23,8 @@ importers:
 
   packages/glyph-arena-loop: {}
 
+  packages/glyph-arena-timer: {}
+
 packages:
 
   '@esbuild/aix-ppc64@0.28.2':
