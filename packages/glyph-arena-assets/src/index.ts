@@ -35,6 +35,20 @@ export function createAssets(options: CreateAssetsOptions = {}): Assets {
   let disposed = false;
   const cache = new Map<string, Map<LoadKind, unknown>>();
   const inFlight = new Map<string, Promise<unknown>>();
+  const cacheGeneration = new Map<string, number>();
+
+  const getUrlGeneration = (url: string): number =>
+    cacheGeneration.get(url) ?? 0;
+
+  const hasInFlightForUrl = (url: string): boolean => {
+    for (const key of inFlight.keys()) {
+      const separator = key.indexOf("\0");
+      if (key.slice(separator + 1) === url) {
+        return true;
+      }
+    }
+    return false;
+  };
 
   const getCached = (url: string, kind: LoadKind): unknown | undefined => {
     const byKind = cache.get(url);
@@ -82,10 +96,12 @@ export function createAssets(options: CreateAssetsOptions = {}): Assets {
       return existing as Promise<T>;
     }
 
+    const generationAtStart = getUrlGeneration(url);
+
     const promise = loader(options?.signal)
       .then((result) => {
         inFlight.delete(key);
-        if (!disposed) {
+        if (!disposed && getUrlGeneration(url) === generationAtStart) {
           setCached(url, kind, result);
         }
         return result;
@@ -151,7 +167,15 @@ export function createAssets(options: CreateAssetsOptions = {}): Assets {
     if (disposed) {
       return;
     }
+
+    const hadCache = cache.has(url);
+    const hadInFlight = hasInFlightForUrl(url);
+    if (!hadCache && !hadInFlight) {
+      return;
+    }
+
     cache.delete(url);
+    cacheGeneration.set(url, getUrlGeneration(url) + 1);
   };
 
   const dispose = (): void => {

@@ -248,4 +248,128 @@ describe("createAssets", () => {
     assert.doesNotMatch(source, /@fogrexon\/glyph-arena-input/);
     assert.doesNotMatch(source, /@fogrexon\/glyph-arena-timer/);
   });
+
+  it("dispose during in-flight does not abort the waiting promise", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    const assets = createAssets({
+      fetch: createMockFetch(async () => {
+        await gate;
+        return mockResponse({ text: "late" });
+      }),
+    });
+
+    const pending = assets.loadText("https://example.com/dispose-inflight");
+    assets.dispose();
+
+    release();
+    const result = await pending;
+    assert.equal(result, "late");
+  });
+
+  it("evict during in-flight does not abort and skips recache on success", async () => {
+    let fetchCount = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    const assets = createAssets({
+      fetch: createMockFetch(async () => {
+        fetchCount += 1;
+        await gate;
+        return mockResponse({ text: `hit-${fetchCount}` });
+      }),
+    });
+
+    const url = "https://example.com/evict-inflight";
+    const pending = assets.loadText(url);
+    assets.evict(url);
+
+    release();
+    const result = await pending;
+    assert.equal(result, "hit-1");
+
+    const second = await assets.loadText(url);
+    assert.equal(second, "hit-2");
+    assert.equal(fetchCount, 2);
+  });
+
+  it("loadJson rejects invalid json", async () => {
+    const assets = createAssets({
+      fetch: createMockFetch(() => ({
+        ok: true,
+        status: 200,
+        text: async () => "not json",
+        json: async () => JSON.parse("not json"),
+        arrayBuffer: async () => new ArrayBuffer(0),
+        blob: async () => new Blob(),
+      })),
+    });
+
+    await assert.rejects(() =>
+      assets.loadJson("https://example.com/bad-json"),
+    );
+  });
+
+  it("loadImage rejects when createImageBitmap is missing on global", async () => {
+    const assets = createAssets({
+      fetch: createMockFetch(() => mockResponse({ blob: new Blob() })),
+    });
+
+    await assert.rejects(
+      () => assets.loadImage("https://example.com/no-bitmap"),
+      /createImageBitmap is not available/,
+    );
+  });
+
+  it("cached loads return the same reference for the same url and kind", async () => {
+    const bytes = new Uint8Array([9, 8]).buffer;
+    const payload = { tag: "ref" };
+    const bitmap = { width: 2, height: 2, close: () => {} } as ImageBitmap;
+
+    const assets = createAssets({
+      fetch: createMockFetch(() =>
+        mockResponse({ bytes, json: payload, blob: new Blob() }),
+      ),
+      createImageBitmap: async () => bitmap,
+    });
+
+    const url = "https://example.com/refs";
+    const firstBytes = await assets.loadBytes(url);
+    const secondBytes = await assets.loadBytes(url);
+    assert.equal(firstBytes, secondBytes);
+
+    const firstJson = await assets.loadJson(url);
+    const secondJson = await assets.loadJson(url);
+    assert.equal(firstJson, secondJson);
+
+    const firstImage = await assets.loadImage(url);
+    const secondImage = await assets.loadImage(url);
+    assert.equal(firstImage, secondImage);
+  });
+
+  it("evict of unknown url is a no-op", async () => {
+    let fetchCount = 0;
+    const assets = createAssets({
+      fetch: createMockFetch(() => {
+        fetchCount += 1;
+        return mockResponse({ text: "ok" });
+      }),
+    });
+
+    const url = "https://example.com/never-loaded";
+    assert.doesNotThrow(() => assets.evict(url));
+
+    const text = await assets.loadText(url);
+    assert.equal(text, "ok");
+    assert.equal(fetchCount, 1);
+
+    const again = await assets.loadText(url);
+    assert.equal(again, "ok");
+    assert.equal(fetchCount, 1);
+  });
 });
