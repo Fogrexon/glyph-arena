@@ -1,11 +1,13 @@
 # Loop + Input Demo
 
-Minimal browser demo that combines only:
+Minimal browser demo that combines:
 
 - `@fogrexon/glyph-arena-loop` — game loop via `createLoop`
 - `@fogrexon/glyph-arena-input` — keyboard/pointer via `createInput`
+- `@fogrexon/glyph-arena-actions` — keyboard bindings via `createActions`
+- `@fogrexon/glyph-arena-draw` — canvas drawing via `createDraw`
 
-Rendering is raw 2D canvas (no renderer package).
+Circle sprites are prepared once at startup; each frame uses only `draw.clear()` and `draw.sprite()`.
 
 ## Run locally
 
@@ -27,8 +29,8 @@ Open the URL Vite prints (usually `http://localhost:5173`).
 
 ## Controls
 
-- **WASD** or **arrow keys** — move the circle
-- **Pointer** (mouse/touch) — circle follows the active pointer when no keys are held
+- **WASD** or **arrow keys** — move the circle (bound through actions: `left`, `right`, `up`, `down`)
+- **Pointer** (mouse/touch) — circle follows the active pointer when no movement keys are held
 
 ## Build
 

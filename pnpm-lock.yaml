@@ -17,6 +17,12 @@ importers:
 
   examples/loop-input-demo:
     dependencies:
+      '@fogrexon/glyph-arena-actions':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-actions
+      '@fogrexon/glyph-arena-draw':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-draw
       '@fogrexon/glyph-arena-input':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-input
