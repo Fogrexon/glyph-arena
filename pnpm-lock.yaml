@@ -33,6 +33,8 @@ importers:
 
   packages/glyph-arena-assets: {}
 
+  packages/glyph-arena-audio: {}
+
   packages/glyph-arena-input:
     devDependencies:
       happy-dom:
