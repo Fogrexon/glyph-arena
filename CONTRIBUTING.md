@@ -25,6 +25,14 @@ Packages live under `packages/`. Each package is a standalone workspace member w
 
 ## API documentation
 
-- [glyph-arena-loop API](docs/api-loop.md)
+- [glyph-arena-actions API](docs/api-actions.md)
+- [glyph-arena-assets API](docs/api-assets.md)
+- [glyph-arena-audio API](docs/api-audio.md)
+- [glyph-arena-collide API](docs/api-collide.md)
+- [glyph-arena-draw API](docs/api-draw.md)
+- [glyph-arena-ecs API](docs/api-ecs.md)
+- [glyph-arena-gamepad API](docs/api-gamepad.md)
 - [glyph-arena-input API](docs/api-input.md)
+- [glyph-arena-loop API](docs/api-loop.md)
+- [glyph-arena-scene API](docs/api-scene.md)
 - [glyph-arena-timer API](docs/api-timer.md)
