@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - `@fogrexon/glyph-arena-draw` 0.1.0 — minimal 2D canvas drawing (`createDraw`)
 - `@fogrexon/glyph-arena-ecs` 0.1.0 — entity-component storage (`createWorld`)
 - `@fogrexon/glyph-arena-gamepad` 0.1.0 — gamepad state snapshot (`createGamepad`)
+- `@fogrexon/glyph-arena-scene` 0.1.0 — hierarchical scene graph nodes (`createForest`)
 - `@fogrexon/glyph-arena-loop` 0.1.0 — injectable frame loop (`createLoop`)
 - `@fogrexon/glyph-arena-input` 0.1.0 — keyboard and pointer input snapshot (`createInput`)
 - `@fogrexon/glyph-arena-timer` 0.1.0 — tick-driven timer scheduling (`createTimer`)

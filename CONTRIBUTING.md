@@ -34,4 +34,5 @@ Packages live under `packages/`. Each package is a standalone workspace member w
 - [glyph-arena-gamepad API](docs/api-gamepad.md)
 - [glyph-arena-input API](docs/api-input.md)
 - [glyph-arena-loop API](docs/api-loop.md)
+- [glyph-arena-scene API](docs/api-scene.md)
 - [glyph-arena-timer API](docs/api-timer.md)
