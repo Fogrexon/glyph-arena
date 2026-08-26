@@ -37,6 +37,8 @@ importers:
 
   packages/glyph-arena-audio: {}
 
+  packages/glyph-arena-collide: {}
+
   packages/glyph-arena-draw: {}
 
   packages/glyph-arena-gamepad: {}
