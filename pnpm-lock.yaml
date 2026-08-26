@@ -41,6 +41,8 @@ importers:
 
   packages/glyph-arena-loop: {}
 
+  packages/glyph-arena-scene: {}
+
   packages/glyph-arena-timer: {}
 
 packages:
