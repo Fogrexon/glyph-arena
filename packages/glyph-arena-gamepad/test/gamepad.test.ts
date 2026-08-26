@@ -114,6 +114,41 @@ describe("createGamepad", () => {
     assert.deepEqual(snapshot[0]?.axes, [0.01, -0.99]);
   });
 
+  it("returns empty snapshot when navigator is unavailable", () => {
+    const gamepad = createGamepad();
+
+    assert.deepEqual(gamepad.snapshot(), []);
+  });
+
+  it("returns empty snapshot when navigator.getGamepads is missing", () => {
+    const originalNavigator = globalThis.navigator;
+    Object.defineProperty(globalThis, "navigator", {
+      value: {},
+      configurable: true,
+    });
+
+    try {
+      const gamepad = createGamepad();
+      assert.deepEqual(gamepad.snapshot(), []);
+    } finally {
+      Object.defineProperty(globalThis, "navigator", {
+        value: originalNavigator,
+        configurable: true,
+      });
+    }
+  });
+
+  it("propagates errors when getGamepads throws", () => {
+    const error = new Error("boom");
+    const gamepad = createGamepad({
+      getGamepads: () => {
+        throw error;
+      },
+    });
+
+    assert.throws(() => gamepad.snapshot(), error);
+  });
+
   it("does not import sibling glyph-arena packages", () => {
     const source = readFileSync(join(packageRoot, "src", "index.ts"), "utf8");
 

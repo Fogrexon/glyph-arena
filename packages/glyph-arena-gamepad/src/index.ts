@@ -18,16 +18,29 @@ const EMPTY_SNAPSHOT: readonly GamepadState[] = [];
 
 export function createGamepad(options: CreateGamepadOptions = {}): GamepadReader {
   let disposed = false;
-  const getGamepads =
-    options.getGamepads ??
-    (() => Array.from(navigator.getGamepads()));
+  const injectedGetGamepads = options.getGamepads;
+
+  const readGamepads = (): (globalThis.Gamepad | null)[] => {
+    if (injectedGetGamepads !== undefined) {
+      return injectedGetGamepads();
+    }
+
+    if (
+      typeof navigator === "undefined" ||
+      typeof navigator.getGamepads !== "function"
+    ) {
+      return [];
+    }
+
+    return Array.from(navigator.getGamepads());
+  };
 
   const snapshot = (): readonly GamepadState[] => {
     if (disposed) {
       return EMPTY_SNAPSHOT;
     }
 
-    const pads = getGamepads();
+    const pads = readGamepads();
     const result: GamepadState[] = [];
 
     for (const pad of pads) {

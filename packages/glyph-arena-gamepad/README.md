@@ -34,4 +34,6 @@ Optional `getGamepads` defaults to `navigator.getGamepads` (injectable for tests
 - Omits pads where `connected` is `false`
 - Skips `null` slots from `getGamepads()`
 - Copies button and axis arrays so caller mutation does not affect the next snapshot
+- If `navigator` or `getGamepads` is missing, `snapshot()` returns `[]`
+- If `getGamepads` throws, the error propagates
 - Polling only; no rumble, remap, connection events, or standard mapping conversion
