@@ -39,6 +39,8 @@ importers:
 
   packages/glyph-arena-draw: {}
 
+  packages/glyph-arena-gamepad: {}
+
   packages/glyph-arena-input:
     devDependencies:
       happy-dom:
