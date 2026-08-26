@@ -31,9 +31,19 @@ importers:
         specifier: ^6.3.5
         version: 6.4.3(tsx@4.23.12)
 
+  packages/glyph-arena-actions: {}
+
   packages/glyph-arena-assets: {}
 
+  packages/glyph-arena-audio: {}
+
+  packages/glyph-arena-collide: {}
+
+  packages/glyph-arena-draw: {}
+
   packages/glyph-arena-ecs: {}
+
+  packages/glyph-arena-gamepad: {}
 
   packages/glyph-arena-input:
     devDependencies:
