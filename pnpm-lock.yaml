@@ -41,6 +41,8 @@ importers:
 
   packages/glyph-arena-draw: {}
 
+  packages/glyph-arena-ecs: {}
+
   packages/glyph-arena-gamepad: {}
 
   packages/glyph-arena-input:
