@@ -33,6 +33,8 @@ importers:
 
   packages/glyph-arena-assets: {}
 
+  packages/glyph-arena-draw: {}
+
   packages/glyph-arena-input:
     devDependencies:
       happy-dom:
