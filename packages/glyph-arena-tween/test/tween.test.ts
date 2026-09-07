@@ -82,6 +82,57 @@ describe("createTween", () => {
     assert.equal(tween.get(handle), 20);
   });
 
+  it("regression: duration zero scheduling does not use tickGeneration + 1", () => {
+    const source = readFileSync(
+      join(packageRoot, "src", "index.ts"),
+      "utf8",
+    );
+
+    assert.doesNotMatch(
+      source,
+      /minTickGen:\s*zeroDuration\s*\?\s*tickGeneration\s*\+\s*1/,
+    );
+  });
+
+  it("duration 0 completes on the single tick that establishes origin", () => {
+    const tween = createTween();
+    const handle = tween.to(0, 10, 0);
+
+    tween.tick(0);
+
+    assert.equal(tween.get(handle), undefined);
+    assert.doesNotThrow(() => {
+      tween.cancel(handle);
+      tween.tick(0);
+    });
+  });
+
+  it("duration 0 completes on the next tick after origin is already set", () => {
+    const tween = createTween();
+
+    tween.tick(0);
+
+    const handle = tween.to(0, 10, 0);
+    tween.tick(1);
+
+    assert.equal(tween.get(handle), undefined);
+    assert.doesNotThrow(() => {
+      tween.cancel(handle);
+    });
+  });
+
+  it("duration 0 does not linger across a second duration-0 tween", () => {
+    const tween = createTween();
+    const first = tween.to(0, 10, 0);
+
+    tween.tick(0);
+    assert.equal(tween.get(first), undefined);
+
+    const second = tween.to(0, 20, 0);
+    tween.tick(1);
+    assert.equal(tween.get(second), undefined);
+  });
+
   it("duration 0 completes on the next tick and get is undefined afterward", () => {
     const tween = createTween();
     const handle = tween.to(0, 10, 0);
@@ -89,8 +140,10 @@ describe("createTween", () => {
     tween.tick(5);
     assert.equal(tween.get(handle), undefined);
 
-    tween.tick(5.1);
-    assert.equal(tween.get(handle), undefined);
+    assert.doesNotThrow(() => {
+      tween.cancel(handle);
+      tween.tick(5);
+    });
   });
 
   it("negative duration returns invalid handle", () => {

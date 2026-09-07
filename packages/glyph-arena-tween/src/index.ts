@@ -94,7 +94,6 @@ export function createTween(): Tween {
       return handle;
     }
 
-    const zeroDuration = durationSeconds === 0;
     const task: TweenTask = {
       handle,
       from,
@@ -103,7 +102,7 @@ export function createTween(): Tween {
       ease: ease ?? identity,
       startTime: null,
       offsetFromOrigin: null,
-      minTickGen: zeroDuration ? tickGeneration + 1 : tickGeneration,
+      minTickGen: tickGeneration,
     };
 
     if (origin === null) {
