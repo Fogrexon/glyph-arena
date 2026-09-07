@@ -65,6 +65,8 @@ importers:
 
   packages/glyph-arena-transform: {}
 
+  packages/glyph-arena-tween: {}
+
 packages:
 
   '@esbuild/aix-ppc64@0.25.12':
