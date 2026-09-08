@@ -43,6 +43,8 @@ importers:
 
   packages/glyph-arena-audio: {}
 
+  packages/glyph-arena-camera: {}
+
   packages/glyph-arena-collide: {}
 
   packages/glyph-arena-draw: {}
