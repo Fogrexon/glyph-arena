@@ -36,4 +36,5 @@ Packages live under `packages/`. Each package is a standalone workspace member w
 - [glyph-arena-loop API](docs/api-loop.md)
 - [glyph-arena-scene API](docs/api-scene.md)
 - [glyph-arena-timer API](docs/api-timer.md)
+- [glyph-arena-tween API](docs/api-tween.md)
 - [glyph-arena-transform API](docs/api-transform.md)
