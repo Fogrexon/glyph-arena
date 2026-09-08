@@ -28,6 +28,7 @@ Packages live under `packages/`. Each package is a standalone workspace member w
 - [glyph-arena-actions API](docs/api-actions.md)
 - [glyph-arena-assets API](docs/api-assets.md)
 - [glyph-arena-audio API](docs/api-audio.md)
+- [glyph-arena-camera API](docs/api-camera.md)
 - [glyph-arena-collide API](docs/api-collide.md)
 - [glyph-arena-draw API](docs/api-draw.md)
 - [glyph-arena-ecs API](docs/api-ecs.md)
