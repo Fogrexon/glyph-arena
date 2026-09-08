@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - `@fogrexon/glyph-arena-actions` 0.1.0 — action bindings from keyboard codes (`createActions`)
 - `@fogrexon/glyph-arena-assets` 0.1.0 — URL asset loading with cache (`createAssets`)
 - `@fogrexon/glyph-arena-audio` 0.1.0 — Web Audio playback helper (`createAudio`)
+- `@fogrexon/glyph-arena-camera` 0.1.0 — 2D camera state and world-to-screen view matrix (`createCamera`)
 - `@fogrexon/glyph-arena-collide` 0.1.0 — AABB overlap test (`overlaps`)
 - `@fogrexon/glyph-arena-draw` 0.1.0 — minimal 2D canvas drawing (`createDraw`)
 - `@fogrexon/glyph-arena-ecs` 0.1.0 — entity-component storage (`createWorld`)
@@ -19,3 +20,4 @@ All notable changes to this project will be documented in this file.
 - `@fogrexon/glyph-arena-timer` 0.1.0 — tick-driven timer scheduling (`createTimer`)
 - `@fogrexon/glyph-arena-tween` 0.1.0 — tick-driven scalar tweening (`createTween`)
 - `@fogrexon/glyph-arena-transform` 0.1.0 — per-node local 2D transforms and world matrix composition (`createTransform`)
+- API reference for `@fogrexon/glyph-arena-camera` (`docs/api-camera.md`)
