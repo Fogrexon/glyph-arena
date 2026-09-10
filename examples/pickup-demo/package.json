@@ -1,5 +1,5 @@
 {
-  "name": "@fogrexon/glyph-arena-loop-input-demo",
+  "name": "@fogrexon/glyph-arena-pickup-demo",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,9 +11,15 @@
   },
   "dependencies": {
     "@fogrexon/glyph-arena-actions": "workspace:*",
+    "@fogrexon/glyph-arena-camera": "workspace:*",
+    "@fogrexon/glyph-arena-collide": "workspace:*",
     "@fogrexon/glyph-arena-draw": "workspace:*",
     "@fogrexon/glyph-arena-input": "workspace:*",
-    "@fogrexon/glyph-arena-loop": "workspace:*"
+    "@fogrexon/glyph-arena-loop": "workspace:*",
+    "@fogrexon/glyph-arena-scene": "workspace:*",
+    "@fogrexon/glyph-arena-timer": "workspace:*",
+    "@fogrexon/glyph-arena-transform": "workspace:*",
+    "@fogrexon/glyph-arena-tween": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.8.3",
