@@ -15,11 +15,17 @@ importers:
         specifier: ^5.8.3
         version: 5.9.3
 
-  examples/loop-input-demo:
+  examples/pickup-demo:
     dependencies:
       '@fogrexon/glyph-arena-actions':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-actions
+      '@fogrexon/glyph-arena-camera':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-camera
+      '@fogrexon/glyph-arena-collide':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-collide
       '@fogrexon/glyph-arena-draw':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-draw
@@ -29,6 +35,18 @@ importers:
       '@fogrexon/glyph-arena-loop':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-loop
+      '@fogrexon/glyph-arena-scene':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-scene
+      '@fogrexon/glyph-arena-timer':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-timer
+      '@fogrexon/glyph-arena-transform':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-transform
+      '@fogrexon/glyph-arena-tween':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-tween
     devDependencies:
       typescript:
         specifier: ^5.8.3

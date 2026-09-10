@@ -1,14 +1,20 @@
-name: Deploy loop-input demo to GitHub Pages
+name: Deploy pickup demo to GitHub Pages
 
 on:
   push:
     branches: [main]
     paths:
-      - "examples/loop-input-demo/**"
+      - "examples/pickup-demo/**"
       - "packages/glyph-arena-actions/**"
+      - "packages/glyph-arena-camera/**"
+      - "packages/glyph-arena-collide/**"
       - "packages/glyph-arena-draw/**"
-      - "packages/glyph-arena-loop/**"
       - "packages/glyph-arena-input/**"
+      - "packages/glyph-arena-loop/**"
+      - "packages/glyph-arena-scene/**"
+      - "packages/glyph-arena-timer/**"
+      - "packages/glyph-arena-transform/**"
+      - "packages/glyph-arena-tween/**"
       - "pnpm-lock.yaml"
       - ".github/workflows/demo-pages.yml"
   workflow_dispatch:
@@ -40,16 +46,22 @@ jobs:
       - run: pnpm install
 
       - run: pnpm --filter @fogrexon/glyph-arena-actions build
+      - run: pnpm --filter @fogrexon/glyph-arena-camera build
+      - run: pnpm --filter @fogrexon/glyph-arena-collide build
       - run: pnpm --filter @fogrexon/glyph-arena-draw build
-      - run: pnpm --filter @fogrexon/glyph-arena-loop build
       - run: pnpm --filter @fogrexon/glyph-arena-input build
-      - run: pnpm --filter @fogrexon/glyph-arena-loop-input-demo build
+      - run: pnpm --filter @fogrexon/glyph-arena-loop build
+      - run: pnpm --filter @fogrexon/glyph-arena-scene build
+      - run: pnpm --filter @fogrexon/glyph-arena-timer build
+      - run: pnpm --filter @fogrexon/glyph-arena-transform build
+      - run: pnpm --filter @fogrexon/glyph-arena-tween build
+      - run: pnpm --filter @fogrexon/glyph-arena-pickup-demo build
         env:
           GITHUB_PAGES: "true"
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: examples/loop-input-demo/dist
+          path: examples/pickup-demo/dist
 
   deploy:
     needs: build
