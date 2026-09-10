@@ -18,6 +18,8 @@ pnpm build       # Compile all packages
 
 Packages live under `packages/`. Each package is a standalone workspace member with its own `package.json`, `src/`, and `test/`.
 
+Examples live under `examples/`. The pickup sample is at `examples/pickup-demo`; the live internal demo is at https://fogrexon.github.io/glyph-arena/.
+
 ## Package boundaries
 
 - Do **not** add runtime dependencies unless explicitly required.
