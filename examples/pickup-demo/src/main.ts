@@ -20,6 +20,7 @@ type Drawable = {
 
 const PLAYER_SIZE = 28;
 const ITEM_SIZE = 20;
+const WALL_SPRITE_SIZE = 64;
 const MOVE_SPEED = 180;
 const WORLD_WIDTH = 1200;
 const WORLD_HEIGHT = 900;
@@ -94,7 +95,7 @@ function nodeAabb(x: number, y: number, width: number, height: number): Aabb {
 
 const playerSprite = createRectSprite(PLAYER_SIZE, PLAYER_SIZE, "#4cc9f0", "#7dd3fc");
 const itemSprite = createRectSprite(ITEM_SIZE, ITEM_SIZE, "#f9e076", "#fbbf24");
-const wallSprite = createRectSprite(64, 64, "#3d4451", "#6b7280");
+const wallSprite = createRectSprite(WALL_SPRITE_SIZE, WALL_SPRITE_SIZE, "#3d4451", "#6b7280");
 
 const draw = createDraw({ context: ctx });
 const forest = createForest();
@@ -125,7 +126,12 @@ const wallLayout: Array<{ x: number; y: number; width: number; height: number }>
 for (const wall of wallLayout) {
   const node = forest.create();
   forest.setParent(node, worldRoot);
-  transform.set(node, { x: wall.x, y: wall.y, scaleX: wall.width / 64, scaleY: wall.height / 64 });
+  transform.set(node, {
+    x: wall.x,
+    y: wall.y,
+    scaleX: wall.width / WALL_SPRITE_SIZE,
+    scaleY: wall.height / WALL_SPRITE_SIZE,
+  });
   wallNodes.push({
     node,
     image: wallSprite,
@@ -262,6 +268,17 @@ function drawWorldSprite(drawable: Drawable, viewMatrix: Matrix2D): void {
   });
 }
 
+function drawWallSprite(wall: Drawable, viewMatrix: Matrix2D): void {
+  const worldMatrix = transform.world(wall.node, parentOf);
+  const [a, b, c, d, e, f] = composeViewAndWorld(viewMatrix, worldMatrix);
+  ctx.setTransform(a, b, c, d, e, f);
+  draw.sprite({
+    image: wall.image,
+    x: 0,
+    y: 0,
+  });
+}
+
 const loop = createLoop({
   onFrame(time) {
     timer.tick(time.elapsed);
@@ -338,7 +355,7 @@ const loop = createLoop({
     draw.clear("#0f1115");
 
     for (const wall of wallNodes) {
-      drawWorldSprite(wall, viewMatrix);
+      drawWallSprite(wall, viewMatrix);
     }
 
     for (const item of itemNodes) {
