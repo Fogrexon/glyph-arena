@@ -22,3 +22,4 @@ All notable changes to this project will be documented in this file.
 - `@fogrexon/glyph-arena-transform` 0.1.0 — per-node local 2D transforms and world matrix composition (`createTransform`)
 - API reference for `@fogrexon/glyph-arena-camera` (`docs/api-camera.md`)
 - GitHub Pages demo is now the pickup sample at `examples/pickup-demo`
+- Pickup demo at `examples/pickup-demo` now also uses assets, audio, gamepad, and ECS (demo-only; no package API change)
