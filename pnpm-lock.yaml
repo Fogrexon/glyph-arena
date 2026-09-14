@@ -20,6 +20,12 @@ importers:
       '@fogrexon/glyph-arena-actions':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-actions
+      '@fogrexon/glyph-arena-assets':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-assets
+      '@fogrexon/glyph-arena-audio':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-audio
       '@fogrexon/glyph-arena-camera':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-camera
@@ -29,6 +35,12 @@ importers:
       '@fogrexon/glyph-arena-draw':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-draw
+      '@fogrexon/glyph-arena-ecs':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-ecs
+      '@fogrexon/glyph-arena-gamepad':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-gamepad
       '@fogrexon/glyph-arena-input':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-input
