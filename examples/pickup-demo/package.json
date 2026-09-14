@@ -11,9 +11,13 @@
   },
   "dependencies": {
     "@fogrexon/glyph-arena-actions": "workspace:*",
+    "@fogrexon/glyph-arena-assets": "workspace:*",
+    "@fogrexon/glyph-arena-audio": "workspace:*",
     "@fogrexon/glyph-arena-camera": "workspace:*",
     "@fogrexon/glyph-arena-collide": "workspace:*",
     "@fogrexon/glyph-arena-draw": "workspace:*",
+    "@fogrexon/glyph-arena-ecs": "workspace:*",
+    "@fogrexon/glyph-arena-gamepad": "workspace:*",
     "@fogrexon/glyph-arena-input": "workspace:*",
     "@fogrexon/glyph-arena-loop": "workspace:*",
     "@fogrexon/glyph-arena-scene": "workspace:*",

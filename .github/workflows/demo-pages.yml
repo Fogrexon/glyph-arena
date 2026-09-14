@@ -6,9 +6,13 @@ on:
     paths:
       - "examples/pickup-demo/**"
       - "packages/glyph-arena-actions/**"
+      - "packages/glyph-arena-assets/**"
+      - "packages/glyph-arena-audio/**"
       - "packages/glyph-arena-camera/**"
       - "packages/glyph-arena-collide/**"
       - "packages/glyph-arena-draw/**"
+      - "packages/glyph-arena-ecs/**"
+      - "packages/glyph-arena-gamepad/**"
       - "packages/glyph-arena-input/**"
       - "packages/glyph-arena-loop/**"
       - "packages/glyph-arena-scene/**"
@@ -46,9 +50,13 @@ jobs:
       - run: pnpm install
 
       - run: pnpm --filter @fogrexon/glyph-arena-actions build
+      - run: pnpm --filter @fogrexon/glyph-arena-assets build
+      - run: pnpm --filter @fogrexon/glyph-arena-audio build
       - run: pnpm --filter @fogrexon/glyph-arena-camera build
       - run: pnpm --filter @fogrexon/glyph-arena-collide build
       - run: pnpm --filter @fogrexon/glyph-arena-draw build
+      - run: pnpm --filter @fogrexon/glyph-arena-ecs build
+      - run: pnpm --filter @fogrexon/glyph-arena-gamepad build
       - run: pnpm --filter @fogrexon/glyph-arena-input build
       - run: pnpm --filter @fogrexon/glyph-arena-loop build
       - run: pnpm --filter @fogrexon/glyph-arena-scene build
