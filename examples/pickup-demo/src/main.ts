@@ -25,6 +25,13 @@ type Drawable = {
   height: number;
 };
 
+type PickupFx = {
+  entity: Entity;
+  node: Node;
+  tweenHandle: number;
+  spawn: { x: number; y: number };
+};
+
 const PLAYER_SIZE = 28;
 const ITEM_SIZE = 20;
 const WALL_SPRITE_SIZE = 64;
@@ -34,6 +41,8 @@ const WORLD_HEIGHT = 900;
 const ITEM_RESPAWN_SECONDS = 2.5;
 const PICKUP_ZOOM = 1.18;
 const PICKUP_ZOOM_DURATION = 0.18;
+const PICKUP_FX_LOCAL_Y = -24;
+const PICKUP_FX_SCALE_DURATION = 0.2;
 const GAMEPAD_DEADZONE = 0.25;
 
 const COMPONENT_KIND = "kind";
@@ -194,6 +203,7 @@ async function main(): Promise<void> {
   const entityNodes = new Map<Entity, Node>();
   const wallEntities: Entity[] = [];
   const gemEntities: Entity[] = [];
+  const pickupFxGems: PickupFx[] = [];
 
   let playerImage: CanvasImageSource = createRectSprite(
     PLAYER_SIZE,
@@ -236,10 +246,8 @@ async function main(): Promise<void> {
   }
 
   const worldRoot = forest.create();
-
-  function parentOf(node: unknown): Node | null {
-    return forest.parent(node as Node);
-  }
+  const fieldNode = forest.create();
+  forest.setParent(fieldNode, worldRoot);
 
   function spawnEntity(
     kind: EntityKind,
@@ -247,13 +255,14 @@ async function main(): Promise<void> {
     image: CanvasImageSource,
     spriteWidth: number,
     spriteHeight: number,
+    parent: Node,
   ): Drawable {
     const entity = world.spawn();
     world.set(entity, COMPONENT_KIND, kind);
     world.set(entity, COMPONENT_AABB, aabb);
 
     const node = forest.create();
-    forest.setParent(node, worldRoot);
+    forest.setParent(node, parent);
     entityNodes.set(entity, node);
     syncTransformFromAabb(entity, node, kind, aabb, transform);
 
@@ -286,6 +295,7 @@ async function main(): Promise<void> {
       wallImage,
       wall.width,
       wall.height,
+      fieldNode,
     );
     wallEntities.push(drawable.entity);
     wallDrawables.push(drawable);
@@ -309,6 +319,7 @@ async function main(): Promise<void> {
       gemImage,
       ITEM_SIZE,
       ITEM_SIZE,
+      fieldNode,
     );
     gemEntities.push(drawable.entity);
     return drawable;
@@ -326,6 +337,7 @@ async function main(): Promise<void> {
     playerImage,
     PLAYER_SIZE,
     PLAYER_SIZE,
+    worldRoot,
   );
   const playerEntity = playerDrawable.entity;
 
@@ -378,26 +390,43 @@ async function main(): Promise<void> {
     return false;
   }
 
-  function removeGem(entity: Entity): void {
+  function removeGemFromCollideTargets(entity: Entity): void {
     const index = gemEntities.indexOf(entity);
     if (index !== -1) {
       gemEntities.splice(index, 1);
     }
+  }
 
-    const node = entityNodes.get(entity);
-    if (node !== undefined) {
-      transform.clear(node);
-      forest.destroy(node);
-      entityNodes.delete(entity);
-    }
-
-    world.despawn(entity);
+  function finishPickupFx(fx: PickupFx): void {
+    world.despawn(fx.entity);
+    forest.destroy(fx.node);
+    entityNodes.delete(fx.entity);
+    transform.clear(fx.node);
+    scheduleGemRespawn(fx.spawn);
   }
 
   function scheduleGemRespawn(spawn: { x: number; y: number }): void {
     timer.delay(ITEM_RESPAWN_SECONDS, () => {
       spawnGem(spawn);
     });
+  }
+
+  function startPickupFx(gemEntity: Entity, spawn: { x: number; y: number }): void {
+    removeGemFromCollideTargets(gemEntity);
+    score += 1;
+    void playPickupSound();
+    playPickupZoom();
+
+    const node = entityNodes.get(gemEntity);
+    if (node === undefined) {
+      return;
+    }
+
+    forest.setParent(node, playerDrawable.node);
+    transform.set(node, { x: 0, y: PICKUP_FX_LOCAL_Y, scaleX: 1, scaleY: 1 });
+
+    const tweenHandle = tween.to(1, 0, PICKUP_FX_SCALE_DURATION);
+    pickupFxGems.push({ entity: gemEntity, node, tweenHandle, spawn });
   }
 
   async function playPickupSound(): Promise<void> {
@@ -425,7 +454,7 @@ async function main(): Promise<void> {
   }
 
   function drawWorldSprite(drawable: Drawable, viewMatrix: Matrix2D): void {
-    const worldMatrix = transform.world(drawable.node, parentOf);
+    const worldMatrix = transform.world(drawable.node, forest.parent);
     const [a, b, c, d, e, f] = composeViewAndWorld(viewMatrix, worldMatrix);
     ctx.setTransform(a, b, c, d, e, f);
     draw.sprite({
@@ -438,7 +467,7 @@ async function main(): Promise<void> {
   }
 
   function drawWallSprite(wall: Drawable, viewMatrix: Matrix2D): void {
-    const worldMatrix = transform.world(wall.node, parentOf);
+    const worldMatrix = transform.world(wall.node, forest.parent);
     const [a, b, c, d, e, f] = composeViewAndWorld(viewMatrix, worldMatrix);
     ctx.setTransform(a, b, c, d, e, f);
     draw.sprite({
@@ -446,6 +475,33 @@ async function main(): Promise<void> {
       x: 0,
       y: 0,
     });
+  }
+
+  function drawPickupFxGem(fx: PickupFx, viewMatrix: Matrix2D): void {
+    const worldMatrix = transform.world(fx.node, forest.parent);
+    const [a, b, c, d, e, f] = composeViewAndWorld(viewMatrix, worldMatrix);
+    ctx.setTransform(a, b, c, d, e, f);
+    draw.sprite({
+      image: gemImage,
+      x: 0,
+      y: 0,
+      width: ITEM_SIZE,
+      height: ITEM_SIZE,
+    });
+  }
+
+  function updatePickupFx(): void {
+    for (let index = pickupFxGems.length - 1; index >= 0; index -= 1) {
+      const fx = pickupFxGems[index];
+      const scaleValue = tween.get(fx.tweenHandle);
+      if (scaleValue !== undefined) {
+        transform.set(fx.node, { scaleX: scaleValue, scaleY: scaleValue });
+        continue;
+      }
+
+      finishPickupFx(fx);
+      pickupFxGems.splice(index, 1);
+    }
   }
 
   const loop = createLoop({
@@ -523,13 +579,11 @@ async function main(): Promise<void> {
       for (const gemEntity of [...gemEntities]) {
         const gemAabb = getAabb(gemEntity, world);
         if (overlaps(playerBox, gemAabb)) {
-          removeGem(gemEntity);
-          score += 1;
-          scheduleGemRespawn({ x: gemAabb.x, y: gemAabb.y });
-          void playPickupSound();
-          playPickupZoom();
+          startPickupFx(gemEntity, { x: gemAabb.x, y: gemAabb.y });
         }
       }
+
+      updatePickupFx();
 
       if (pickupZoomHandle !== null) {
         const zoomValue = tween.get(pickupZoomHandle);
@@ -570,6 +624,10 @@ async function main(): Promise<void> {
       }
 
       drawWorldSprite(playerDrawable, viewMatrix);
+
+      for (const fx of pickupFxGems) {
+        drawPickupFxGem(fx, viewMatrix);
+      }
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = "#e8eaed";

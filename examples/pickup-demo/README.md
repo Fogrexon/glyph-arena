@@ -14,14 +14,16 @@ Top-down pickup game sample for [Glyph Arena](https://github.com/Fogrexon/glyph-
 | `@fogrexon/glyph-arena-audio` | `decode` + `play` on pickup; `resume` on first input |
 | `@fogrexon/glyph-arena-ecs` | Entity position/AABB/kind; demo maps entities to scene nodes |
 | `@fogrexon/glyph-arena-draw` | `clear` / `sprite` via `createDraw` |
-| `@fogrexon/glyph-arena-scene` | `createForest` nodes for player, walls, gems |
-| `@fogrexon/glyph-arena-transform` | Local TRS + `world(node, forest.parent)` |
+| `@fogrexon/glyph-arena-scene` | `createForest` hierarchy: `field` under root; walls/gems parented to `field`; player under root |
+| `@fogrexon/glyph-arena-transform` | Local TRS + `world(node, forest.parent)` chains parent transforms for drawing |
 | `@fogrexon/glyph-arena-camera` | `set({ x, y })` each frame to follow player |
 | `@fogrexon/glyph-arena-collide` | AABB `overlaps` for walls and pickups |
 | `@fogrexon/glyph-arena-timer` | Gem respawn delay |
-| `@fogrexon/glyph-arena-tween` | Brief zoom on pickup |
+| `@fogrexon/glyph-arena-tween` | Camera zoom on pickup; gem scale-out FX after reparent to player |
 
 Sprites and sound ship under `public/` (`player.png`, `gem.png`, `wall.png`, `pickup.wav`). If `loadImage` fails, the demo falls back to color-rect canvases. Score is drawn with canvas `fillText` (no DOM HUD).
+
+On pickup, the gem is reparented under the player at a fixed local offset (`y: -24`), scaled down with `tween.to(1, 0, 0.2)` while following the player via `transform.world`. ECS despawn and scene destroy happen only after the tween completes; respawn is scheduled from that destroy frame.
 
 ## Run locally
 
