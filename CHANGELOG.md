@@ -23,3 +23,4 @@ All notable changes to this project will be documented in this file.
 - API reference for `@fogrexon/glyph-arena-camera` (`docs/api-camera.md`)
 - GitHub Pages demo is now the pickup sample at `examples/pickup-demo`
 - Pickup demo at `examples/pickup-demo` now also uses assets, audio, gamepad, and ECS (demo-only; no package API change)
+- Pickup demo at `examples/pickup-demo` now uses scene parent/child hierarchy (field parent, gem reparent + tween scale-out; demo-only; no package API change)
