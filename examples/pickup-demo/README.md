@@ -18,12 +18,16 @@ Top-down pickup game sample for [Glyph Arena](https://github.com/Fogrexon/glyph-
 | `@fogrexon/glyph-arena-transform` | Local TRS + `world(node, forest.parent)` chains parent transforms for drawing |
 | `@fogrexon/glyph-arena-camera` | `set({ x, y })` each frame to follow player |
 | `@fogrexon/glyph-arena-collide` | AABB `overlaps` for walls and pickups |
-| `@fogrexon/glyph-arena-timer` | Gem respawn delay |
+| `@fogrexon/glyph-arena-timer` | Gem respawn delay; `every(0.4)` idle pulse on uncollected gems |
 | `@fogrexon/glyph-arena-tween` | Camera zoom on pickup; gem scale-out FX after reparent to player |
 
 Sprites and sound ship under `public/` (`player.png`, `gem.png`, `wall.png`, `pickup.wav`). If `loadImage` fails, the demo falls back to color-rect canvases. Score is drawn with canvas `fillText` (no DOM HUD).
 
 On pickup, the gem is reparented under the player at a fixed local offset (`y: -24`), scaled down with `tween.to(1, 0, 0.2)` while following the player via `transform.world`. ECS despawn and scene destroy happen only after the tween completes; respawn is scheduled from that destroy frame.
+
+Uncollected gems pulse idle scale between `1` and `1.12` via `timer.every(0.4)` (target scale toggled each tick, applied with `transform.set` after position sync — no stacked tweens). The idle handle is cancelled on pickup or restart.
+
+Press **R** to restart: cancels in-flight tweens/timers, cleans up mid-FX gems parented to the player, despawns field entities, destroys and recreates the `field` subtree with the initial layout, resets the player to center, score to `0`, and camera zoom to `1`.
 
 ## Run locally
 
@@ -46,6 +50,7 @@ Open the URL Vite prints (usually `http://localhost:5173`).
 ## Controls
 
 - **Arrow keys** — move the player (via `actions`)
+- **R** — restart the level (`actions.pressed("restart")`, edge-triggered)
 - **Gamepad** — left stick + d-pad on pad 0, OR’d after keyboard; deadzone `0.25` is demo-local
 
 Audio resumes on the first key press or gamepad input (not on load).

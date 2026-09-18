@@ -43,6 +43,9 @@ const PICKUP_ZOOM = 1.18;
 const PICKUP_ZOOM_DURATION = 0.18;
 const PICKUP_FX_LOCAL_Y = -24;
 const PICKUP_FX_SCALE_DURATION = 0.2;
+const GEM_IDLE_INTERVAL = 0.4;
+const GEM_IDLE_SCALE_MIN = 1;
+const GEM_IDLE_SCALE_MAX = 1.12;
 const GAMEPAD_DEADZONE = 0.25;
 
 const COMPONENT_KIND = "kind";
@@ -204,6 +207,9 @@ async function main(): Promise<void> {
   const wallEntities: Entity[] = [];
   const gemEntities: Entity[] = [];
   const pickupFxGems: PickupFx[] = [];
+  const gemIdleHandles = new Map<Entity, number>();
+  const gemIdleTargetScale = new Map<Entity, number>();
+  const respawnTimerHandles: number[] = [];
 
   let playerImage: CanvasImageSource = createRectSprite(
     PLAYER_SIZE,
@@ -246,7 +252,7 @@ async function main(): Promise<void> {
   }
 
   const worldRoot = forest.create();
-  const fieldNode = forest.create();
+  let fieldNode = forest.create();
   forest.setParent(fieldNode, worldRoot);
 
   function spawnEntity(
@@ -287,19 +293,7 @@ async function main(): Promise<void> {
     { x: 420, y: 680, width: 260, height: 40 },
   ];
 
-  const wallDrawables: Drawable[] = [];
-  for (const wall of wallLayout) {
-    const drawable = spawnEntity(
-      "wall",
-      nodeAabb(wall.x, wall.y, wall.width, wall.height),
-      wallImage,
-      wall.width,
-      wall.height,
-      fieldNode,
-    );
-    wallEntities.push(drawable.entity);
-    wallDrawables.push(drawable);
-  }
+  let wallDrawables: Drawable[] = [];
 
   const itemSpawns: Array<{ x: number; y: number }> = [
     { x: 140, y: 140 },
@@ -312,6 +306,27 @@ async function main(): Promise<void> {
     { x: 560, y: 760 },
   ];
 
+  function startGemIdlePulse(entity: Entity): void {
+    gemIdleTargetScale.set(entity, GEM_IDLE_SCALE_MIN);
+    const handle = timer.every(GEM_IDLE_INTERVAL, () => {
+      const current = gemIdleTargetScale.get(entity) ?? GEM_IDLE_SCALE_MIN;
+      gemIdleTargetScale.set(
+        entity,
+        current === GEM_IDLE_SCALE_MIN ? GEM_IDLE_SCALE_MAX : GEM_IDLE_SCALE_MIN,
+      );
+    });
+    gemIdleHandles.set(entity, handle);
+  }
+
+  function cancelGemIdlePulse(entity: Entity): void {
+    const handle = gemIdleHandles.get(entity);
+    if (handle !== undefined) {
+      timer.cancel(handle);
+      gemIdleHandles.delete(entity);
+    }
+    gemIdleTargetScale.delete(entity);
+  }
+
   function spawnGem(spawn: { x: number; y: number }): Drawable {
     const drawable = spawnEntity(
       "gem",
@@ -322,12 +337,31 @@ async function main(): Promise<void> {
       fieldNode,
     );
     gemEntities.push(drawable.entity);
+    transform.set(drawable.node, { scaleX: GEM_IDLE_SCALE_MIN, scaleY: GEM_IDLE_SCALE_MIN });
+    startGemIdlePulse(drawable.entity);
     return drawable;
   }
 
-  for (const spawn of itemSpawns) {
-    spawnGem(spawn);
+  function createFieldContent(): void {
+    for (const wall of wallLayout) {
+      const drawable = spawnEntity(
+        "wall",
+        nodeAabb(wall.x, wall.y, wall.width, wall.height),
+        wallImage,
+        wall.width,
+        wall.height,
+        fieldNode,
+      );
+      wallEntities.push(drawable.entity);
+      wallDrawables.push(drawable);
+    }
+
+    for (const spawn of itemSpawns) {
+      spawnGem(spawn);
+    }
   }
+
+  createFieldContent();
 
   const playerCenterX = WORLD_WIDTH / 2;
   const playerCenterY = WORLD_HEIGHT / 2;
@@ -343,6 +377,7 @@ async function main(): Promise<void> {
 
   let score = 0;
   let pickupZoomHandle: number | null = null;
+  let cameraZoomResetTimerHandle: number | null = null;
   let audioResumed = false;
 
   async function ensureAudioResumed(): Promise<void> {
@@ -376,6 +411,7 @@ async function main(): Promise<void> {
   actions.bind("right", ["ArrowRight"]);
   actions.bind("up", ["ArrowUp"]);
   actions.bind("down", ["ArrowDown"]);
+  actions.bind("restart", ["KeyR"]);
 
   function wallAABBs(): Aabb[] {
     return wallEntities.map((entity) => getAabb(entity, world));
@@ -406,12 +442,18 @@ async function main(): Promise<void> {
   }
 
   function scheduleGemRespawn(spawn: { x: number; y: number }): void {
-    timer.delay(ITEM_RESPAWN_SECONDS, () => {
+    const handle = timer.delay(ITEM_RESPAWN_SECONDS, () => {
+      const index = respawnTimerHandles.indexOf(handle);
+      if (index !== -1) {
+        respawnTimerHandles.splice(index, 1);
+      }
       spawnGem(spawn);
     });
+    respawnTimerHandles.push(handle);
   }
 
   function startPickupFx(gemEntity: Entity, spawn: { x: number; y: number }): void {
+    cancelGemIdlePulse(gemEntity);
     removeGemFromCollideTargets(gemEntity);
     score += 1;
     void playPickupSound();
@@ -441,16 +483,109 @@ async function main(): Promise<void> {
     if (pickupZoomHandle !== null) {
       tween.cancel(pickupZoomHandle);
     }
+    if (cameraZoomResetTimerHandle !== null) {
+      timer.cancel(cameraZoomResetTimerHandle);
+      cameraZoomResetTimerHandle = null;
+    }
 
     const baseZoom = 1;
     pickupZoomHandle = tween.to(camera.get().zoom, PICKUP_ZOOM, PICKUP_ZOOM_DURATION);
-    timer.delay(PICKUP_ZOOM_DURATION, () => {
+    cameraZoomResetTimerHandle = timer.delay(PICKUP_ZOOM_DURATION, () => {
+      cameraZoomResetTimerHandle = null;
       if (pickupZoomHandle !== null) {
         tween.cancel(pickupZoomHandle);
         pickupZoomHandle = null;
       }
       camera.set({ zoom: baseZoom });
     });
+  }
+
+  function applyGemIdleScales(): void {
+    for (const gemEntity of gemEntities) {
+      const node = entityNodes.get(gemEntity);
+      const targetScale = gemIdleTargetScale.get(gemEntity);
+      if (node === undefined || targetScale === undefined) {
+        continue;
+      }
+      transform.set(node, { scaleX: targetScale, scaleY: targetScale });
+    }
+  }
+
+  function restart(): void {
+    const midFxGems = [...pickupFxGems];
+
+    for (const fx of midFxGems) {
+      tween.cancel(fx.tweenHandle);
+    }
+    pickupFxGems.length = 0;
+
+    for (const handle of respawnTimerHandles) {
+      timer.cancel(handle);
+    }
+    respawnTimerHandles.length = 0;
+
+    for (const handle of gemIdleHandles.values()) {
+      timer.cancel(handle);
+    }
+    gemIdleHandles.clear();
+    gemIdleTargetScale.clear();
+
+    if (pickupZoomHandle !== null) {
+      tween.cancel(pickupZoomHandle);
+      pickupZoomHandle = null;
+    }
+    if (cameraZoomResetTimerHandle !== null) {
+      timer.cancel(cameraZoomResetTimerHandle);
+      cameraZoomResetTimerHandle = null;
+    }
+
+    for (const fx of midFxGems) {
+      world.despawn(fx.entity);
+      forest.destroy(fx.node);
+      entityNodes.delete(fx.entity);
+      transform.clear(fx.node);
+    }
+
+    for (const entity of wallEntities) {
+      const node = entityNodes.get(entity);
+      world.despawn(entity);
+      entityNodes.delete(entity);
+      if (node !== undefined) {
+        transform.clear(node);
+      }
+    }
+    wallEntities.length = 0;
+
+    for (const entity of gemEntities) {
+      const node = entityNodes.get(entity);
+      world.despawn(entity);
+      entityNodes.delete(entity);
+      if (node !== undefined) {
+        transform.clear(node);
+      }
+    }
+    gemEntities.length = 0;
+    wallDrawables = [];
+
+    forest.destroy(fieldNode);
+
+    fieldNode = forest.create();
+    forest.setParent(fieldNode, worldRoot);
+    createFieldContent();
+
+    const initialPlayerAabb = playerAabbAtCenter(playerCenterX, playerCenterY);
+    setAabb(playerEntity, world, initialPlayerAabb);
+    syncTransformFromAabb(
+      playerEntity,
+      playerDrawable.node,
+      "player",
+      initialPlayerAabb,
+      transform,
+    );
+    transform.set(playerDrawable.node, { scaleX: 1, scaleY: 1 });
+
+    score = 0;
+    camera.set({ zoom: 1 });
   }
 
   function drawWorldSprite(drawable: Drawable, viewMatrix: Matrix2D): void {
@@ -510,6 +645,10 @@ async function main(): Promise<void> {
       tween.tick(time.elapsed);
 
       const query = actions.tick(input.snapshot().keys);
+
+      if (query.pressed("restart")) {
+        restart();
+      }
 
       let left = query.down("left");
       let right = query.down("right");
@@ -575,6 +714,8 @@ async function main(): Promise<void> {
         transform,
       );
 
+      applyGemIdleScales();
+
       const playerBox = nextPlayerAabb;
       for (const gemEntity of [...gemEntities]) {
         const gemAabb = getAabb(gemEntity, world);
@@ -635,7 +776,7 @@ async function main(): Promise<void> {
       ctx.fillText(`Score: ${score}`, 16, 32);
       ctx.fillStyle = "#9aa0a6";
       ctx.font = "14px system-ui, sans-serif";
-      ctx.fillText("Arrow keys or gamepad — collect gems", 16, 54);
+      ctx.fillText("Arrow keys or gamepad — collect gems; R to restart", 16, 54);
     },
   });
 
