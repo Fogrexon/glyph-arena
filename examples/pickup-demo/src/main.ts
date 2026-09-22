@@ -412,6 +412,10 @@ async function main(): Promise<void> {
   actions.bind("up", ["ArrowUp"]);
   actions.bind("down", ["ArrowDown"]);
   actions.bind("restart", ["KeyR"]);
+  actions.bind("pause", ["KeyP"]);
+
+  let paused = false;
+  let pickupSeHandle: number | null = null;
 
   function wallAABBs(): Aabb[] {
     return wallEntities.map((entity) => getAabb(entity, world));
@@ -476,7 +480,7 @@ async function main(): Promise<void> {
       return;
     }
     await ensureAudioResumed();
-    audio.play(pickupBuffer);
+    pickupSeHandle = audio.play(pickupBuffer);
   }
 
   function playPickupZoom(): void {
@@ -641,100 +645,111 @@ async function main(): Promise<void> {
 
   const loop = createLoop({
     onFrame(time) {
-      timer.tick(time.elapsed);
-      tween.tick(time.elapsed);
-
       const query = actions.tick(input.snapshot().keys);
-
-      if (query.pressed("restart")) {
-        restart();
-      }
-
-      let left = query.down("left");
-      let right = query.down("right");
-      let up = query.down("up");
-      let down = query.down("down");
 
       const pads = gamepad.snapshot();
       const pad = pads[0];
-      if (pad !== undefined) {
-        if (!audioResumed && padHasInput(pad)) {
-          void ensureAudioResumed();
-        }
-
-        const directions = gamepadDirections(pad);
-        left = left || directions.left;
-        right = right || directions.right;
-        up = up || directions.up;
-        down = down || directions.down;
+      if (pad !== undefined && !audioResumed && padHasInput(pad)) {
+        void ensureAudioResumed();
       }
 
-      let dx = 0;
-      let dy = 0;
-
-      if (left) dx -= 1;
-      if (right) dx += 1;
-      if (up) dy -= 1;
-      if (down) dy += 1;
-
-      if (dx !== 0 && dy !== 0) {
-        const length = Math.hypot(dx, dy);
-        dx /= length;
-        dy /= length;
+      if (query.pressed("restart")) {
+        paused = false;
+        restart();
+      } else if (query.pressed("pause")) {
+        if (!paused) {
+          if (pickupSeHandle !== null) {
+            audio.stop(pickupSeHandle);
+            pickupSeHandle = null;
+          }
+        }
+        paused = !paused;
       }
 
-      const playerAabb = getAabb(playerEntity, world);
-      const { x: playerX, y: playerY } = playerCenterFromAabb(playerAabb);
-      const walls = wallAABBs();
-      let nextX = playerX;
-      let nextY = playerY;
+      if (!paused) {
+        timer.tick(time.elapsed);
+        tween.tick(time.elapsed);
 
-      if (dx !== 0 || dy !== 0) {
-        const stepX = dx * MOVE_SPEED * time.delta;
-        const stepY = dy * MOVE_SPEED * time.delta;
+        let left = query.down("left");
+        let right = query.down("right");
+        let up = query.down("up");
+        let down = query.down("down");
 
-        const tentativeX = playerX + stepX;
-        if (!collidesWithWalls(playerAabbAtCenter(tentativeX, playerY), walls)) {
-          nextX = tentativeX;
+        if (pad !== undefined) {
+          const directions = gamepadDirections(pad);
+          left = left || directions.left;
+          right = right || directions.right;
+          up = up || directions.up;
+          down = down || directions.down;
         }
 
-        const tentativeY = playerY + stepY;
-        if (!collidesWithWalls(playerAabbAtCenter(nextX, tentativeY), walls)) {
-          nextY = tentativeY;
+        let dx = 0;
+        let dy = 0;
+
+        if (left) dx -= 1;
+        if (right) dx += 1;
+        if (up) dy -= 1;
+        if (down) dy += 1;
+
+        if (dx !== 0 && dy !== 0) {
+          const length = Math.hypot(dx, dy);
+          dx /= length;
+          dy /= length;
         }
+
+        const playerAabb = getAabb(playerEntity, world);
+        const { x: playerX, y: playerY } = playerCenterFromAabb(playerAabb);
+        const walls = wallAABBs();
+        let nextX = playerX;
+        let nextY = playerY;
+
+        if (dx !== 0 || dy !== 0) {
+          const stepX = dx * MOVE_SPEED * time.delta;
+          const stepY = dy * MOVE_SPEED * time.delta;
+
+          const tentativeX = playerX + stepX;
+          if (!collidesWithWalls(playerAabbAtCenter(tentativeX, playerY), walls)) {
+            nextX = tentativeX;
+          }
+
+          const tentativeY = playerY + stepY;
+          if (!collidesWithWalls(playerAabbAtCenter(nextX, tentativeY), walls)) {
+            nextY = tentativeY;
+          }
+        }
+
+        const nextPlayerAabb = playerAabbAtCenter(nextX, nextY);
+        setAabb(playerEntity, world, nextPlayerAabb);
+        syncTransformFromAabb(
+          playerEntity,
+          playerDrawable.node,
+          "player",
+          nextPlayerAabb,
+          transform,
+        );
+
+        applyGemIdleScales();
+
+        const playerBox = nextPlayerAabb;
+        for (const gemEntity of [...gemEntities]) {
+          const gemAabb = getAabb(gemEntity, world);
+          if (overlaps(playerBox, gemAabb)) {
+            startPickupFx(gemEntity, { x: gemAabb.x, y: gemAabb.y });
+          }
+        }
+
+        updatePickupFx();
+
+        if (pickupZoomHandle !== null) {
+          const zoomValue = tween.get(pickupZoomHandle);
+          if (zoomValue !== undefined) {
+            camera.set({ zoom: zoomValue });
+          }
+        }
+
+        const { x: cameraX, y: cameraY } = playerCenterFromAabb(nextPlayerAabb);
+        camera.set({ x: cameraX, y: cameraY });
       }
-
-      const nextPlayerAabb = playerAabbAtCenter(nextX, nextY);
-      setAabb(playerEntity, world, nextPlayerAabb);
-      syncTransformFromAabb(
-        playerEntity,
-        playerDrawable.node,
-        "player",
-        nextPlayerAabb,
-        transform,
-      );
-
-      applyGemIdleScales();
-
-      const playerBox = nextPlayerAabb;
-      for (const gemEntity of [...gemEntities]) {
-        const gemAabb = getAabb(gemEntity, world);
-        if (overlaps(playerBox, gemAabb)) {
-          startPickupFx(gemEntity, { x: gemAabb.x, y: gemAabb.y });
-        }
-      }
-
-      updatePickupFx();
-
-      if (pickupZoomHandle !== null) {
-        const zoomValue = tween.get(pickupZoomHandle);
-        if (zoomValue !== undefined) {
-          camera.set({ zoom: zoomValue });
-        }
-      }
-
-      const { x: cameraX, y: cameraY } = playerCenterFromAabb(nextPlayerAabb);
-      camera.set({ x: cameraX, y: cameraY });
 
       const viewWidth = canvas.width;
       const viewHeight = canvas.height;
@@ -776,7 +791,16 @@ async function main(): Promise<void> {
       ctx.fillText(`Score: ${score}`, 16, 32);
       ctx.fillStyle = "#9aa0a6";
       ctx.font = "14px system-ui, sans-serif";
-      ctx.fillText("Arrow keys or gamepad — collect gems; R to restart", 16, 54);
+      ctx.fillText(
+        "Arrow keys or gamepad — collect gems; P pause; R restart (R wins same frame)",
+        16,
+        54,
+      );
+      if (paused) {
+        ctx.fillStyle = "#fbbf24";
+        ctx.font = "20px system-ui, sans-serif";
+        ctx.fillText("PAUSED", 16, 80);
+      }
     },
   });
 
