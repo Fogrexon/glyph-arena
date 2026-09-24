@@ -413,7 +413,11 @@ async function main(): Promise<void> {
   actions.bind("down", ["ArrowDown"]);
   actions.bind("restart", ["KeyR"]);
   actions.bind("pause", ["KeyP"]);
+  actions.bind("zoomIn", ["Equal", "NumpadAdd"]);
+  actions.bind("zoomOut", ["Minus", "NumpadSubtract"]);
+  actions.bind("zoomReset", ["Digit0", "Numpad0"]);
 
+  let baseZoom = 1;
   let paused = false;
   let pickupSeHandle: number | null = null;
 
@@ -483,6 +487,13 @@ async function main(): Promise<void> {
     pickupSeHandle = audio.play(pickupBuffer);
   }
 
+  function isPickupZoomTweenActive(): boolean {
+    if (pickupZoomHandle === null) {
+      return false;
+    }
+    return tween.get(pickupZoomHandle) !== undefined;
+  }
+
   function playPickupZoom(): void {
     if (pickupZoomHandle !== null) {
       tween.cancel(pickupZoomHandle);
@@ -492,8 +503,8 @@ async function main(): Promise<void> {
       cameraZoomResetTimerHandle = null;
     }
 
-    const baseZoom = 1;
-    pickupZoomHandle = tween.to(camera.get().zoom, PICKUP_ZOOM, PICKUP_ZOOM_DURATION);
+    const peakZoom = baseZoom * PICKUP_ZOOM;
+    pickupZoomHandle = tween.to(camera.get().zoom, peakZoom, PICKUP_ZOOM_DURATION);
     cameraZoomResetTimerHandle = timer.delay(PICKUP_ZOOM_DURATION, () => {
       cameraZoomResetTimerHandle = null;
       if (pickupZoomHandle !== null) {
@@ -589,6 +600,7 @@ async function main(): Promise<void> {
     transform.set(playerDrawable.node, { scaleX: 1, scaleY: 1 });
 
     score = 0;
+    baseZoom = 1;
     camera.set({ zoom: 1 });
   }
 
@@ -653,17 +665,34 @@ async function main(): Promise<void> {
         void ensureAudioResumed();
       }
 
+      let baseZoomChangedThisFrame = false;
+
       if (query.pressed("restart")) {
         paused = false;
         restart();
-      } else if (query.pressed("pause")) {
-        if (!paused) {
-          if (pickupSeHandle !== null) {
-            audio.stop(pickupSeHandle);
-            pickupSeHandle = null;
+      } else {
+        if (query.pressed("pause")) {
+          if (!paused) {
+            if (pickupSeHandle !== null) {
+              audio.stop(pickupSeHandle);
+              pickupSeHandle = null;
+            }
           }
+          paused = !paused;
         }
-        paused = !paused;
+
+        if (query.pressed("zoomReset")) {
+          baseZoom = 1;
+          baseZoomChangedThisFrame = true;
+        } else if (query.pressed("zoomIn") && query.pressed("zoomOut")) {
+          // same-frame in+out: apply neither
+        } else if (query.pressed("zoomIn")) {
+          baseZoom = Math.min(2, baseZoom + 0.1);
+          baseZoomChangedThisFrame = true;
+        } else if (query.pressed("zoomOut")) {
+          baseZoom = Math.max(0.5, baseZoom - 0.1);
+          baseZoomChangedThisFrame = true;
+        }
       }
 
       if (!paused) {
@@ -740,15 +769,19 @@ async function main(): Promise<void> {
 
         updatePickupFx();
 
-        if (pickupZoomHandle !== null) {
-          const zoomValue = tween.get(pickupZoomHandle);
+        if (isPickupZoomTweenActive()) {
+          const zoomValue = tween.get(pickupZoomHandle!);
           if (zoomValue !== undefined) {
             camera.set({ zoom: zoomValue });
           }
+        } else {
+          camera.set({ zoom: baseZoom });
         }
 
         const { x: cameraX, y: cameraY } = playerCenterFromAabb(nextPlayerAabb);
         camera.set({ x: cameraX, y: cameraY });
+      } else if (baseZoomChangedThisFrame && !isPickupZoomTweenActive()) {
+        camera.set({ zoom: baseZoom });
       }
 
       const viewWidth = canvas.width;
@@ -792,7 +825,7 @@ async function main(): Promise<void> {
       ctx.fillStyle = "#9aa0a6";
       ctx.font = "14px system-ui, sans-serif";
       ctx.fillText(
-        "Arrow keys or gamepad — collect gems; P pause; R restart (R wins same frame)",
+        "Arrows / gamepad — gems; =/+ zoom in, - out, 0 reset; P pause; R restart (R wins)",
         16,
         54,
       );
