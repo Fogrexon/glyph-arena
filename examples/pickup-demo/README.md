@@ -25,6 +25,8 @@ Sprites and sound ship under `public/` (`player.png`, `gem.png`, `wall.png`, `pi
 
 On pickup, the camera kicks briefly opposite the player→gem direction (`tween.to` peak→`0` on `x`/`y` offsets, `0.12s` linear) while zoom tweens run separately via partial `camera.set`. The gem is reparented under the player at a fixed local offset (`y: -24`), scaled down with `tween.to(1, 0, 0.2)` while following the player via `transform.world`. ECS despawn and scene destroy happen only after the tween completes; respawn is scheduled from that destroy frame.
 
+New and respawned gems scale in from `0`→`1` over `0.2s` linear (`tween.to`; scale `0` is set on the node before the tween starts). Idle pulse does not run until that spawn tween completes.
+
 Uncollected gems pulse idle scale between `1` and `1.12` via `timer.every(0.4)` (target scale toggled each tick, applied with `transform.set` after position sync — no stacked tweens). The idle handle is cancelled on pickup or restart.
 
 Press **R** to restart: cancels in-flight tweens/timers, cleans up mid-FX gems parented to the player, despawns field entities, destroys and recreates the `field` subtree with the initial layout, resets the player to center with facing up (`rotation: 0`), score to `0`, demo `baseZoom` and camera zoom to `1`, demo `baseRotation` and camera rotation to `0`. Restart always clears pause and wins over **P**, zoom, and rotate on the same frame.
