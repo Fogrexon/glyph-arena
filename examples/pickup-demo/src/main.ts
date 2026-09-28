@@ -45,6 +45,7 @@ const PUNCH_DISTANCE = 8;
 const PUNCH_DURATION = 0.12;
 const PICKUP_FX_LOCAL_Y = -24;
 const PICKUP_FX_SCALE_DURATION = 0.2;
+const GEM_SPAWN_SCALE_DURATION = 0.2;
 const GEM_IDLE_INTERVAL = 0.4;
 const GEM_IDLE_SCALE_MIN = 1;
 const GEM_IDLE_SCALE_MAX = 1.12;
@@ -244,6 +245,7 @@ async function main(): Promise<void> {
   const pickupFxGems: PickupFx[] = [];
   const gemIdleHandles = new Map<Entity, number>();
   const gemIdleTargetScale = new Map<Entity, number>();
+  const gemSpawnHandles = new Map<Entity, number>();
   const respawnTimerHandles: number[] = [];
 
   let playerImage: CanvasImageSource = createRectSprite(
@@ -362,6 +364,14 @@ async function main(): Promise<void> {
     gemIdleTargetScale.delete(entity);
   }
 
+  function cancelGemSpawnTween(entity: Entity): void {
+    const handle = gemSpawnHandles.get(entity);
+    if (handle !== undefined) {
+      tween.cancel(handle);
+      gemSpawnHandles.delete(entity);
+    }
+  }
+
   function spawnGem(spawn: { x: number; y: number }): Drawable {
     const drawable = spawnEntity(
       "gem",
@@ -372,8 +382,9 @@ async function main(): Promise<void> {
       fieldNode,
     );
     gemEntities.push(drawable.entity);
-    transform.set(drawable.node, { scaleX: GEM_IDLE_SCALE_MIN, scaleY: GEM_IDLE_SCALE_MIN });
-    startGemIdlePulse(drawable.entity);
+    transform.set(drawable.node, { scaleX: 0, scaleY: 0 });
+    const handle = tween.to(0, 1, GEM_SPAWN_SCALE_DURATION);
+    gemSpawnHandles.set(drawable.entity, handle);
     return drawable;
   }
 
@@ -556,6 +567,7 @@ async function main(): Promise<void> {
   }
 
   function startPickupFx(gemEntity: Entity, spawn: { x: number; y: number }): void {
+    cancelGemSpawnTween(gemEntity);
     cancelGemIdlePulse(gemEntity);
     removeGemFromCollideTargets(gemEntity);
     score += 1;
@@ -616,6 +628,24 @@ async function main(): Promise<void> {
     });
   }
 
+  function applyGemSpawnScales(): void {
+    for (const [entity, handle] of [...gemSpawnHandles.entries()]) {
+      const node = entityNodes.get(entity);
+      if (node === undefined) {
+        gemSpawnHandles.delete(entity);
+        continue;
+      }
+      const scaleValue = tween.get(handle);
+      if (scaleValue !== undefined) {
+        transform.set(node, { scaleX: scaleValue, scaleY: scaleValue });
+        continue;
+      }
+      gemSpawnHandles.delete(entity);
+      transform.set(node, { scaleX: GEM_IDLE_SCALE_MIN, scaleY: GEM_IDLE_SCALE_MIN });
+      startGemIdlePulse(entity);
+    }
+  }
+
   function applyGemIdleScales(): void {
     for (const gemEntity of gemEntities) {
       const node = entityNodes.get(gemEntity);
@@ -645,6 +675,11 @@ async function main(): Promise<void> {
     }
     gemIdleHandles.clear();
     gemIdleTargetScale.clear();
+
+    for (const handle of gemSpawnHandles.values()) {
+      tween.cancel(handle);
+    }
+    gemSpawnHandles.clear();
 
     if (pickupZoomHandle !== null) {
       tween.cancel(pickupZoomHandle);
@@ -885,6 +920,7 @@ async function main(): Promise<void> {
         syncPlayerPositionFromAabb(playerDrawable.node, nextPlayerAabb, transform);
         updatePlayerFacing(playerDrawable.node, dx, dy, transform);
 
+        applyGemSpawnScales();
         applyGemIdleScales();
 
         const playerBox = nextPlayerAabb;
