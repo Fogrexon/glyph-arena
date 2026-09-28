@@ -458,10 +458,10 @@ async function main(): Promise<void> {
   input.attach(window);
 
   const actions = createActions();
-  actions.bind("left", ["ArrowLeft"]);
-  actions.bind("right", ["ArrowRight"]);
-  actions.bind("up", ["ArrowUp"]);
-  actions.bind("down", ["ArrowDown"]);
+  actions.bind("moveLeft", ["ArrowLeft"]);
+  actions.bind("moveRight", ["ArrowRight"]);
+  actions.bind("moveUp", ["ArrowUp"]);
+  actions.bind("moveDown", ["ArrowDown"]);
   actions.bind("restart", ["KeyR"]);
   actions.bind("pause", ["KeyP"]);
   actions.bind("zoomIn", ["Equal", "NumpadAdd"]);
@@ -811,10 +811,28 @@ async function main(): Promise<void> {
 
   const loop = createLoop({
     onFrame(time) {
-      const query = actions.tick(input.snapshot().keys);
-
       const pads = gamepad.snapshot();
       const pad = pads[0];
+
+      const keys = new Set(input.snapshot().keys);
+      if (pad !== undefined) {
+        const directions = gamepadDirections(pad);
+        if (directions.left) {
+          keys.add("ArrowLeft");
+        }
+        if (directions.right) {
+          keys.add("ArrowRight");
+        }
+        if (directions.up) {
+          keys.add("ArrowUp");
+        }
+        if (directions.down) {
+          keys.add("ArrowDown");
+        }
+      }
+
+      const query = actions.tick(keys);
+
       if (pad !== undefined && !audioResumed && padHasInput(pad)) {
         void ensureAudioResumed();
       }
@@ -867,18 +885,10 @@ async function main(): Promise<void> {
         timer.tick(time.elapsed);
         tween.tick(time.elapsed);
 
-        let left = query.down("left");
-        let right = query.down("right");
-        let up = query.down("up");
-        let down = query.down("down");
-
-        if (pad !== undefined) {
-          const directions = gamepadDirections(pad);
-          left = left || directions.left;
-          right = right || directions.right;
-          up = up || directions.up;
-          down = down || directions.down;
-        }
+        const left = query.down("moveLeft");
+        const right = query.down("moveRight");
+        const up = query.down("moveUp");
+        const down = query.down("moveDown");
 
         let dx = 0;
         let dy = 0;
