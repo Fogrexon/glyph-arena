@@ -41,6 +41,8 @@ const WORLD_HEIGHT = 900;
 const ITEM_RESPAWN_SECONDS = 2.5;
 const PICKUP_ZOOM = 1.18;
 const PICKUP_ZOOM_DURATION = 0.18;
+const PUNCH_DISTANCE = 8;
+const PUNCH_DURATION = 0.12;
 const PICKUP_FX_LOCAL_Y = -24;
 const PICKUP_FX_SCALE_DURATION = 0.2;
 const GEM_IDLE_INTERVAL = 0.4;
@@ -117,6 +119,13 @@ function nodeAabb(x: number, y: number, width: number, height: number): Aabb {
 }
 
 function playerCenterFromAabb(aabb: Aabb): { x: number; y: number } {
+  return {
+    x: aabb.x + aabb.width / 2,
+    y: aabb.y + aabb.height / 2,
+  };
+}
+
+function aabbCenter(aabb: Aabb): { x: number; y: number } {
   return {
     x: aabb.x + aabb.width / 2,
     y: aabb.y + aabb.height / 2,
@@ -405,6 +414,10 @@ async function main(): Promise<void> {
   let score = 0;
   let pickupZoomHandle: number | null = null;
   let cameraZoomResetTimerHandle: number | null = null;
+  let punchXHandle: number | null = null;
+  let punchYHandle: number | null = null;
+  let punchX = 0;
+  let punchY = 0;
   let audioResumed = false;
 
   async function ensureAudioResumed(): Promise<void> {
@@ -487,12 +500,69 @@ async function main(): Promise<void> {
     respawnTimerHandles.push(handle);
   }
 
+  function cancelPickupPunchTweens(): void {
+    if (punchXHandle !== null) {
+      tween.cancel(punchXHandle);
+      punchXHandle = null;
+    }
+    if (punchYHandle !== null) {
+      tween.cancel(punchYHandle);
+      punchYHandle = null;
+    }
+  }
+
+  function updatePunchOffsetsFromTweens(): void {
+    if (punchXHandle !== null) {
+      const value = tween.get(punchXHandle);
+      punchX = value !== undefined ? value : 0;
+    } else {
+      punchX = 0;
+    }
+    if (punchYHandle !== null) {
+      const value = tween.get(punchYHandle);
+      punchY = value !== undefined ? value : 0;
+    } else {
+      punchY = 0;
+    }
+  }
+
+  function playPickupPunch(
+    playerCx: number,
+    playerCy: number,
+    gemCx: number,
+    gemCy: number,
+  ): void {
+    cancelPickupPunchTweens();
+
+    const toGemX = gemCx - playerCx;
+    const toGemY = gemCy - playerCy;
+    const length = Math.hypot(toGemX, toGemY);
+    let peakX: number;
+    let peakY: number;
+    if (length === 0) {
+      peakX = 0;
+      peakY = -PUNCH_DISTANCE;
+    } else {
+      peakX = (-toGemX / length) * PUNCH_DISTANCE;
+      peakY = (-toGemY / length) * PUNCH_DISTANCE;
+    }
+
+    punchXHandle = tween.to(peakX, 0, PUNCH_DURATION);
+    punchYHandle = tween.to(peakY, 0, PUNCH_DURATION);
+  }
+
   function startPickupFx(gemEntity: Entity, spawn: { x: number; y: number }): void {
     cancelGemIdlePulse(gemEntity);
     removeGemFromCollideTargets(gemEntity);
     score += 1;
     void playPickupSound();
+
+    const playerAabb = getAabb(playerEntity, world);
+    const gemAabb = getAabb(gemEntity, world);
+    const { x: playerCx, y: playerCy } = playerCenterFromAabb(playerAabb);
+    const { x: gemCx, y: gemCy } = aabbCenter(gemAabb);
     playPickupZoom();
+    playPickupPunch(playerCx, playerCy, gemCx, gemCy);
 
     const node = entityNodes.get(gemEntity);
     if (node === undefined) {
@@ -580,6 +650,9 @@ async function main(): Promise<void> {
       timer.cancel(cameraZoomResetTimerHandle);
       cameraZoomResetTimerHandle = null;
     }
+    cancelPickupPunchTweens();
+    punchX = 0;
+    punchY = 0;
 
     for (const fx of midFxGems) {
       world.despawn(fx.entity);
@@ -804,6 +877,7 @@ async function main(): Promise<void> {
         }
 
         updatePickupFx();
+        updatePunchOffsetsFromTweens();
 
         if (isPickupZoomTweenActive()) {
           const zoomValue = tween.get(pickupZoomHandle!);
@@ -815,7 +889,7 @@ async function main(): Promise<void> {
         }
 
         const { x: cameraX, y: cameraY } = playerCenterFromAabb(nextPlayerAabb);
-        camera.set({ x: cameraX, y: cameraY });
+        camera.set({ x: cameraX + punchX, y: cameraY + punchY });
       } else if (baseZoomChangedThisFrame && !isPickupZoomTweenActive()) {
         camera.set({ zoom: baseZoom });
       }
