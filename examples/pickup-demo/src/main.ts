@@ -156,7 +156,33 @@ function syncTransformFromAabb(
     return;
   }
 
+  if (kind === "player") {
+    const { x, y } = playerCenterFromAabb(aabb);
+    transformApi.set(node, { x, y });
+    return;
+  }
+
   transformApi.set(node, { x: aabb.x, y: aabb.y });
+}
+
+function syncPlayerPositionFromAabb(
+  node: Node,
+  aabb: Aabb,
+  transformApi: ReturnType<typeof createTransform>,
+): void {
+  const { x, y } = playerCenterFromAabb(aabb);
+  transformApi.set(node, { x, y });
+}
+
+function updatePlayerFacing(
+  node: Node,
+  dx: number,
+  dy: number,
+  transformApi: ReturnType<typeof createTransform>,
+): void {
+  if (dx !== 0 || dy !== 0) {
+    transformApi.set(node, { rotation: Math.atan2(dx, -dy) });
+  }
 }
 
 function applyDeadzone(value: number): number {
@@ -374,6 +400,7 @@ async function main(): Promise<void> {
     worldRoot,
   );
   const playerEntity = playerDrawable.entity;
+  transform.set(playerDrawable.node, { rotation: 0 });
 
   let score = 0;
   let pickupZoomHandle: number | null = null;
@@ -597,7 +624,7 @@ async function main(): Promise<void> {
       initialPlayerAabb,
       transform,
     );
-    transform.set(playerDrawable.node, { scaleX: 1, scaleY: 1 });
+    transform.set(playerDrawable.node, { scaleX: 1, scaleY: 1, rotation: 0 });
 
     score = 0;
     baseZoom = 1;
@@ -612,6 +639,20 @@ async function main(): Promise<void> {
       image: drawable.image,
       x: 0,
       y: 0,
+      width: drawable.width,
+      height: drawable.height,
+    });
+  }
+
+  function drawPlayerSprite(drawable: Drawable, viewMatrix: Matrix2D): void {
+    const worldMatrix = transform.world(drawable.node, forest.parent);
+    const [a, b, c, d, e, f] = composeViewAndWorld(viewMatrix, worldMatrix);
+    ctx.setTransform(a, b, c, d, e, f);
+    const half = PLAYER_SIZE / 2;
+    draw.sprite({
+      image: drawable.image,
+      x: -half,
+      y: -half,
       width: drawable.width,
       height: drawable.height,
     });
@@ -749,13 +790,8 @@ async function main(): Promise<void> {
 
         const nextPlayerAabb = playerAabbAtCenter(nextX, nextY);
         setAabb(playerEntity, world, nextPlayerAabb);
-        syncTransformFromAabb(
-          playerEntity,
-          playerDrawable.node,
-          "player",
-          nextPlayerAabb,
-          transform,
-        );
+        syncPlayerPositionFromAabb(playerDrawable.node, nextPlayerAabb, transform);
+        updatePlayerFacing(playerDrawable.node, dx, dy, transform);
 
         applyGemIdleScales();
 
@@ -812,7 +848,7 @@ async function main(): Promise<void> {
         );
       }
 
-      drawWorldSprite(playerDrawable, viewMatrix);
+      drawPlayerSprite(playerDrawable, viewMatrix);
 
       for (const fx of pickupFxGems) {
         drawPickupFxGem(fx, viewMatrix);
