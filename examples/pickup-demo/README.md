@@ -7,9 +7,9 @@ Top-down pickup game sample for [Glyph Arena](https://github.com/Fogrexon/glyph-
 | Package | Role |
 |---------|------|
 | `@fogrexon/glyph-arena-loop` | Frame loop via `createLoop` |
-| `@fogrexon/glyph-arena-input` | `attach` / `snapshot` — keys fed into `actions.tick` |
-| `@fogrexon/glyph-arena-actions` | Arrow bindings; keyboard movement from `down` first |
-| `@fogrexon/glyph-arena-gamepad` | `snapshot` pads[0]; stick axes + d-pad OR’d after keyboard |
+| `@fogrexon/glyph-arena-input` | `attach` / `snapshot` — keys copied into a `Set` for `actions.tick` |
+| `@fogrexon/glyph-arena-actions` | `moveLeft` / `moveRight` / `moveUp` / `moveDown` on arrow codes; movement via `down` on those names |
+| `@fogrexon/glyph-arena-gamepad` | `snapshot` pads[0]; pad directions inject arrow codes before `actions.tick` |
 | `@fogrexon/glyph-arena-assets` | `loadImage` for sprites, `loadBytes` for pickup SE |
 | `@fogrexon/glyph-arena-audio` | `decode` + `play` on pickup; `stop` when pausing mid-SE; `resume` on first input |
 | `@fogrexon/glyph-arena-ecs` | Entity position/AABB/kind; demo maps entities to scene nodes |
@@ -30,6 +30,8 @@ New and respawned gems scale in from `0`→`1` over `0.2s` linear (`tween.to`; s
 Uncollected gems pulse idle scale between `1` and `1.12` via `timer.every(0.4)` (target scale toggled each tick, applied with `transform.set` after position sync — no stacked tweens). The idle handle is cancelled on pickup or restart.
 
 Press **R** to restart: cancels in-flight tweens/timers, cleans up mid-FX gems parented to the player, despawns field entities, destroys and recreates the `field` subtree with the initial layout, resets the player to center with facing up (`rotation: 0`), score to `0`, demo `baseZoom` and camera zoom to `1`, demo `baseRotation` and camera rotation to `0`. Restart always clears pause and wins over **P**, zoom, and rotate on the same frame.
+
+Each frame (including while paused): `gamepad.snapshot`, copy keyboard codes into a `Set`, inject arrow codes from pad 0 directions before `actions.tick`, then handle edge-triggered actions. Movement (unpaused) uses only `down("moveLeft"|"moveRight"|"moveUp"|"moveDown")`.
 
 Press **P** to toggle pause (keyboard only, edge-triggered via `actions.pressed("pause")`). The loop keeps running; simulation (`timer`/`tween` tick, movement, collide, pickup) is skipped while paused, but input/gamepad snapshots and `actions.tick` still run so **P**, **R**, zoom, and rotate keys work. If **P** and **R** land on the same frame, restart runs first and pause does not toggle. While paused, the last frame is redrawn with a **PAUSED** HUD label; idle/respawn schedules freeze and resume after unpause. Entering pause stops a playing pickup SE via `audio.stop` on the demo-held handle. Keyboard **=** / **+**, **-**, and **0** adjust demo `baseZoom` (clamped `0.5`–`2`, step `0.1`; reset to `1`) even while paused; pickup zoom tweens still use the `baseZoom` at tween start for peak scale and snap to current `baseZoom` on complete. **Q**, **E**, and **T** adjust demo `baseRotation` (clamped `-π/4`–`π/4`, step `π/36`; reset to `0`) even while paused; when paused, only `rotation` is pushed via partial `camera.set` so frozen punch offsets and zoom (including mid pickup tween) stay intact.
 
@@ -53,7 +55,7 @@ Open the URL Vite prints (usually `http://localhost:5173`).
 
 ## Controls
 
-- **Arrow keys** — move the player (via `actions`); sprite rotates to face move direction
+- **Arrow keys** — move the player (`actions.down("moveLeft"|…)`); sprite rotates to face move direction
 - **=** / **+** (main or numpad) — zoom in (`actions.pressed("zoomIn")`, edge-triggered; keyboard only)
 - **-** (main or numpad) — zoom out (`actions.pressed("zoomOut")`)
 - **0** (main or numpad) — reset zoom to `1` (`actions.pressed("zoomReset")`; wins over in/out on the same frame; in+out together apply neither)
@@ -62,7 +64,7 @@ Open the URL Vite prints (usually `http://localhost:5173`).
 - **T** — reset camera rotation to `0` (`actions.pressed("rotateReset")`; wins over **Q**/**E** on the same frame; Q+E together apply neither)
 - **P** — pause / unpause (`actions.pressed("pause")`, edge-triggered; keyboard only)
 - **R** — restart the level (`actions.pressed("restart")`, edge-triggered; wins over **P** and zoom on the same frame; resets facing to up)
-- **Gamepad** — left stick + d-pad on pad 0, OR’d after keyboard; deadzone `0.25` is demo-local (no zoom on gamepad); also drives facing like keyboard
+- **Gamepad** — left stick + d-pad on pad 0; deadzone `0.25` is demo-local; directions add arrow key codes to the tick set (no zoom/rotate/pause/restart from pad); facing follows movement like keyboard
 
 Audio resumes on the first key press or gamepad input (not on load).
 
