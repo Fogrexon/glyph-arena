@@ -456,8 +456,12 @@ async function main(): Promise<void> {
   actions.bind("zoomIn", ["Equal", "NumpadAdd"]);
   actions.bind("zoomOut", ["Minus", "NumpadSubtract"]);
   actions.bind("zoomReset", ["Digit0", "Numpad0"]);
+  actions.bind("rotateCCW", ["KeyQ"]);
+  actions.bind("rotateCW", ["KeyE"]);
+  actions.bind("rotateReset", ["KeyT"]);
 
   let baseZoom = 1;
+  let baseRotation = 0;
   let paused = false;
   let pickupSeHandle: number | null = null;
 
@@ -701,7 +705,8 @@ async function main(): Promise<void> {
 
     score = 0;
     baseZoom = 1;
-    camera.set({ zoom: 1 });
+    baseRotation = 0;
+    camera.set({ zoom: 1, rotation: 0 });
   }
 
   function drawWorldSprite(drawable: Drawable, viewMatrix: Matrix2D): void {
@@ -780,6 +785,7 @@ async function main(): Promise<void> {
       }
 
       let baseZoomChangedThisFrame = false;
+      let baseRotationChangedThisFrame = false;
 
       if (query.pressed("restart")) {
         paused = false;
@@ -806,6 +812,19 @@ async function main(): Promise<void> {
         } else if (query.pressed("zoomOut")) {
           baseZoom = Math.max(0.5, baseZoom - 0.1);
           baseZoomChangedThisFrame = true;
+        }
+
+        if (query.pressed("rotateReset")) {
+          baseRotation = 0;
+          baseRotationChangedThisFrame = true;
+        } else if (query.pressed("rotateCCW") && query.pressed("rotateCW")) {
+          // same-frame CCW+CW: apply neither
+        } else if (query.pressed("rotateCCW")) {
+          baseRotation = Math.min(Math.PI / 4, baseRotation + Math.PI / 36);
+          baseRotationChangedThisFrame = true;
+        } else if (query.pressed("rotateCW")) {
+          baseRotation = Math.max(-Math.PI / 4, baseRotation - Math.PI / 36);
+          baseRotationChangedThisFrame = true;
         }
       }
 
@@ -889,9 +908,18 @@ async function main(): Promise<void> {
         }
 
         const { x: cameraX, y: cameraY } = playerCenterFromAabb(nextPlayerAabb);
-        camera.set({ x: cameraX + punchX, y: cameraY + punchY });
-      } else if (baseZoomChangedThisFrame && !isPickupZoomTweenActive()) {
-        camera.set({ zoom: baseZoom });
+        camera.set({
+          x: cameraX + punchX,
+          y: cameraY + punchY,
+          rotation: baseRotation,
+        });
+      } else {
+        if (baseZoomChangedThisFrame && !isPickupZoomTweenActive()) {
+          camera.set({ zoom: baseZoom });
+        }
+        if (baseRotationChangedThisFrame) {
+          camera.set({ rotation: baseRotation });
+        }
       }
 
       const viewWidth = canvas.width;
@@ -935,7 +963,7 @@ async function main(): Promise<void> {
       ctx.fillStyle = "#9aa0a6";
       ctx.font = "14px system-ui, sans-serif";
       ctx.fillText(
-        "Arrows / gamepad — gems; =/+ zoom in, - out, 0 reset; P pause; R restart (R wins)",
+        "Arrows / gamepad — gems; =/+ zoom in, - out, 0 reset; Q/E/T camera rotate CCW/CW/reset; P pause; R restart (R wins)",
         16,
         54,
       );
