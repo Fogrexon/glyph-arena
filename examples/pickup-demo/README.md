@@ -2,6 +2,8 @@
 
 Top-down pickup game sample for [Glyph Arena](https://github.com/Fogrexon/glyph-arena). Collect gems, avoid walls, and watch the camera follow the player. The player sprite faces the current move direction (`transform.rotation` from keyboard or gamepad input); collision stays axis-aligned on the player AABB.
 
+**Flow:** boot **title** → **Space** / **Enter** starts **play** → **CLEAR** or **FAIL** shows **result** → **R** rematches **play** (title only returns on full page reload). Title and play swap scene subtrees under `screenRoot` via `createForest` destroy/`setParent`; play stays mounted through result so pickup FX can finish.
+
 ## Packages used
 
 | Package | Role |
@@ -14,7 +16,7 @@ Top-down pickup game sample for [Glyph Arena](https://github.com/Fogrexon/glyph-
 | `@fogrexon/glyph-arena-audio` | `decode` + `play` on pickup; `stop` when pausing mid-SE; `resume` on first input |
 | `@fogrexon/glyph-arena-ecs` | Entity position/AABB/kind; demo maps entities to scene nodes |
 | `@fogrexon/glyph-arena-draw` | `clear` / `sprite` via `createDraw` |
-| `@fogrexon/glyph-arena-scene` | `createForest` hierarchy: `field` under root; walls/gems parented to `field`; player under root |
+| `@fogrexon/glyph-arena-scene` | `createForest` hierarchy: `screenRoot` → title or play subtree; `field` under play; walls/gems on `field`; player under play |
 | `@fogrexon/glyph-arena-transform` | Local TRS + `world(node, forest.parent)` chains parent transforms for drawing |
 | `@fogrexon/glyph-arena-camera` | `set({ x, y, zoom, rotation })` — follow player; demo `baseZoom` / `baseRotation` when no pickup tween |
 | `@fogrexon/glyph-arena-collide` | AABB `overlaps` for walls and pickups |
@@ -57,6 +59,7 @@ Open the URL Vite prints (usually `http://localhost:5173`).
 
 ## Controls
 
+- **Space** / **Enter** — start from title (`actions.pressed("start")`, edge-triggered; title only)
 - **Arrow keys** — move the player (`actions.down("moveLeft"|…)`); sprite rotates to face move direction
 - **=** / **+** (main or numpad) — zoom in (`actions.pressed("zoomIn")`, edge-triggered; keyboard only)
 - **-** (main or numpad) — zoom out (`actions.pressed("zoomOut")`)
