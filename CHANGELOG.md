@@ -35,3 +35,4 @@ All notable changes to this project will be documented in this file.
 - Pickup demo at `examples/pickup-demo` is now a one-round CLEAR (`GEM_TOTAL` gems, no respawn; clear on full collect; R restarts; demo-only; no package API change)
 - Pickup demo at `examples/pickup-demo` now has a 60s round timer via `timer.delay` (FAIL on timeout; CLEAR cancels the delay and wins same frame; R restarts; demo-only; no package API change)
 - Pickup demo at `examples/pickup-demo` now has title → play → CLEAR/FAIL result phases via scene subtree swap under `screenRoot` (Space/Enter start; R rematches play, not title; demo-only; no package API change)
+- Pickup demo at `examples/pickup-demo` now has static red hazard tiles on the field (`overlaps` AABB contact → instant FAIL, same path as timeout; same-frame CLEAR wins; demo-only; no package API change)
