@@ -34,3 +34,4 @@ All notable changes to this project will be documented in this file.
 - Pickup demo at `examples/pickup-demo` now routes movement through named actions (`moveLeft` / `moveRight` / `moveUp` / `moveDown`); each frame copies keyboard keys and injects pad-0 arrow codes before `actions.tick` (demo-only; no package API change)
 - Pickup demo at `examples/pickup-demo` is now a one-round CLEAR (`GEM_TOTAL` gems, no respawn; clear on full collect; R restarts; demo-only; no package API change)
 - Pickup demo at `examples/pickup-demo` now has a 60s round timer via `timer.delay` (FAIL on timeout; CLEAR cancels the delay and wins same frame; R restarts; demo-only; no package API change)
+- Pickup demo at `examples/pickup-demo` now has title → play → CLEAR/FAIL result phases via scene subtree swap under `screenRoot` (Space/Enter start; R rematches play, not title; demo-only; no package API change)
