@@ -49,6 +49,7 @@ const GEM_IDLE_INTERVAL = 0.4;
 const GEM_IDLE_SCALE_MIN = 1;
 const GEM_IDLE_SCALE_MAX = 1.12;
 const GAMEPAD_DEADZONE = 0.25;
+const ROUND_SECONDS = 60;
 
 const COMPONENT_KIND = "kind";
 const COMPONENT_AABB = "aabb";
@@ -475,7 +476,35 @@ async function main(): Promise<void> {
   let baseRotation = 0;
   let paused = false;
   let cleared = false;
+  let failed = false;
+  let roundRemaining = ROUND_SECONDS;
+  let roundTimerHandle: number | null = null;
   let pickupSeHandle: number | null = null;
+
+  function cancelRoundTimer(): void {
+    if (roundTimerHandle !== null) {
+      timer.cancel(roundTimerHandle);
+      roundTimerHandle = null;
+    }
+  }
+
+  function armRoundTimer(): void {
+    failed = false;
+    cancelRoundTimer();
+    roundRemaining = ROUND_SECONDS;
+    roundTimerHandle = timer.delay(ROUND_SECONDS, () => {
+      roundTimerHandle = null;
+      if (!cleared) {
+        failed = true;
+      }
+    });
+  }
+
+  function onRoundCleared(): void {
+    cleared = true;
+    failed = false;
+    cancelRoundTimer();
+  }
 
   function wallAABBs(): Aabb[] {
     return wallEntities.map((entity) => getAabb(entity, world));
@@ -561,7 +590,7 @@ async function main(): Promise<void> {
     removeGemFromCollideTargets(gemEntity);
     score += 1;
     if (score >= GEM_TOTAL) {
-      cleared = true;
+      onRoundCleared();
     }
     void playPickupSound();
 
@@ -650,6 +679,8 @@ async function main(): Promise<void> {
   }
 
   function restart(): void {
+    cancelRoundTimer();
+
     const midFxGems = [...pickupFxGems];
 
     for (const fx of midFxGems) {
@@ -731,9 +762,11 @@ async function main(): Promise<void> {
     transform.set(playerDrawable.node, { scaleX: 1, scaleY: 1, rotation: 0 });
 
     score = 0;
+    cleared = false;
     baseZoom = 1;
     baseRotation = 0;
     camera.set({ zoom: 1, rotation: 0 });
+    armRoundTimer();
   }
 
   function drawWorldSprite(drawable: Drawable, viewMatrix: Matrix2D): void {
@@ -835,9 +868,10 @@ async function main(): Promise<void> {
       if (query.pressed("restart")) {
         paused = false;
         cleared = false;
+        failed = false;
         restart();
       } else {
-        if (query.pressed("pause") && !cleared) {
+        if (query.pressed("pause") && !cleared && !failed) {
           if (!paused) {
             if (pickupSeHandle !== null) {
               audio.stop(pickupSeHandle);
@@ -875,12 +909,9 @@ async function main(): Promise<void> {
       }
 
       if (!paused) {
-        timer.tick(time.elapsed);
-        tween.tick(time.elapsed);
-
         let nextPlayerAabb = getAabb(playerEntity, world);
 
-        if (!cleared) {
+        if (!cleared && !failed) {
           const left = query.down("moveLeft");
           const right = query.down("moveRight");
           const up = query.down("moveUp");
@@ -934,6 +965,13 @@ async function main(): Promise<void> {
             }
           }
         }
+
+        if (!cleared && !failed) {
+          roundRemaining = Math.max(0, roundRemaining - time.elapsed);
+        }
+
+        timer.tick(time.elapsed);
+        tween.tick(time.elapsed);
 
         applyGemSpawnScales();
         applyGemIdleScales();
@@ -1003,25 +1041,39 @@ async function main(): Promise<void> {
       ctx.fillStyle = "#e8eaed";
       ctx.font = "20px system-ui, sans-serif";
       ctx.fillText(`Score: ${score}/${GEM_TOTAL}`, 16, 32);
+      const showRoundTime = !cleared && !failed;
+      let controlsY = 54;
+      if (showRoundTime) {
+        ctx.fillStyle = "#e8eaed";
+        ctx.font = "16px system-ui, sans-serif";
+        ctx.fillText(`Time: ${roundRemaining.toFixed(1)}`, 16, 56);
+        controlsY = 76;
+      }
       ctx.fillStyle = "#9aa0a6";
       ctx.font = "14px system-ui, sans-serif";
       ctx.fillText(
         "Arrows / gamepad — gems; =/+ zoom in, - out, 0 reset; Q/E/T camera rotate CCW/CW/reset; P pause; R restart (R wins)",
         16,
-        54,
+        controlsY,
       );
+      const statusY = showRoundTime ? 100 : 80;
       if (paused) {
         ctx.fillStyle = "#fbbf24";
         ctx.font = "20px system-ui, sans-serif";
-        ctx.fillText("PAUSED", 16, 80);
+        ctx.fillText("PAUSED", 16, statusY);
       } else if (cleared) {
         ctx.fillStyle = "#fbbf24";
         ctx.font = "20px system-ui, sans-serif";
-        ctx.fillText("CLEAR — R restart", 16, 80);
+        ctx.fillText("CLEAR — R restart", 16, statusY);
+      } else if (failed) {
+        ctx.fillStyle = "#fbbf24";
+        ctx.font = "20px system-ui, sans-serif";
+        ctx.fillText("FAIL — R restart", 16, statusY);
       }
     },
   });
 
+  armRoundTimer();
   loop.start();
 }
 

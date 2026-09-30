@@ -18,7 +18,7 @@ Top-down pickup game sample for [Glyph Arena](https://github.com/Fogrexon/glyph-
 | `@fogrexon/glyph-arena-transform` | Local TRS + `world(node, forest.parent)` chains parent transforms for drawing |
 | `@fogrexon/glyph-arena-camera` | `set({ x, y, zoom, rotation })` — follow player; demo `baseZoom` / `baseRotation` when no pickup tween |
 | `@fogrexon/glyph-arena-collide` | AABB `overlaps` for walls and pickups |
-| `@fogrexon/glyph-arena-timer` | `every(0.4)` idle pulse on uncollected gems |
+| `@fogrexon/glyph-arena-timer` | `delay(60)` round limit; `every(0.4)` idle pulse on uncollected gems |
 | `@fogrexon/glyph-arena-tween` | Camera zoom and brief positional punch on pickup; gem scale-out FX after reparent to player |
 
 Sprites and sound ship under `public/` (`player.png`, `gem.png`, `wall.png`, `pickup.wav`). If `loadImage` fails, the demo falls back to color-rect canvases. Score is drawn with canvas `fillText` (no DOM HUD).
@@ -27,7 +27,7 @@ On pickup, the camera kicks briefly opposite the player→gem direction (`tween.
 
 New gems scale in from `0`→`1` over `0.2s` linear (`tween.to`; scale `0` is set on the node before the tween starts). Idle pulse does not run until that spawn tween completes.
 
-Collect all gems (`GEM_TOTAL` matches the spawn list) to **CLEAR** the round. Movement and new pickups stop while cleared; in-flight pickup FX, punch, and zoom still finish. Press **R** to play again.
+Each round has a **60s** time limit (`timer.delay(60)`). The HUD shows `Time: X.X` while the round is active (frozen while paused). If time runs out before all gems are collected, the round **FAIL**s; collect every gem (`GEM_TOTAL` matches the spawn list) to **CLEAR** (same-frame timeout vs. last pickup: **CLEAR** wins). Movement and new pickups stop while cleared or failed; in-flight pickup FX, punch, and zoom still finish. Press **R** to play again (re-arms the round timer).
 
 Uncollected gems pulse idle scale between `1` and `1.12` via `timer.every(0.4)` (target scale toggled each tick, applied with `transform.set` after position sync — no stacked tweens). The idle handle is cancelled on pickup or restart.
 
@@ -35,7 +35,7 @@ Press **R** to restart: cancels in-flight tweens/timers, cleans up mid-FX gems p
 
 Each frame (including while paused): `gamepad.snapshot`, copy keyboard codes into a `Set`, inject arrow codes from pad 0 directions before `actions.tick`, then handle edge-triggered actions. Movement (unpaused) uses only `down("moveLeft"|"moveRight"|"moveUp"|"moveDown")`.
 
-Press **P** to toggle pause (keyboard only, edge-triggered via `actions.pressed("pause")`). The loop keeps running; simulation (`timer`/`tween` tick, movement, collide, pickup) is skipped while paused, but input/gamepad snapshots and `actions.tick` still run so **P**, **R**, zoom, and rotate keys work. **P** is ignored while cleared. If **P** and **R** land on the same frame, restart runs first and pause does not toggle. While paused, the last frame is redrawn with a **PAUSED** HUD label; timers/tweens freeze and resume after unpause. While cleared, the HUD shows **CLEAR** with an **R restart** hint; movement and collide stay off but `timer`/`tween` keep ticking so pickup FX can finish. Entering pause stops a playing pickup SE via `audio.stop` on the demo-held handle. Keyboard **=** / **+**, **-**, and **0** adjust demo `baseZoom` (clamped `0.5`–`2`, step `0.1`; reset to `1`) even while paused or cleared; pickup zoom tweens still use the `baseZoom` at tween start for peak scale and snap to current `baseZoom` on complete. **Q**, **E**, and **T** adjust demo `baseRotation` (clamped `-π/4`–`π/4`, step `π/36`; reset to `0`) even while paused or cleared; when paused, only `rotation` is pushed via partial `camera.set` so frozen punch offsets and zoom (including mid pickup tween) stay intact.
+Press **P** to toggle pause (keyboard only, edge-triggered via `actions.pressed("pause")`). The loop keeps running; simulation (`timer`/`tween` tick, movement, collide, pickup) is skipped while paused, but input/gamepad snapshots and `actions.tick` still run so **P**, **R**, zoom, and rotate keys work. **P** is ignored while cleared or failed. If **P** and **R** land on the same frame, restart runs first and pause does not toggle. While paused, the last frame is redrawn with a **PAUSED** HUD label; timers/tweens freeze and resume after unpause. While cleared or failed, the HUD shows **CLEAR** or **FAIL** with an **R restart** hint (time hidden); movement and collide stay off but `timer`/`tween` keep ticking so pickup FX can finish. Entering pause stops a playing pickup SE via `audio.stop` on the demo-held handle. Keyboard **=** / **+**, **-**, and **0** adjust demo `baseZoom` (clamped `0.5`–`2`, step `0.1`; reset to `1`) even while paused, cleared, or failed; pickup zoom tweens still use the `baseZoom` at tween start for peak scale and snap to current `baseZoom` on complete. **Q**, **E**, and **T** adjust demo `baseRotation` (clamped `-π/4`–`π/4`, step `π/36`; reset to `0`) even while paused, cleared, or failed; when paused, only `rotation` is pushed via partial `camera.set` so frozen punch offsets and zoom (including mid pickup tween) stay intact.
 
 ## Run locally
 
@@ -64,8 +64,8 @@ Open the URL Vite prints (usually `http://localhost:5173`).
 - **Q** — camera rotate CCW (`actions.pressed("rotateCCW")`, edge-triggered; keyboard only; step `π/36`, clamp max `π/4`)
 - **E** — camera rotate CW (`actions.pressed("rotateCW")`; step `-π/36`, clamp min `-π/4`)
 - **T** — reset camera rotation to `0` (`actions.pressed("rotateReset")`; wins over **Q**/**E** on the same frame; Q+E together apply neither)
-- **P** — pause / unpause (`actions.pressed("pause")`, edge-triggered; keyboard only; ignored while cleared)
-- **R** — restart the level (`actions.pressed("restart")`, edge-triggered; wins over **P** and zoom on the same frame; clears pause and cleared state; resets facing to up)
+- **P** — pause / unpause (`actions.pressed("pause")`, edge-triggered; keyboard only; ignored while cleared or failed)
+- **R** — restart the level (`actions.pressed("restart")`, edge-triggered; wins over **P** and zoom on the same frame; clears pause, cleared, and failed state; re-arms the 60s timer; resets facing to up)
 - **Gamepad** — left stick + d-pad on pad 0; deadzone `0.25` is demo-local; directions add arrow key codes to the tick set (no zoom/rotate/pause/restart from pad); facing follows movement like keyboard
 
 Audio resumes on the first key press or gamepad input (not on load).
