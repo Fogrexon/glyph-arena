@@ -909,13 +909,6 @@ async function main(): Promise<void> {
       }
 
       if (!paused) {
-        timer.tick(time.elapsed);
-        tween.tick(time.elapsed);
-
-        if (!cleared && !failed) {
-          roundRemaining = Math.max(0, roundRemaining - time.elapsed);
-        }
-
         let nextPlayerAabb = getAabb(playerEntity, world);
 
         if (!cleared && !failed) {
@@ -972,6 +965,13 @@ async function main(): Promise<void> {
             }
           }
         }
+
+        if (!cleared && !failed) {
+          roundRemaining = Math.max(0, roundRemaining - time.elapsed);
+        }
+
+        timer.tick(time.elapsed);
+        tween.tick(time.elapsed);
 
         applyGemSpawnScales();
         applyGemIdleScales();
