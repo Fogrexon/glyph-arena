@@ -53,6 +53,8 @@ const GEM_IDLE_SCALE_MIN = 1;
 const GEM_IDLE_SCALE_MAX = 1.12;
 const GAMEPAD_DEADZONE = 0.25;
 const ROUND_SECONDS = 60;
+const INITIAL_LIVES = 3;
+const INVULN_SECONDS = 1;
 
 const COMPONENT_KIND = "kind";
 const COMPONENT_AABB = "aabb";
@@ -508,6 +510,9 @@ async function main(): Promise<void> {
   let scheduleSeconds = 0;
   let roundTimerHandle: number | null = null;
   let pickupSeHandle: number | null = null;
+  let lives = INITIAL_LIVES;
+  let invulnerable = false;
+  let invulnerabilityTimerHandle: number | null = null;
 
   function cancelRoundTimer(): void {
     if (roundTimerHandle !== null) {
@@ -539,14 +544,46 @@ async function main(): Promise<void> {
     cancelRoundTimer();
   }
 
-  function checkHazardContact(playerBox: Aabb): void {
+  function clearInvulnerability(): void {
+    if (invulnerabilityTimerHandle !== null) {
+      timer.cancel(invulnerabilityTimerHandle);
+      invulnerabilityTimerHandle = null;
+    }
+    invulnerable = false;
+  }
+
+  function startInvulnerability(): void {
+    invulnerable = true;
+    invulnerabilityTimerHandle = timer.delay(INVULN_SECONDS, () => {
+      invulnerabilityTimerHandle = null;
+      invulnerable = false;
+    });
+  }
+
+  function playerOverlapsAnyHazard(playerBox: Aabb): boolean {
     for (const hazardEntity of hazardEntities) {
       const hazardAabb = getAabb(hazardEntity, world);
       if (overlaps(playerBox, hazardAabb)) {
-        failRound();
-        return;
+        return true;
       }
     }
+    return false;
+  }
+
+  function applyHazardDamage(playerBox: Aabb): void {
+    if (phase !== "play" || cleared || failed || paused || invulnerable) {
+      return;
+    }
+    if (!playerOverlapsAnyHazard(playerBox)) {
+      return;
+    }
+
+    lives -= 1;
+    if (lives <= 0) {
+      failRound();
+      return;
+    }
+    startInvulnerability();
   }
 
   function wallAABBs(): Aabb[] {
@@ -723,6 +760,7 @@ async function main(): Promise<void> {
 
   function restart(): void {
     cancelRoundTimer();
+    clearInvulnerability();
 
     const midFxGems = [...pickupFxGems];
 
@@ -817,6 +855,7 @@ async function main(): Promise<void> {
     transform.set(playerDrawable.node, { scaleX: 1, scaleY: 1, rotation: 0 });
 
     score = 0;
+    lives = INITIAL_LIVES;
     cleared = false;
     baseZoom = 1;
     baseRotation = 0;
@@ -851,7 +890,9 @@ async function main(): Promise<void> {
     paused = false;
     cleared = false;
     failed = false;
+    clearInvulnerability();
     score = 0;
+    lives = INITIAL_LIVES;
     baseZoom = 1;
     baseRotation = 0;
     camera.set({ zoom: 1, rotation: 0 });
@@ -1074,7 +1115,7 @@ async function main(): Promise<void> {
           }
 
           if (!cleared && !failed) {
-            checkHazardContact(playerBox);
+            applyHazardDamage(playerBox);
           }
         }
 
@@ -1166,13 +1207,14 @@ async function main(): Promise<void> {
         ctx.fillStyle = "#e8eaed";
         ctx.font = "20px system-ui, sans-serif";
         ctx.fillText(`Score: ${score}/${GEM_TOTAL}`, 16, 32);
+        ctx.fillStyle = "#e8eaed";
+        ctx.font = "16px system-ui, sans-serif";
+        ctx.fillText(`Lives: ${lives}`, 16, 54);
         const showRoundTime = !cleared && !failed;
-        let controlsY = 54;
+        let controlsY = 74;
         if (showRoundTime) {
-          ctx.fillStyle = "#e8eaed";
-          ctx.font = "16px system-ui, sans-serif";
-          ctx.fillText(`Time: ${roundRemaining.toFixed(1)}`, 16, 56);
-          controlsY = 76;
+          ctx.fillText(`Time: ${roundRemaining.toFixed(1)}`, 16, 76);
+          controlsY = 96;
         }
         ctx.fillStyle = "#9aa0a6";
         ctx.font = "14px system-ui, sans-serif";
@@ -1181,7 +1223,7 @@ async function main(): Promise<void> {
           16,
           controlsY,
         );
-        const statusY = showRoundTime ? 100 : 80;
+        const statusY = showRoundTime ? 120 : 100;
         if (paused) {
           ctx.fillStyle = "#fbbf24";
           ctx.font = "20px system-ui, sans-serif";
@@ -1191,12 +1233,15 @@ async function main(): Promise<void> {
         ctx.fillStyle = "#e8eaed";
         ctx.font = "20px system-ui, sans-serif";
         ctx.fillText(`Score: ${score}/${GEM_TOTAL}`, 16, 32);
+        ctx.fillStyle = "#e8eaed";
+        ctx.font = "16px system-ui, sans-serif";
+        ctx.fillText(`Lives: ${lives}`, 16, 54);
         ctx.fillStyle = "#fbbf24";
         ctx.font = "20px system-ui, sans-serif";
         if (cleared) {
-          ctx.fillText("CLEAR — R restart", 16, 56);
+          ctx.fillText("CLEAR — R restart", 16, 78);
         } else if (failed) {
-          ctx.fillText("FAIL — R restart", 16, 56);
+          ctx.fillText("FAIL — R restart", 16, 78);
         }
       }
     },
