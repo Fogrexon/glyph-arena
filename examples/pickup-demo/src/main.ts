@@ -38,7 +38,6 @@ const WALL_SPRITE_SIZE = 64;
 const MOVE_SPEED = 180;
 const WORLD_WIDTH = 1200;
 const WORLD_HEIGHT = 900;
-const ITEM_RESPAWN_SECONDS = 2.5;
 const PICKUP_ZOOM = 1.18;
 const PICKUP_ZOOM_DURATION = 0.18;
 const PUNCH_DISTANCE = 8;
@@ -342,6 +341,7 @@ async function main(): Promise<void> {
     { x: 980, y: 700 },
     { x: 560, y: 760 },
   ];
+  const GEM_TOTAL = itemSpawns.length;
 
   function startGemIdlePulse(entity: Entity): void {
     gemIdleTargetScale.set(entity, GEM_IDLE_SCALE_MIN);
@@ -474,6 +474,7 @@ async function main(): Promise<void> {
   let baseZoom = 1;
   let baseRotation = 0;
   let paused = false;
+  let cleared = false;
   let pickupSeHandle: number | null = null;
 
   function wallAABBs(): Aabb[] {
@@ -501,18 +502,6 @@ async function main(): Promise<void> {
     forest.destroy(fx.node);
     entityNodes.delete(fx.entity);
     transform.clear(fx.node);
-    scheduleGemRespawn(fx.spawn);
-  }
-
-  function scheduleGemRespawn(spawn: { x: number; y: number }): void {
-    const handle = timer.delay(ITEM_RESPAWN_SECONDS, () => {
-      const index = respawnTimerHandles.indexOf(handle);
-      if (index !== -1) {
-        respawnTimerHandles.splice(index, 1);
-      }
-      spawnGem(spawn);
-    });
-    respawnTimerHandles.push(handle);
   }
 
   function cancelPickupPunchTweens(): void {
@@ -571,6 +560,9 @@ async function main(): Promise<void> {
     cancelGemIdlePulse(gemEntity);
     removeGemFromCollideTargets(gemEntity);
     score += 1;
+    if (score >= GEM_TOTAL) {
+      cleared = true;
+    }
     void playPickupSound();
 
     const playerAabb = getAabb(playerEntity, world);
@@ -842,9 +834,10 @@ async function main(): Promise<void> {
 
       if (query.pressed("restart")) {
         paused = false;
+        cleared = false;
         restart();
       } else {
-        if (query.pressed("pause")) {
+        if (query.pressed("pause") && !cleared) {
           if (!paused) {
             if (pickupSeHandle !== null) {
               audio.stop(pickupSeHandle);
@@ -885,61 +878,65 @@ async function main(): Promise<void> {
         timer.tick(time.elapsed);
         tween.tick(time.elapsed);
 
-        const left = query.down("moveLeft");
-        const right = query.down("moveRight");
-        const up = query.down("moveUp");
-        const down = query.down("moveDown");
+        let nextPlayerAabb = getAabb(playerEntity, world);
 
-        let dx = 0;
-        let dy = 0;
+        if (!cleared) {
+          const left = query.down("moveLeft");
+          const right = query.down("moveRight");
+          const up = query.down("moveUp");
+          const down = query.down("moveDown");
 
-        if (left) dx -= 1;
-        if (right) dx += 1;
-        if (up) dy -= 1;
-        if (down) dy += 1;
+          let dx = 0;
+          let dy = 0;
 
-        if (dx !== 0 && dy !== 0) {
-          const length = Math.hypot(dx, dy);
-          dx /= length;
-          dy /= length;
-        }
+          if (left) dx -= 1;
+          if (right) dx += 1;
+          if (up) dy -= 1;
+          if (down) dy += 1;
 
-        const playerAabb = getAabb(playerEntity, world);
-        const { x: playerX, y: playerY } = playerCenterFromAabb(playerAabb);
-        const walls = wallAABBs();
-        let nextX = playerX;
-        let nextY = playerY;
-
-        if (dx !== 0 || dy !== 0) {
-          const stepX = dx * MOVE_SPEED * time.delta;
-          const stepY = dy * MOVE_SPEED * time.delta;
-
-          const tentativeX = playerX + stepX;
-          if (!collidesWithWalls(playerAabbAtCenter(tentativeX, playerY), walls)) {
-            nextX = tentativeX;
+          if (dx !== 0 && dy !== 0) {
+            const length = Math.hypot(dx, dy);
+            dx /= length;
+            dy /= length;
           }
 
-          const tentativeY = playerY + stepY;
-          if (!collidesWithWalls(playerAabbAtCenter(nextX, tentativeY), walls)) {
-            nextY = tentativeY;
+          const playerAabb = nextPlayerAabb;
+          const { x: playerX, y: playerY } = playerCenterFromAabb(playerAabb);
+          const walls = wallAABBs();
+          let nextX = playerX;
+          let nextY = playerY;
+
+          if (dx !== 0 || dy !== 0) {
+            const stepX = dx * MOVE_SPEED * time.delta;
+            const stepY = dy * MOVE_SPEED * time.delta;
+
+            const tentativeX = playerX + stepX;
+            if (!collidesWithWalls(playerAabbAtCenter(tentativeX, playerY), walls)) {
+              nextX = tentativeX;
+            }
+
+            const tentativeY = playerY + stepY;
+            if (!collidesWithWalls(playerAabbAtCenter(nextX, tentativeY), walls)) {
+              nextY = tentativeY;
+            }
+          }
+
+          nextPlayerAabb = playerAabbAtCenter(nextX, nextY);
+          setAabb(playerEntity, world, nextPlayerAabb);
+          syncPlayerPositionFromAabb(playerDrawable.node, nextPlayerAabb, transform);
+          updatePlayerFacing(playerDrawable.node, dx, dy, transform);
+
+          const playerBox = nextPlayerAabb;
+          for (const gemEntity of [...gemEntities]) {
+            const gemAabb = getAabb(gemEntity, world);
+            if (overlaps(playerBox, gemAabb)) {
+              startPickupFx(gemEntity, { x: gemAabb.x, y: gemAabb.y });
+            }
           }
         }
-
-        const nextPlayerAabb = playerAabbAtCenter(nextX, nextY);
-        setAabb(playerEntity, world, nextPlayerAabb);
-        syncPlayerPositionFromAabb(playerDrawable.node, nextPlayerAabb, transform);
-        updatePlayerFacing(playerDrawable.node, dx, dy, transform);
 
         applyGemSpawnScales();
         applyGemIdleScales();
-
-        const playerBox = nextPlayerAabb;
-        for (const gemEntity of [...gemEntities]) {
-          const gemAabb = getAabb(gemEntity, world);
-          if (overlaps(playerBox, gemAabb)) {
-            startPickupFx(gemEntity, { x: gemAabb.x, y: gemAabb.y });
-          }
-        }
 
         updatePickupFx();
         updatePunchOffsetsFromTweens();
@@ -1005,7 +1002,7 @@ async function main(): Promise<void> {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = "#e8eaed";
       ctx.font = "20px system-ui, sans-serif";
-      ctx.fillText(`Score: ${score}`, 16, 32);
+      ctx.fillText(`Score: ${score}/${GEM_TOTAL}`, 16, 32);
       ctx.fillStyle = "#9aa0a6";
       ctx.font = "14px system-ui, sans-serif";
       ctx.fillText(
@@ -1017,6 +1014,10 @@ async function main(): Promise<void> {
         ctx.fillStyle = "#fbbf24";
         ctx.font = "20px system-ui, sans-serif";
         ctx.fillText("PAUSED", 16, 80);
+      } else if (cleared) {
+        ctx.fillStyle = "#fbbf24";
+        ctx.font = "20px system-ui, sans-serif";
+        ctx.fillText("CLEAR — R restart", 16, 80);
       }
     },
   });
