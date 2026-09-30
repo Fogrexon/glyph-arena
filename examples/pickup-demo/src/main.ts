@@ -15,6 +15,8 @@ import { createTween } from "@fogrexon/glyph-arena-tween";
 
 type Matrix6 = [number, number, number, number, number, number];
 
+type Phase = "title" | "play" | "result";
+
 type EntityKind = "player" | "gem" | "wall";
 
 type Drawable = {
@@ -288,9 +290,16 @@ async function main(): Promise<void> {
     pickupBuffer = null;
   }
 
-  const worldRoot = forest.create();
-  let fieldNode = forest.create();
-  forest.setParent(fieldNode, worldRoot);
+  const screenRoot = forest.create();
+  let titleRoot = forest.create();
+  forest.setParent(titleRoot, screenRoot);
+
+  let playRoot: Node | null = null;
+  let fieldNode!: Node;
+  let playerDrawable!: Drawable;
+  let playerEntity!: Entity;
+
+  let phase: Phase = "title";
 
   function spawnEntity(
     kind: EntityKind,
@@ -408,20 +417,8 @@ async function main(): Promise<void> {
     }
   }
 
-  createFieldContent();
-
   const playerCenterX = WORLD_WIDTH / 2;
   const playerCenterY = WORLD_HEIGHT / 2;
-  const playerDrawable = spawnEntity(
-    "player",
-    playerAabbAtCenter(playerCenterX, playerCenterY),
-    playerImage,
-    PLAYER_SIZE,
-    PLAYER_SIZE,
-    worldRoot,
-  );
-  const playerEntity = playerDrawable.entity;
-  transform.set(playerDrawable.node, { rotation: 0 });
 
   let score = 0;
   let pickupZoomHandle: number | null = null;
@@ -463,6 +460,7 @@ async function main(): Promise<void> {
   actions.bind("moveRight", ["ArrowRight"]);
   actions.bind("moveUp", ["ArrowUp"]);
   actions.bind("moveDown", ["ArrowDown"]);
+  actions.bind("start", ["Space", "Enter"]);
   actions.bind("restart", ["KeyR"]);
   actions.bind("pause", ["KeyP"]);
   actions.bind("zoomIn", ["Equal", "NumpadAdd"]);
@@ -748,7 +746,7 @@ async function main(): Promise<void> {
     forest.destroy(fieldNode);
 
     fieldNode = forest.create();
-    forest.setParent(fieldNode, worldRoot);
+    forest.setParent(fieldNode, playRoot!);
     createFieldContent();
 
     const initialPlayerAabb = playerAabbAtCenter(playerCenterX, playerCenterY);
@@ -768,6 +766,42 @@ async function main(): Promise<void> {
     baseRotation = 0;
     camera.set({ zoom: 1, rotation: 0 });
     armRoundTimer();
+  }
+
+  function destroyTitleSubtree(): void {
+    forest.destroy(titleRoot);
+  }
+
+  function createPlaySubtree(): void {
+    playRoot = forest.create();
+    forest.setParent(playRoot, screenRoot);
+    fieldNode = forest.create();
+    forest.setParent(fieldNode, playRoot);
+    playerDrawable = spawnEntity(
+      "player",
+      playerAabbAtCenter(playerCenterX, playerCenterY),
+      playerImage,
+      PLAYER_SIZE,
+      PLAYER_SIZE,
+      playRoot,
+    );
+    playerEntity = playerDrawable.entity;
+    transform.set(playerDrawable.node, { rotation: 0 });
+    createFieldContent();
+  }
+
+  function beginPlayFromTitle(): void {
+    destroyTitleSubtree();
+    paused = false;
+    cleared = false;
+    failed = false;
+    score = 0;
+    baseZoom = 1;
+    baseRotation = 0;
+    camera.set({ zoom: 1, rotation: 0 });
+    createPlaySubtree();
+    armRoundTimer();
+    phase = "play";
   }
 
   function drawWorldSprite(drawable: Drawable, viewMatrix: Matrix2D): void {
@@ -841,7 +875,7 @@ async function main(): Promise<void> {
       const pad = pads[0];
 
       const keys = new Set(input.snapshot().keys);
-      if (pad !== undefined) {
+      if (phase === "play" && pad !== undefined) {
         const directions = gamepadDirections(pad);
         if (directions.left) {
           keys.add("ArrowLeft");
@@ -859,6 +893,22 @@ async function main(): Promise<void> {
 
       const query = actions.tick(keys);
 
+      if (phase === "title") {
+        if (query.pressed("start")) {
+          beginPlayFromTitle();
+        }
+
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        draw.clear("#0f1115");
+        ctx.fillStyle = "#e8eaed";
+        ctx.font = "28px system-ui, sans-serif";
+        ctx.fillText("Pickup", 16, 48);
+        ctx.font = "18px system-ui, sans-serif";
+        ctx.fillStyle = "#9aa0a6";
+        ctx.fillText("Space / Enter — start", 16, 80);
+        return;
+      }
+
       if (pad !== undefined && !audioResumed && padHasInput(pad)) {
         void ensureAudioResumed();
       }
@@ -871,8 +921,9 @@ async function main(): Promise<void> {
         cleared = false;
         failed = false;
         restart();
+        phase = "play";
       } else {
-        if (query.pressed("pause") && !cleared && !failed) {
+        if (query.pressed("pause") && phase === "play" && !cleared && !failed) {
           if (!paused) {
             if (pickupSeHandle !== null) {
               audio.stop(pickupSeHandle);
@@ -912,7 +963,7 @@ async function main(): Promise<void> {
       if (!paused) {
         let nextPlayerAabb = getAabb(playerEntity, world);
 
-        if (!cleared && !failed) {
+        if (phase === "play" && !cleared && !failed) {
           const left = query.down("moveLeft");
           const right = query.down("moveRight");
           const up = query.down("moveUp");
@@ -969,12 +1020,16 @@ async function main(): Promise<void> {
 
         scheduleSeconds += time.delta;
 
-        if (!cleared && !failed) {
+        if (phase === "play" && !cleared && !failed) {
           roundRemaining = Math.max(0, roundRemaining - time.delta);
         }
 
         timer.tick(scheduleSeconds);
         tween.tick(scheduleSeconds);
+
+        if (phase === "play" && (cleared || failed)) {
+          phase = "result";
+        }
 
         applyGemSpawnScales();
         applyGemIdleScales();
@@ -1043,40 +1098,46 @@ async function main(): Promise<void> {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = "#e8eaed";
       ctx.font = "20px system-ui, sans-serif";
-      ctx.fillText(`Score: ${score}/${GEM_TOTAL}`, 16, 32);
-      const showRoundTime = !cleared && !failed;
-      let controlsY = 54;
-      if (showRoundTime) {
+      if (phase === "play") {
         ctx.fillStyle = "#e8eaed";
-        ctx.font = "16px system-ui, sans-serif";
-        ctx.fillText(`Time: ${roundRemaining.toFixed(1)}`, 16, 56);
-        controlsY = 76;
-      }
-      ctx.fillStyle = "#9aa0a6";
-      ctx.font = "14px system-ui, sans-serif";
-      ctx.fillText(
-        "Arrows / gamepad — gems; =/+ zoom in, - out, 0 reset; Q/E/T camera rotate CCW/CW/reset; P pause; R restart (R wins)",
-        16,
-        controlsY,
-      );
-      const statusY = showRoundTime ? 100 : 80;
-      if (paused) {
+        ctx.font = "20px system-ui, sans-serif";
+        ctx.fillText(`Score: ${score}/${GEM_TOTAL}`, 16, 32);
+        const showRoundTime = !cleared && !failed;
+        let controlsY = 54;
+        if (showRoundTime) {
+          ctx.fillStyle = "#e8eaed";
+          ctx.font = "16px system-ui, sans-serif";
+          ctx.fillText(`Time: ${roundRemaining.toFixed(1)}`, 16, 56);
+          controlsY = 76;
+        }
+        ctx.fillStyle = "#9aa0a6";
+        ctx.font = "14px system-ui, sans-serif";
+        ctx.fillText(
+          "Arrows / gamepad — gems; =/+ zoom in, - out, 0 reset; Q/E/T camera rotate CCW/CW/reset; P pause; R restart (R wins)",
+          16,
+          controlsY,
+        );
+        const statusY = showRoundTime ? 100 : 80;
+        if (paused) {
+          ctx.fillStyle = "#fbbf24";
+          ctx.font = "20px system-ui, sans-serif";
+          ctx.fillText("PAUSED", 16, statusY);
+        }
+      } else if (phase === "result") {
+        ctx.fillStyle = "#e8eaed";
+        ctx.font = "20px system-ui, sans-serif";
+        ctx.fillText(`Score: ${score}/${GEM_TOTAL}`, 16, 32);
         ctx.fillStyle = "#fbbf24";
         ctx.font = "20px system-ui, sans-serif";
-        ctx.fillText("PAUSED", 16, statusY);
-      } else if (cleared) {
-        ctx.fillStyle = "#fbbf24";
-        ctx.font = "20px system-ui, sans-serif";
-        ctx.fillText("CLEAR — R restart", 16, statusY);
-      } else if (failed) {
-        ctx.fillStyle = "#fbbf24";
-        ctx.font = "20px system-ui, sans-serif";
-        ctx.fillText("FAIL — R restart", 16, statusY);
+        if (cleared) {
+          ctx.fillText("CLEAR — R restart", 16, 56);
+        } else if (failed) {
+          ctx.fillText("FAIL — R restart", 16, 56);
+        }
       }
     },
   });
 
-  armRoundTimer();
   loop.start();
 }
 
