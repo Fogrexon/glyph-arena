@@ -33,3 +33,4 @@ All notable changes to this project will be documented in this file.
 - Pickup demo at `examples/pickup-demo` now scale-ins new/respawned gems via `tween.to(0, 1, 0.2)` (scale 0 set before tween; idle pulse after complete; cancel on pickup/Restart; demo-only; no package API change)
 - Pickup demo at `examples/pickup-demo` now routes movement through named actions (`moveLeft` / `moveRight` / `moveUp` / `moveDown`); each frame copies keyboard keys and injects pad-0 arrow codes before `actions.tick` (demo-only; no package API change)
 - Pickup demo at `examples/pickup-demo` is now a one-round CLEAR (`GEM_TOTAL` gems, no respawn; clear on full collect; R restarts; demo-only; no package API change)
+- Pickup demo at `examples/pickup-demo` now has a 60s round timer via `timer.delay` (FAIL on timeout; CLEAR cancels the delay and wins same frame; R restarts; demo-only; no package API change)
