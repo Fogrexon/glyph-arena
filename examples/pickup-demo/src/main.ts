@@ -478,6 +478,7 @@ async function main(): Promise<void> {
   let cleared = false;
   let failed = false;
   let roundRemaining = ROUND_SECONDS;
+  let scheduleSeconds = 0;
   let roundTimerHandle: number | null = null;
   let pickupSeHandle: number | null = null;
 
@@ -966,12 +967,14 @@ async function main(): Promise<void> {
           }
         }
 
+        scheduleSeconds += time.delta;
+
         if (!cleared && !failed) {
-          roundRemaining = Math.max(0, roundRemaining - time.elapsed);
+          roundRemaining = Math.max(0, roundRemaining - time.delta);
         }
 
-        timer.tick(time.elapsed);
-        tween.tick(time.elapsed);
+        timer.tick(scheduleSeconds);
+        tween.tick(scheduleSeconds);
 
         applyGemSpawnScales();
         applyGemIdleScales();
