@@ -17,7 +17,7 @@ type Matrix6 = [number, number, number, number, number, number];
 
 type Phase = "title" | "play" | "result";
 
-type EntityKind = "player" | "gem" | "wall";
+type EntityKind = "player" | "gem" | "wall" | "hazard";
 
 type Drawable = {
   entity: Entity;
@@ -36,6 +36,7 @@ type PickupFx = {
 
 const PLAYER_SIZE = 28;
 const ITEM_SIZE = 20;
+const HAZARD_SIZE = 32;
 const WALL_SPRITE_SIZE = 64;
 const MOVE_SPEED = 180;
 const WORLD_WIDTH = 1200;
@@ -243,6 +244,7 @@ async function main(): Promise<void> {
 
   const entityNodes = new Map<Entity, Node>();
   const wallEntities: Entity[] = [];
+  const hazardEntities: Entity[] = [];
   const gemEntities: Entity[] = [];
   const pickupFxGems: PickupFx[] = [];
   const gemIdleHandles = new Map<Entity, number>();
@@ -262,6 +264,12 @@ async function main(): Promise<void> {
     WALL_SPRITE_SIZE,
     "#3d4451",
     "#6b7280",
+  );
+  const hazardImage: CanvasImageSource = createRectSprite(
+    HAZARD_SIZE,
+    HAZARD_SIZE,
+    "#e63946",
+    "#ff6b6b",
   );
   let pickupBuffer: AudioBuffer | null = null;
 
@@ -340,6 +348,14 @@ async function main(): Promise<void> {
   ];
 
   let wallDrawables: Drawable[] = [];
+  let hazardDrawables: Drawable[] = [];
+
+  /** Fixed play-field hazards (deterministic; no runtime RNG). */
+  const hazardSpawns: Array<{ x: number; y: number }> = [
+    { x: 480, y: 96 },
+    { x: 96, y: 380 },
+    { x: 872, y: 380 },
+  ];
 
   const itemSpawns: Array<{ x: number; y: number }> = [
     { x: 140, y: 140 },
@@ -414,6 +430,19 @@ async function main(): Promise<void> {
 
     for (const spawn of itemSpawns) {
       spawnGem(spawn);
+    }
+
+    for (const spawn of hazardSpawns) {
+      const drawable = spawnEntity(
+        "hazard",
+        nodeAabb(spawn.x, spawn.y, HAZARD_SIZE, HAZARD_SIZE),
+        hazardImage,
+        HAZARD_SIZE,
+        HAZARD_SIZE,
+        fieldNode,
+      );
+      hazardEntities.push(drawable.entity);
+      hazardDrawables.push(drawable);
     }
   }
 
@@ -503,6 +532,21 @@ async function main(): Promise<void> {
     cleared = true;
     failed = false;
     cancelRoundTimer();
+  }
+
+  function failRound(): void {
+    failed = true;
+    cancelRoundTimer();
+  }
+
+  function checkHazardContact(playerBox: Aabb): void {
+    for (const hazardEntity of hazardEntities) {
+      const hazardAabb = getAabb(hazardEntity, world);
+      if (overlaps(playerBox, hazardAabb)) {
+        failRound();
+        return;
+      }
+    }
   }
 
   function wallAABBs(): Aabb[] {
@@ -741,6 +785,18 @@ async function main(): Promise<void> {
       }
     }
     gemEntities.length = 0;
+
+    for (const entity of hazardEntities) {
+      const node = entityNodes.get(entity);
+      world.despawn(entity);
+      entityNodes.delete(entity);
+      if (node !== undefined) {
+        transform.clear(node);
+      }
+    }
+    hazardEntities.length = 0;
+    hazardDrawables = [];
+
     wallDrawables = [];
 
     forest.destroy(fieldNode);
@@ -1016,6 +1072,10 @@ async function main(): Promise<void> {
               startPickupFx(gemEntity, { x: gemAabb.x, y: gemAabb.y });
             }
           }
+
+          if (!cleared && !failed) {
+            checkHazardContact(playerBox);
+          }
         }
 
         scheduleSeconds += time.delta;
@@ -1087,6 +1147,10 @@ async function main(): Promise<void> {
           },
           viewMatrix,
         );
+      }
+
+      for (const hazard of hazardDrawables) {
+        drawWorldSprite(hazard, viewMatrix);
       }
 
       drawPlayerSprite(playerDrawable, viewMatrix);
