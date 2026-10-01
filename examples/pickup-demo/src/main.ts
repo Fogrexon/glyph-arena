@@ -511,7 +511,8 @@ async function main(): Promise<void> {
   let roundTimerHandle: number | null = null;
   let pickupSeHandle: number | null = null;
   let lives = INITIAL_LIVES;
-  let invulnerable = false;
+  /** Schedule time (pre–`scheduleSeconds += delta` each frame) until hazard damage is ignored. */
+  let invulnerableUntil = 0;
   let invulnerabilityTimerHandle: number | null = null;
 
   function cancelRoundTimer(): void {
@@ -544,19 +545,26 @@ async function main(): Promise<void> {
     cancelRoundTimer();
   }
 
+  function isInvulnerable(): boolean {
+    return scheduleSeconds < invulnerableUntil;
+  }
+
   function clearInvulnerability(): void {
     if (invulnerabilityTimerHandle !== null) {
       timer.cancel(invulnerabilityTimerHandle);
       invulnerabilityTimerHandle = null;
     }
-    invulnerable = false;
+    invulnerableUntil = 0;
   }
 
   function startInvulnerability(): void {
-    invulnerable = true;
+    if (invulnerabilityTimerHandle !== null) {
+      timer.cancel(invulnerabilityTimerHandle);
+      invulnerabilityTimerHandle = null;
+    }
+    invulnerableUntil = scheduleSeconds + INVULN_SECONDS;
     invulnerabilityTimerHandle = timer.delay(INVULN_SECONDS, () => {
       invulnerabilityTimerHandle = null;
-      invulnerable = false;
     });
   }
 
@@ -571,7 +579,7 @@ async function main(): Promise<void> {
   }
 
   function applyHazardDamage(playerBox: Aabb): void {
-    if (phase !== "play" || cleared || failed || paused || invulnerable) {
+    if (phase !== "play" || cleared || failed || paused || isInvulnerable()) {
       return;
     }
     if (!playerOverlapsAnyHazard(playerBox)) {
