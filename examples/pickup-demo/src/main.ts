@@ -37,6 +37,7 @@ type PickupFx = {
 const PLAYER_SIZE = 28;
 const ITEM_SIZE = 20;
 const HAZARD_SIZE = 32;
+const HAZARD_SPEED = 80;
 const WALL_SPRITE_SIZE = 64;
 const MOVE_SPEED = 180;
 const WORLD_WIDTH = 1200;
@@ -359,6 +360,15 @@ async function main(): Promise<void> {
     { x: 872, y: 380 },
   ];
 
+  /** Initial hazard velocities in spawn order: H0, H1, H2 (px/s, axis-aligned). */
+  const hazardInitialVelocities: Array<{ vx: number; vy: number }> = [
+    { vx: HAZARD_SPEED, vy: 0 },
+    { vx: 0, vy: HAZARD_SPEED },
+    { vx: 0, vy: -HAZARD_SPEED },
+  ];
+
+  const hazardVelocities = new Map<Entity, { vx: number; vy: number }>();
+
   const itemSpawns: Array<{ x: number; y: number }> = [
     { x: 140, y: 140 },
     { x: 520, y: 220 },
@@ -434,7 +444,8 @@ async function main(): Promise<void> {
       spawnGem(spawn);
     }
 
-    for (const spawn of hazardSpawns) {
+    for (let hazardIndex = 0; hazardIndex < hazardSpawns.length; hazardIndex += 1) {
+      const spawn = hazardSpawns[hazardIndex];
       const drawable = spawnEntity(
         "hazard",
         nodeAabb(spawn.x, spawn.y, HAZARD_SIZE, HAZARD_SIZE),
@@ -445,6 +456,11 @@ async function main(): Promise<void> {
       );
       hazardEntities.push(drawable.entity);
       hazardDrawables.push(drawable);
+      const initialVelocity = hazardInitialVelocities[hazardIndex];
+      if (initialVelocity === undefined) {
+        throw new Error("Missing hazard initial velocity");
+      }
+      hazardVelocities.set(drawable.entity, { ...initialVelocity });
     }
   }
 
@@ -605,6 +621,79 @@ async function main(): Promise<void> {
       }
     }
     return false;
+  }
+
+  function resolveHazardPenetrationX(aabb: Aabb, walls: Aabb[]): Aabb {
+    let resolved = aabb;
+    for (const wall of walls) {
+      if (!overlaps(resolved, wall)) {
+        continue;
+      }
+      const boxCenterX = resolved.x + resolved.width / 2;
+      const wallCenterX = wall.x + wall.width / 2;
+      if (boxCenterX < wallCenterX) {
+        resolved = { ...resolved, x: wall.x - resolved.width };
+      } else {
+        resolved = { ...resolved, x: wall.x + wall.width };
+      }
+    }
+    return resolved;
+  }
+
+  function resolveHazardPenetrationY(aabb: Aabb, walls: Aabb[]): Aabb {
+    let resolved = aabb;
+    for (const wall of walls) {
+      if (!overlaps(resolved, wall)) {
+        continue;
+      }
+      const boxCenterY = resolved.y + resolved.height / 2;
+      const wallCenterY = wall.y + wall.height / 2;
+      if (boxCenterY < wallCenterY) {
+        resolved = { ...resolved, y: wall.y - resolved.height };
+      } else {
+        resolved = { ...resolved, y: wall.y + wall.height };
+      }
+    }
+    return resolved;
+  }
+
+  function moveHazards(delta: number, walls: Aabb[]): void {
+    for (const hazardEntity of hazardEntities) {
+      const velocity = hazardVelocities.get(hazardEntity);
+      const node = entityNodes.get(hazardEntity);
+      if (velocity === undefined || node === undefined) {
+        continue;
+      }
+
+      let { vx, vy } = velocity;
+      let aabb = getAabb(hazardEntity, world);
+
+      if (vx !== 0) {
+        const nextX = aabb.x + vx * delta;
+        const tentative = { ...aabb, x: nextX };
+        if (collidesWithWalls(tentative, walls)) {
+          vx = -vx;
+          aabb = resolveHazardPenetrationX(aabb, walls);
+        } else {
+          aabb = tentative;
+        }
+      }
+
+      if (vy !== 0) {
+        const nextY = aabb.y + vy * delta;
+        const tentative = { ...aabb, y: nextY };
+        if (collidesWithWalls(tentative, walls)) {
+          vy = -vy;
+          aabb = resolveHazardPenetrationY(aabb, walls);
+        } else {
+          aabb = tentative;
+        }
+      }
+
+      hazardVelocities.set(hazardEntity, { vx, vy });
+      setAabb(hazardEntity, world, aabb);
+      syncTransformFromAabb(hazardEntity, node, "hazard", aabb, transform);
+    }
   }
 
   function removeGemFromCollideTargets(entity: Entity): void {
@@ -836,6 +925,7 @@ async function main(): Promise<void> {
       const node = entityNodes.get(entity);
       world.despawn(entity);
       entityNodes.delete(entity);
+      hazardVelocities.delete(entity);
       if (node !== undefined) {
         transform.clear(node);
       }
@@ -1123,6 +1213,7 @@ async function main(): Promise<void> {
           }
 
           if (!cleared && !failed) {
+            moveHazards(time.delta, walls);
             applyHazardDamage(playerBox);
           }
         }
