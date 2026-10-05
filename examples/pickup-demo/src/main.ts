@@ -1335,12 +1335,13 @@ async function main(): Promise<void> {
         ctx.fillStyle = "#e8eaed";
         ctx.font = "16px system-ui, sans-serif";
         ctx.fillText(`Lives: ${lives}`, 16, 54);
+        ctx.fillText(`Time: ${roundRemaining.toFixed(1)}`, 16, 76);
         ctx.fillStyle = "#fbbf24";
         ctx.font = "20px system-ui, sans-serif";
         if (cleared) {
-          ctx.fillText("CLEAR — R restart", 16, 78);
+          ctx.fillText("CLEAR — R restart", 16, 98);
         } else if (failed) {
-          ctx.fillText("FAIL — R restart", 16, 78);
+          ctx.fillText("FAIL — R restart", 16, 98);
         }
       }
     },
