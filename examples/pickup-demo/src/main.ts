@@ -39,6 +39,8 @@ const ITEM_SIZE = 20;
 const HAZARD_SIZE = 32;
 const WALL_SPRITE_SIZE = 64;
 const MOVE_SPEED = 180;
+const DASH_DURATION = 0.15;
+const DASH_SPEED = 360;
 const WORLD_WIDTH = 1200;
 const WORLD_HEIGHT = 900;
 const PICKUP_ZOOM = 1.18;
@@ -500,6 +502,7 @@ async function main(): Promise<void> {
   actions.bind("rotateCCW", ["KeyQ"]);
   actions.bind("rotateCW", ["KeyE"]);
   actions.bind("rotateReset", ["KeyT"]);
+  actions.bind("dash", ["ShiftLeft"]);
 
   let baseZoom = 1;
   let baseRotation = 0;
@@ -513,6 +516,8 @@ async function main(): Promise<void> {
   let lives = INITIAL_LIVES;
   /** Schedule time (pre–`scheduleSeconds += delta` each frame) until hazard damage is ignored. */
   let invulnerableUntil = 0;
+  /** Schedule time until the move-speed dash burst ends (`scheduleSeconds < dashUntil`). */
+  let dashUntil = 0;
   let invulnerabilityTimerHandle: number | null = null;
 
   function cancelRoundTimer(): void {
@@ -865,6 +870,7 @@ async function main(): Promise<void> {
     score = 0;
     lives = INITIAL_LIVES;
     cleared = false;
+    dashUntil = 0;
     baseZoom = 1;
     baseRotation = 0;
     camera.set({ zoom: 1, rotation: 0 });
@@ -899,6 +905,7 @@ async function main(): Promise<void> {
     cleared = false;
     failed = false;
     clearInvulnerability();
+    dashUntil = 0;
     score = 0;
     lives = INITIAL_LIVES;
     baseZoom = 1;
@@ -1095,8 +1102,9 @@ async function main(): Promise<void> {
           let nextY = playerY;
 
           if (dx !== 0 || dy !== 0) {
-            const stepX = dx * MOVE_SPEED * time.delta;
-            const stepY = dy * MOVE_SPEED * time.delta;
+            const moveSpeed = scheduleSeconds < dashUntil ? DASH_SPEED : MOVE_SPEED;
+            const stepX = dx * moveSpeed * time.delta;
+            const stepY = dy * moveSpeed * time.delta;
 
             const tentativeX = playerX + stepX;
             if (!collidesWithWalls(playerAabbAtCenter(tentativeX, playerY), walls)) {
@@ -1125,6 +1133,17 @@ async function main(): Promise<void> {
           if (!cleared && !failed) {
             applyHazardDamage(playerBox);
           }
+        }
+
+        if (
+          phase === "play" &&
+          !cleared &&
+          !failed &&
+          !query.pressed("restart") &&
+          query.pressed("dash") &&
+          scheduleSeconds >= dashUntil
+        ) {
+          dashUntil = scheduleSeconds + DASH_DURATION;
         }
 
         scheduleSeconds += time.delta;
@@ -1227,7 +1246,7 @@ async function main(): Promise<void> {
         ctx.fillStyle = "#9aa0a6";
         ctx.font = "14px system-ui, sans-serif";
         ctx.fillText(
-          "Arrows / gamepad — gems; =/+ zoom in, - out, 0 reset; Q/E/T camera rotate CCW/CW/reset; P pause; R restart (R wins)",
+          "Arrows / gamepad — gems; Shift dash; =/+ zoom in, - out, 0 reset; Q/E/T camera rotate CCW/CW/reset; P pause; R restart (R wins)",
           16,
           controlsY,
         );

@@ -1,6 +1,6 @@
 # Pickup Demo
 
-Top-down pickup game sample for [Glyph Arena](https://github.com/Fogrexon/glyph-arena). Collect gems, avoid walls, and watch the camera follow the player. The player sprite faces the current move direction (`transform.rotation` from keyboard or gamepad input); collision stays axis-aligned on the player AABB.
+Top-down pickup game sample for [Glyph Arena](https://github.com/Fogrexon/glyph-arena). Collect gems, avoid walls, and watch the camera follow the player. The player sprite faces the current move direction (`transform.rotation` from keyboard or gamepad input); collision stays axis-aligned on the player AABB. **ShiftLeft** triggers a **0.15s** move burst at **2×** speed (`360` px/s).
 
 **Flow:** boot **title** → **Space** / **Enter** starts **play** → **CLEAR** or **FAIL** shows **result** → **R** rematches **play** (title only returns on full page reload). Title and play swap scene subtrees under `screenRoot` via `createForest` destroy/`setParent`; play stays mounted through result so pickup FX can finish.
 
