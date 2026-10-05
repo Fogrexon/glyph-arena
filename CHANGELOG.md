@@ -39,3 +39,4 @@ All notable changes to this project will be documented in this file.
 - Pickup demo at `examples/pickup-demo` now has 3 lives with hazard contact −1 and 1.0s invulnerability gated on demo `scheduleSeconds` (0 lives → FAIL same as timeout; same-frame CLEAR wins; R resets lives; demo-only; no package API change)
 - Pickup demo at `examples/pickup-demo` now has 3 red hazards that cruise at 80 px/s with wall AABB bounce (axis-aligned velocities H0=(+80,0)/H1=(0,+80)/H2=(0,-80); pass through player/gems/each other; lives/i-frames unchanged; demo-only; no package API change)
 - Pickup demo at `examples/pickup-demo` now shows frozen remaining round time on the result screen (Score → Lives → Time `x.x` → CLEAR/FAIL; no extra freeze state; demo-only; no package API change)
+- Pickup demo at `examples/pickup-demo` now has a ShiftLeft dash burst (0.15s at 360 via demo `dashUntil` on `scheduleSeconds`; re-press ignored during burst; no i-frames; demo-only; no package API change)
