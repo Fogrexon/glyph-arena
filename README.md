@@ -43,7 +43,7 @@ const loop = createLoop({
 loop.start();
 ```
 
-Each package's API doc (`docs/api-*.md`) lists its exports, options and edge cases; each package also has a `README.md` under `packages/`.
+Each package's API doc (`docs/api-*.md`) lists its exports, options and edge cases; each package also has a `README.md` under `packages/`. The same pages are rendered to HTML and published at [fogrexon.github.io/glyph-arena/docs](https://fogrexon.github.io/glyph-arena/docs/).
 
 ## Demo
 
@@ -54,6 +54,8 @@ pnpm install
 pnpm build
 pnpm --filter @fogrexon/glyph-arena-pickup-demo dev
 ```
+
+`pnpm build` is not optional here: the demo resolves `@fogrexon/glyph-arena-*` through each package's `dist`, so starting the dev server before the packages are built fails to resolve them.
 
 ## Development
 
