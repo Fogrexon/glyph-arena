@@ -81,12 +81,23 @@ function main() {
         `<li><a href="${href}">${escapeHtml(title)}</a></li>`,
     )
     .join("\n");
+  // The docs front page is the repository README, rendered from the same file
+  // GitHub shows: one source, two entry points, links rewritten by the same rule.
+  const readmePath = join(REPO, "README.md");
+  const readme = readFileSync(readmePath, "utf8");
+  assertSupportedBlocks(readme, "README.md");
+  const { html: readmeHtml, meta: readmeMeta } = renderMarkdown(readme, readmePath);
+  checkRendered(readmeHtml, "README.md");
+
+  // The 14-page list stays in the body under the README: the sidebar collapses
+  // on narrow screens, so the list has to exist in the flow too.
   writeFileSync(
     join(OUT_DIR, "index.html"),
     renderPage({
-      title: "API docs",
-      body: `<h1>API docs</h1>\n<p>One page per package.</p>\n<ul>\n${list}\n</ul>`,
+      title: "API docs", // the shell appends " — Glyph Arena"
+      body: `${readmeHtml}\n<h2 id="api-pages">API pages</h2>\n<p>One page per package.</p>\n<ul>\n${list}\n</ul>`,
       sidebar,
+      sections: [...readmeMeta.sections, { id: "api-pages", text: "API pages" }],
       current: "",
     }),
   );
