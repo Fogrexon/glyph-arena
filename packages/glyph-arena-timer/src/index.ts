@@ -134,6 +134,13 @@ export function createTimer(): Timer {
     let firstError: unknown;
 
     for (const task of due) {
+      // dispose() may have been called by an earlier callback in this tick.
+      // The contract is that nothing fires after dispose, including callbacks
+      // that were already due when the tick started.
+      if (disposed) {
+        break;
+      }
+
       if (task.cancelled) {
         continue;
       }
@@ -146,8 +153,8 @@ export function createTimer(): Timer {
         }
       }
 
-      if (task.cancelled) {
-        continue;
+      if (disposed || task.cancelled) {
+        break;
       }
 
       if (task.kind === "once") {
