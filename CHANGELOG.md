@@ -4,10 +4,6 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### Fixed
-
-- `@fogrexon/glyph-arena-timer` — `dispose()` now stops firing immediately: callbacks that were already due in the same tick are no longer invoked after it (behaviour change, no API signature change)
-
 ### Added
 
 - Pickup demo at `examples/pickup-demo` now ships `favicon.ico` and `favicon.svg` linked from `index.html`, removing the `/favicon.ico` 404 on the public URL (demo-only; no package API change)
