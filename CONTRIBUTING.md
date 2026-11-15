@@ -9,7 +9,7 @@ pnpm install
 ## Commands
 
 ```bash
-pnpm typecheck   # TypeScript across all packages and examples
+pnpm typecheck   # TypeScript across all packages and examples; no build needed
 pnpm test        # Node test runner
 pnpm build       # Compile all packages
 ```
@@ -26,16 +26,18 @@ pnpm smoke:pack-install          # pack, install offline, import + strict tsc
 
 A change is done only when all three pass on the same commit:
 
-1. `pnpm typecheck` — no TypeScript errors in any package or example (`examples/` included)
+1. `pnpm typecheck` — no TypeScript errors in any package or example (`examples/` included), with no prior build
 2. `pnpm test` — the Node test runner passes for every package
 3. `pnpm build` — every package and example builds
+
+`pnpm typecheck` does not depend on a previous build: `tsconfig.base.json` maps `@fogrexon/glyph-arena-*` to `packages/*/src/index.ts`, so a fresh clone typechecks as it is. `pnpm build` is still required — it produces `dist`, which is what npm consumers, the deployed demo and the three gates below read.
 
 **A green `build` alone is not done.** The example build is `vite build`, which strips types without checking them: a type error under `examples/` still builds, and only `pnpm typecheck` catches it. `pnpm build` runs no tests either, so a build-only run says nothing about the other two points.
 
 Merge only when typecheck, test and build are all green on the same commit, together with the gates CI runs before and after them, and paste the CI run URL in the PR description so the green can be checked. CI runs:
 
 ```
-install → build → check:package-entry-points → typecheck:public-api → smoke:pack-install → typecheck → test
+install → typecheck → build → check:package-entry-points → typecheck:public-api → smoke:pack-install → test
 ```
 
 - `check:package-entry-points` — every `main` / `types` / `exports` entry in a package points at a file that exists.
