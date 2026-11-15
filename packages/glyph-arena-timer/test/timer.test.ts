@@ -265,7 +265,47 @@ describe("createTimer", () => {
     assert.equal(later, 1);
   });
 
-  it("a repeat that already fired does not fire again after dispose", () => {
+  it("a dispose inside a callback stops the rest of the tick", () => {
+    const timer = createTimer();
+    const order: string[] = [];
+
+    timer.every(1, () => {
+      order.push("a");
+      timer.dispose();
+    });
+    timer.every(1, () => {
+      order.push("b");
+    });
+
+    timer.tick(0);
+    timer.tick(1);
+
+    // Contract: dispose stops everything from that moment, including callbacks
+    // that were already due when the tick started.
+    assert.deepEqual(order, ["a"]);
+  });
+
+  it("nothing fires on later ticks after dispose", () => {
+    const timer = createTimer();
+    const order: string[] = [];
+
+    timer.every(1, () => {
+      order.push("a");
+      timer.dispose();
+    });
+    timer.every(1, () => {
+      order.push("b");
+    });
+
+    timer.tick(0);
+    timer.tick(1);
+    timer.tick(2);
+    timer.tick(3);
+
+    assert.deepEqual(order, ["a"]);
+  });
+
+  it("an every already rescheduled at dispose time does not fire afterwards", () => {
     const timer = createTimer();
     let count = 0;
 
