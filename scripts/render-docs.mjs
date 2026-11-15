@@ -94,7 +94,7 @@ function main() {
   writeFileSync(
     join(OUT_DIR, "index.html"),
     renderPage({
-      title: "Glyph Arena",
+      title: "API docs", // the shell appends " — Glyph Arena"
       body: `${readmeHtml}\n<h2 id="api-pages">API pages</h2>\n<p>One page per package.</p>\n<ul>\n${list}\n</ul>`,
       sidebar,
       sections: [...readmeMeta.sections, { id: "api-pages", text: "API pages" }],
