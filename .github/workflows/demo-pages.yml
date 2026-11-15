@@ -6,6 +6,7 @@ on:
     paths:
       - "examples/pickup-demo/**"
       - "docs/**"
+      - "README.md"
       - "scripts/render-docs.mjs"
       - "scripts/docs/**"
       - "packages/glyph-arena-actions/**"
