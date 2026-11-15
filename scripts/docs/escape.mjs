@@ -6,3 +6,12 @@ export function escapeHtml(text) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
+
+/** Anchor id for a heading: lowercase, non-alphanumeric runs become `-`. */
+export function slugify(text) {
+  return text
+    .toLowerCase()
+    .replace(/`/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
