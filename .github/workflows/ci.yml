@@ -40,6 +40,11 @@ jobs:
 
       - run: pnpm typecheck:public-api
 
+      # Packs every package, installs the tarballs into an empty project
+      # offline, and typechecks a strict consumer against them. No registry is
+      # contacted; S4 in the script proves the check actually reads types.
+      - run: pnpm smoke:pack-install
+
       - run: pnpm -r typecheck
 
       - run: pnpm -r test
