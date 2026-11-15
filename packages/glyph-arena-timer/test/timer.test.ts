@@ -216,6 +216,73 @@ describe("createTimer", () => {
     assert.equal(count, 1);
   });
 
+  it("a negative interval never fires, and does not wedge the timer", () => {
+    const timer = createTimer();
+    let negativeFired = 0;
+
+    timer.delay(-1, () => {
+      negativeFired += 1;
+    });
+    timer.every(-0.5, () => {
+      negativeFired += 1;
+    });
+
+    // Far into the future, not just the next tick: an implementation that
+    // schedules a negative interval as "due later" has to fail here.
+    timer.tick(0);
+    timer.tick(1);
+    timer.tick(100);
+    assert.equal(negativeFired, 0);
+
+    // Registering the bad interval must not wedge the timer either.
+    let healthy = 0;
+    timer.delay(1, () => {
+      healthy += 1;
+    });
+    timer.tick(101);
+    assert.equal(healthy, 1);
+    assert.equal(negativeFired, 0);
+  });
+
+  it("a throw does not drop schedules due on a later tick", () => {
+    const timer = createTimer();
+    const error = new Error("boom");
+    let later = 0;
+
+    timer.delay(1, () => {
+      throw error;
+    });
+    timer.delay(2, () => {
+      later += 1;
+    });
+
+    timer.tick(0);
+    assert.throws(() => timer.tick(1), error);
+    assert.equal(later, 0);
+
+    // The rethrow must not clear reservations it did not own.
+    timer.tick(2);
+    assert.equal(later, 1);
+  });
+
+  it("a repeat that already fired does not fire again after dispose", () => {
+    const timer = createTimer();
+    let count = 0;
+
+    timer.every(1, () => {
+      count += 1;
+    });
+
+    timer.tick(0);
+    timer.tick(1);
+    assert.equal(count, 1);
+
+    timer.dispose();
+    timer.tick(2);
+    timer.tick(3);
+    assert.equal(count, 1);
+  });
+
   it("does not import loop or input packages", () => {
     const source = readFileSync(
       join(packageRoot, "src", "index.ts"),
