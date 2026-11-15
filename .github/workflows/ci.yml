@@ -30,9 +30,15 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # typecheck resolves workspace packages through their built dist/,
-      # so build has to run first.
+      # build first: the two checks below and the demo bundle read dist/.
       - run: pnpm -r build
+
+      # Two checks that survive tsconfig paths mapping sources into
+      # `pnpm -r typecheck`: package.json must point at files that exist, and
+      # the emitted declarations must still carry the public API.
+      - run: pnpm check:package-entry-points
+
+      - run: pnpm typecheck:public-api
 
       - run: pnpm -r typecheck
 

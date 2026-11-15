@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "paths": {
+      "@fogrexon/glyph-arena-*": [
+        "../../packages/glyph-arena-*/dist/index.d.ts"
+      ]
+    }
+  },
+  "include": [
+    "index.mts"
+  ]
+}
