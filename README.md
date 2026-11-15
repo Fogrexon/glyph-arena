@@ -59,18 +59,18 @@ pnpm --filter @fogrexon/glyph-arena-pickup-demo dev
 
 ```bash
 pnpm install
-pnpm build                       # first: packages import each other through dist/*.d.ts
-pnpm typecheck
+pnpm typecheck                   # no build needed: tsconfig `paths` maps packages to their src
+pnpm build                       # required: dist is what npm, Pages and the gates below read
+pnpm check:package-entry-points  # package.json entry points must exist
+pnpm typecheck:public-api        # emitted declarations must keep the public API
+pnpm smoke:pack-install          # pack, install offline, import + strict tsc
 pnpm test
-pnpm check:package-entry-points  # after build: package.json entry points must exist
-pnpm typecheck:public-api        # after build: emitted declarations must keep the public API
-pnpm smoke:pack-install          # after build: pack, install offline, import + strict tsc
 ```
 
 CI (`.github/workflows/ci.yml`) runs the same gates in this order:
 
 ```
-install → build → check:package-entry-points → typecheck:public-api → smoke:pack-install → typecheck → test
+install → typecheck → build → check:package-entry-points → typecheck:public-api → smoke:pack-install → test
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the definition of done and the repository layout.
