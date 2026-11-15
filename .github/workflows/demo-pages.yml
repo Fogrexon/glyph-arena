@@ -7,6 +7,7 @@ on:
       - "examples/pickup-demo/**"
       - "docs/**"
       - "scripts/render-docs.mjs"
+      - "scripts/docs/**"
       - "packages/glyph-arena-actions/**"
       - "packages/glyph-arena-assets/**"
       - "packages/glyph-arena-audio/**"
