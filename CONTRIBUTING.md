@@ -59,6 +59,8 @@ Examples live under `examples/`. The pickup sample is at `examples/pickup-demo`;
 
 ## API documentation
 
+These files are rendered to HTML by `scripts/render-docs.mjs` during the demo build and published at [fogrexon.github.io/glyph-arena/docs](https://fogrexon.github.io/glyph-arena/docs/). Edit the `docs/api-*.md` sources, not the generated pages.
+
 - [glyph-arena-actions API](docs/api-actions.md)
 - [glyph-arena-assets API](docs/api-assets.md)
 - [glyph-arena-audio API](docs/api-audio.md)
