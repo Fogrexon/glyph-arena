@@ -4,7 +4,9 @@
   "scripts": {
     "build": "pnpm -r build",
     "test": "pnpm -r test",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "typecheck:public-api": "tsc -p fixtures/public-api/tsconfig.json",
+    "check:package-entry-points": "node scripts/check-package-entry-points.mjs"
   },
   "devDependencies": {
     "tsx": "^4.19.4",
