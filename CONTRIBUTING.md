@@ -14,6 +14,14 @@ pnpm test        # Node test runner
 pnpm build       # Compile all packages
 ```
 
+Three further gates need a `pnpm build` first:
+
+```bash
+pnpm check:package-entry-points  # package.json entry points must exist
+pnpm typecheck:public-api        # emitted declarations must keep the public API
+pnpm smoke:pack-install          # pack, install offline, import + strict tsc
+```
+
 ## Definition of done
 
 A change is done only when all three pass on the same commit:
@@ -24,7 +32,15 @@ A change is done only when all three pass on the same commit:
 
 **A green `build` alone is not done.** The example build is `vite build`, which strips types without checking them: a type error under `examples/` still builds, and only `pnpm typecheck` catches it. `pnpm build` runs no tests either, so a build-only run says nothing about the other two points.
 
-Merge only when typecheck, test and build are all green on the same commit, and paste the CI run URL in the PR description so the green can be checked.
+Merge only when typecheck, test and build are all green on the same commit, together with the gates CI runs before and after them, and paste the CI run URL in the PR description so the green can be checked. CI runs:
+
+```
+install → build → check:package-entry-points → typecheck:public-api → smoke:pack-install → typecheck → test
+```
+
+- `check:package-entry-points` — every `main` / `types` / `exports` entry in a package points at a file that exists.
+- `typecheck:public-api` — a type-only fixture imports all 14 packages by name and checks the emitted declarations.
+- `smoke:pack-install` — `pnpm pack` builds tarballs, installs them into an empty project offline, then imports them and typechecks a strict consumer. It never touches the registry.
 
 When a change affects the deployed demo, also confirm it on the live URL before calling it done. Merged but not live is not done.
 

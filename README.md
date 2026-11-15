@@ -64,12 +64,13 @@ pnpm typecheck
 pnpm test
 pnpm check:package-entry-points  # after build: package.json entry points must exist
 pnpm typecheck:public-api        # after build: emitted declarations must keep the public API
+pnpm smoke:pack-install          # after build: pack, install offline, import + strict tsc
 ```
 
 CI (`.github/workflows/ci.yml`) runs the same gates in this order:
 
 ```
-install → build → check:package-entry-points → typecheck:public-api → typecheck → test
+install → build → check:package-entry-points → typecheck:public-api → smoke:pack-install → typecheck → test
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the definition of done and the repository layout.
@@ -80,4 +81,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the definition of done and the reposi
 - `examples/` — `pickup-demo`, the demo above
 - `docs/` — `api-*.md`, one per package
 - `fixtures/public-api/` — type-only fixture that imports every package by name and checks the emitted declarations
-- `scripts/` — repository checks such as `check-package-entry-points.mjs`
+- `scripts/` — repository checks such as `check-package-entry-points.mjs` and `smoke-pack-install.mjs`
