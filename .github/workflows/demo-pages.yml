@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - "examples/pickup-demo/**"
+      - "docs/**"
+      - "scripts/render-docs.mjs"
       - "packages/glyph-arena-actions/**"
       - "packages/glyph-arena-assets/**"
       - "packages/glyph-arena-audio/**"
