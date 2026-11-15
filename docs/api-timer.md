@@ -30,7 +30,7 @@ timer.dispose();
 - **`every(seconds, fn)`** — fire `fn` every `seconds`; first fire after one interval (not immediately). Returns a handle.
 - **`cancel(handle)`** — cancel a scheduled callback. Unknown handles are no-ops.
 - **`tick(nowSeconds)`** — advance time. `nowSeconds` must be monotonically non-decreasing; backward ticks are ignored.
-- **`dispose()`** — clear all pending callbacks. After dispose, all methods are no-ops.
+- **`dispose()`** — clear all pending callbacks. It takes effect immediately: callbacks already due in the same `tick()` do not run either. After dispose, all methods are no-ops.
 
 ### `TimerHandle`
 
@@ -59,3 +59,7 @@ If a callback throws, other due callbacks still run; the first error is rethrown
 ### Cancel during callback
 
 Cancelling during a callback prevents rescheduling (`every`).
+
+### Dispose during a tick
+
+`dispose()` is immediate. If a callback calls it, the remaining callbacks already due in the same `tick()` do not run, and later ticks fire nothing.
