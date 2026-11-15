@@ -19,9 +19,9 @@ export type Transform = {
   set: (node: unknown, local: Partial<LocalTransform>) => void;
   get: (node: unknown) => LocalTransform;
   clear: (node: unknown) => void;
-  world: (
-    node: unknown,
-    parentOf: (node: unknown) => object | null,
+  world: <Node>(
+    node: Node,
+    parentOf: (node: Node) => Node | null,
   ) => Matrix2D;
   dispose: () => void;
 };
@@ -172,15 +172,18 @@ export function createTransform(): Transform {
     locals.delete(node);
   };
 
-  const world = (
-    node: unknown,
-    parentOf: (node: unknown) => object | null,
+  const world = <Node>(
+    node: Node,
+    parentOf: (node: Node) => Node | null,
   ): Matrix2D => {
     if (disposed || !isObjectNode(node)) {
       return copyMatrix(IDENTITY_MATRIX);
     }
 
-    const chain = buildChain(node, parentOf);
+    const chain = buildChain(
+      node,
+      parentOf as (node: unknown) => object | null,
+    );
     let matrix = localToMatrix(getOrDefault(chain[chain.length - 1]!));
 
     for (let index = chain.length - 2; index >= 0; index -= 1) {
