@@ -2,6 +2,8 @@
 
 All notable changes to this project will be documented in this file.
 
+Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. Documentation-only changes (`docs/`, `README.md`) update the published site without a new tag.
+
 ## [Unreleased]
 
 ### Added
