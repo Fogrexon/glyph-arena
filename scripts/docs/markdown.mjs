@@ -6,7 +6,7 @@
  * `assertSupportedBlocks()` rejects anything else so a doc that grows a new
  * construct fails the build instead of shipping half-rendered markdown.
  */
-import { escapeHtml } from "./escape.mjs";
+import { escapeHtml, slugify } from "./escape.mjs";
 import { dirname, resolve } from "node:path";
 import { readFileSync } from "node:fs";
 
@@ -28,23 +28,30 @@ const UNSUPPORTED = [
 
 export function assertSupportedBlocks(markdown, sourceName) {
   const unsupported = [];
+  const lines = markdown.split("\n");
   let inFence = false;
 
-  for (const line of markdown.split("\n")) {
+  for (const [offset, line] of lines.entries()) {
     if (/^```/.test(line)) {
       inFence = !inFence;
       continue;
     }
     if (inFence) continue;
     for (const [pattern, label] of UNSUPPORTED) {
-      if (pattern.test(line)) unsupported.push(`${label}: ${line.trim().slice(0, 60)}`);
+      if (pattern.test(line)) {
+        unsupported.push(
+          `${sourceName}:${offset + 1}: ${label} at \`${line.trim().slice(0, 60)}\``,
+        );
+      }
     }
   }
 
   if (unsupported.length > 0) {
     throw new Error(
-      `${sourceName}: unsupported markdown block(s) — extend scripts/docs/markdown.mjs:\n  ` +
-        unsupported.slice(0, 5).join("\n  "),
+      `${unsupported.length} unsupported markdown block(s). ` +
+        `Rewrite the source, or extend scripts/docs/markdown.mjs:\n  ` +
+        unsupported.slice(0, 5).join("\n  ") +
+        (unsupported.length > 5 ? `\n  …and ${unsupported.length - 5} more` : ""),
     );
   }
 }
@@ -126,7 +133,7 @@ function renderTable(rows, sourceDoc) {
 export function renderMarkdown(markdown, sourceDoc) {
   const lines = markdown.split("\n");
   const out = [];
-  const meta = { headings: 0, codeBlocks: 0, tables: 0, listItems: 0 };
+  const meta = { headings: 0, codeBlocks: 0, tables: 0, listItems: 0, sections: [] };
   let index = 0;
 
   while (index < lines.length) {
@@ -155,8 +162,11 @@ export function renderMarkdown(markdown, sourceDoc) {
     const heading = line.match(/^(#{1,4})\s+(.*)$/);
     if (heading) {
       const level = heading[1].length;
+      const text = heading[2].trim();
+      const id = slugify(text);
       meta.headings += 1;
-      out.push(`<h${level}>${renderInline(heading[2].trim(), sourceDoc)}</h${level}>`);
+      if (level === 2) meta.sections.push({ id, text: text.replace(/`/g, "") });
+      out.push(`<h${level} id="${id}">${renderInline(text, sourceDoc)}</h${level}>`);
       index += 1;
       continue;
     }
