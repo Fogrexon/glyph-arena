@@ -12,6 +12,7 @@ import { createForest, type Node } from "@fogrexon/glyph-arena-scene";
 import { createTimer } from "@fogrexon/glyph-arena-timer";
 import { createTransform, type Matrix2D } from "@fogrexon/glyph-arena-transform";
 import { createTween } from "@fogrexon/glyph-arena-tween";
+import { WAVES } from "./waves";
 
 type Phase = "title" | "play" | "result";
 
@@ -55,30 +56,6 @@ const COMPONENT_AABB = "aabb";
 const COMPONENT_VELOCITY = "velocity";
 
 type Velocity = { vx: number; vy: number };
-
-/** Fixed wave script: no RNG, so a given run index is always the same run. */
-const WAVES: Array<{ at: number; angle: number; speed: number; radius: number }> = [
-  { at: 1.8, angle: 90, speed: 55, radius: 340 },
-  { at: 5.0, angle: 270, speed: 78, radius: 360 },
-  { at: 4.6, angle: 0, speed: 84, radius: 360 },
-  { at: 6.2, angle: 180, speed: 90, radius: 360 },
-  { at: 7.6, angle: 45, speed: 96, radius: 380 },
-  { at: 9.0, angle: 225, speed: 100, radius: 380 },
-  { at: 10.4, angle: 135, speed: 104, radius: 380 },
-  { at: 11.8, angle: 315, speed: 108, radius: 380 },
-  { at: 13.0, angle: 90, speed: 112, radius: 400 },
-  { at: 14.2, angle: 270, speed: 116, radius: 400 },
-  { at: 15.4, angle: 20, speed: 120, radius: 400 },
-  { at: 16.6, angle: 200, speed: 124, radius: 400 },
-  { at: 17.8, angle: 110, speed: 128, radius: 400 },
-  { at: 19.0, angle: 290, speed: 132, radius: 400 },
-  { at: 20.2, angle: 60, speed: 136, radius: 420 },
-  { at: 21.4, angle: 240, speed: 140, radius: 420 },
-  { at: 22.6, angle: 150, speed: 144, radius: 420 },
-  { at: 23.8, angle: 330, speed: 148, radius: 420 },
-  { at: 25.0, angle: 75, speed: 152, radius: 420 },
-  { at: 26.2, angle: 255, speed: 156, radius: 420 },
-];
 
 const canvasEl = document.getElementById("game");
 if (!(canvasEl instanceof HTMLCanvasElement)) {
