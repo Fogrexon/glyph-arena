@@ -355,18 +355,23 @@ async function main(): Promise<void> {
   let wallDrawables: Drawable[] = [];
   let hazardDrawables: Drawable[] = [];
 
-  /** Fixed play-field hazards (deterministic; no runtime RNG). */
+  /**
+   * Fixed play-field hazards (deterministic; no runtime RNG).
+   * Lanes cross the routes the player actually takes: H0 sweeps the spawn row,
+   * H1 runs the spawn column, H2 sweeps the bottom gem row. Every lane crosses
+   * open floor, so standing still is punished.
+   */
   const hazardSpawns: Array<{ x: number; y: number }> = [
-    { x: 480, y: 96 },
-    { x: 96, y: 380 },
-    { x: 872, y: 380 },
+    { x: 96, y: 434 },
+    { x: 584, y: 96 },
+    { x: 1104, y: 760 },
   ];
 
-  /** Initial hazard velocities in spawn order: H0, H1, H2 (px/s, axis-aligned). */
+  /** Initial hazard velocities in spawn order: H0, H1, H2 (px/s, axis-aligned, 80 px/s each). */
   const hazardInitialVelocities: Array<{ vx: number; vy: number }> = [
     { vx: HAZARD_SPEED, vy: 0 },
     { vx: 0, vy: HAZARD_SPEED },
-    { vx: 0, vy: -HAZARD_SPEED },
+    { vx: -HAZARD_SPEED, vy: 0 },
   ];
 
   const hazardVelocities = new Map<Entity, { vx: number; vy: number }>();
