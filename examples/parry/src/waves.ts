@@ -1,5 +1,5 @@
 /**
- * The wave script - the one place a run's difficulty is decided.
+ * The wave script — the one place a run's difficulty is decided.
  *
  * Each row is the *shape* of an enemy (angle, speed, radius). When it spawns is
  * **derived** from when it should reach the player:
@@ -28,7 +28,7 @@ export const FIRST_WAVE = { at: 1.8, angle: 90, speed: 55, radius: 340 };
 
 const FIRST_CONTACT = FIRST_WAVE.at + (FIRST_WAVE.radius - CONTACT_DISTANCE) / FIRST_WAVE.speed;
 
-/** Angle, speed and radius per wave - 20 rows, the first one is the onboarding enemy. */
+/** Angle, speed and radius per wave — 20 rows, the first one is the onboarding enemy. */
 const SHAPES: ReadonlyArray<{ angle: number; speed: number; radius: number }> = [
   { angle: FIRST_WAVE.angle, speed: FIRST_WAVE.speed, radius: FIRST_WAVE.radius },
   { angle: 270, speed: 78, radius: 360 },
