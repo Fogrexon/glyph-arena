@@ -491,6 +491,27 @@ async function main(): Promise<void> {
     });
   }
 
+  /** Draws text one word at a time so a narrow viewport never clips a line. Returns the line count. */
+  function drawWrapped(text: string, x: number, y: number, maxWidth: number, lineHeight: number): number {
+    const words = text.split(" ");
+    let line = "";
+    let offsetY = 0;
+    for (const word of words) {
+      const candidate = line === "" ? word : `${line} ${word}`;
+      if (line !== "" && ctx.measureText(candidate).width > maxWidth) {
+        ctx.fillText(line, x, y + offsetY);
+        offsetY += lineHeight;
+        line = word;
+      } else {
+        line = candidate;
+      }
+    }
+    if (line !== "") {
+      ctx.fillText(line, x, y + offsetY);
+    }
+    return Math.round(offsetY / lineHeight) + 1;
+  }
+
   function drawHud(): void {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     if (phase === "play") {
@@ -514,7 +535,11 @@ async function main(): Promise<void> {
       ctx.fillText(`Parried: ${parried}/${WAVES.length}`, 16, 32);
       ctx.font = "16px system-ui, sans-serif";
       ctx.fillText(`Reached wave: ${latest === undefined ? 0 : latest.wave}/${WAVES.length}`, 16, 56);
-      ctx.fillText(`Median error: ${latest === undefined ? 0 : latest.absoluteMs}ms`, 16, 78);
+      ctx.fillText(
+        `Median error: ${latest === undefined || latest.parried === 0 ? "\u2014" : `${latest.absoluteMs}ms`}`,
+        16,
+        78,
+      );
       ctx.fillStyle = resultText === "CLEAR" ? "#fbbf24" : "#e63946";
       ctx.font = "20px system-ui, sans-serif";
       ctx.fillText(`${resultText} \u2014 R restart`, 16, 106);
@@ -527,7 +552,7 @@ async function main(): Promise<void> {
         const run = runHistory[index];
         const row = runHistory.length - index;
         ctx.fillText(
-          `${row}. ${run.result} - parried ${run.parried}, ${run.absoluteMs}ms, wave ${run.wave}`,
+          `${row}. ${run.result} - parried ${run.parried}, ${run.parried === 0 ? "\u2014" : `${run.absoluteMs}ms`}, wave ${run.wave}`,
           16,
           160 + (runHistory.length - 1 - index) * 18,
         );
@@ -593,17 +618,24 @@ async function main(): Promise<void> {
         ctx.font = "28px system-ui, sans-serif";
         ctx.fillText("Parry", 16, 48);
         ctx.font = "18px system-ui, sans-serif";
-        ctx.fillText("Dash into an incoming enemy to parry it \u2014 20 waves", 16, 84);
+        const subtitleLines = drawWrapped(
+          "Dash into an incoming enemy to parry it \u2014 20 waves",
+          16,
+          84,
+          canvas.width - 32,
+          22,
+        );
+        const controlsY = 84 + subtitleLines * 22 + 10;
         ctx.font = "14px system-ui, sans-serif";
         ctx.fillStyle = "#9aa0a6";
         ctx.fillText(
           touchEnabled ? "Drag the pad to move \u2014 dash with a second tap" : "Arrows / gamepad move \u00b7 Shift or Space dash \u00b7 R restart",
           16,
-          110,
+          controlsY,
         );
         ctx.fillStyle = "#fbbf24";
         ctx.font = "18px system-ui, sans-serif";
-        ctx.fillText(touchEnabled ? "Tap \u2014 start" : "Space / Enter \u2014 start", 16, 146);
+        ctx.fillText(touchEnabled ? "Tap \u2014 start" : "Space / Enter \u2014 start", 16, controlsY + 36);
         return;
       }
 
