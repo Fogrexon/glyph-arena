@@ -55,6 +55,8 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Added
 
+- `examples/parry`: the result screen now puts the run-to-run comparison on one line under the verdict (`vs last run: +1 parry, median error -80ms`, and `First run — this is the baseline` on the first run), coloured when the run was an improvement, so "was that better?" is answered without reading the history list. Session-only, like the history it reads: nothing is written to storage (demo-only)
+
 - `examples/parry` now keeps the **last 5 runs** on the result screen (parried count, median absolute ms error, reached wave, plus a run median) so a session can be judged from numbers. The history lives in memory only: nothing is written to storage and a reload starts fresh (demo-only)
 
 ### Fixed

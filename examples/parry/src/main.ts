@@ -12,6 +12,7 @@ import { createForest, type Node } from "@fogrexon/glyph-arena-scene";
 import { createTimer } from "@fogrexon/glyph-arena-timer";
 import { createTransform, type Matrix2D } from "@fogrexon/glyph-arena-transform";
 import { createTween } from "@fogrexon/glyph-arena-tween";
+import { comparisonLine, isImprovement } from "./history";
 import { WAVES } from "./waves";
 
 type Phase = "title" | "play" | "result";
@@ -532,17 +533,25 @@ async function main(): Promise<void> {
       ctx.font = "20px system-ui, sans-serif";
       ctx.fillText(`${resultText} \u2014 R restart`, 16, 106);
 
+      // "Was that better?" answered before the player has to read the list.
+      const previous = runHistory[runHistory.length - 2];
+      if (latest !== undefined) {
+        ctx.fillStyle = isImprovement(latest, previous) ? "#fbbf24" : "#9aa0a6";
+        ctx.font = "16px system-ui, sans-serif";
+        ctx.fillText(comparisonLine(latest, previous), 16, 132);
+      }
+
       // The last runs, newest first, so five runs can be compared at a glance.
       ctx.font = "14px system-ui, sans-serif";
       ctx.fillStyle = "#9aa0a6";
-      ctx.fillText("Last runs (newest first):", 16, 140);
+      ctx.fillText("Last runs (newest first):", 16, 164);
       for (let index = runHistory.length - 1; index >= 0; index -= 1) {
         const run = runHistory[index];
         const row = runHistory.length - index;
         ctx.fillText(
           `${row}. ${run.result} - parried ${run.parried}, ${run.parried === 0 ? "\u2014" : `${run.absoluteMs}ms`}, wave ${run.wave}`,
           16,
-          160 + (runHistory.length - 1 - index) * 18,
+          184 + (runHistory.length - 1 - index) * 18,
         );
       }
       if (runHistory.length >= 2) {
@@ -552,7 +561,7 @@ async function main(): Promise<void> {
         ctx.fillText(
           `${runHistory.length}-run median: parried ${parriedMedian}, ${Math.round(msMedian)}ms`,
           16,
-          160 + runHistory.length * 18 + 6,
+          184 + runHistory.length * 18 + 6,
         );
       }
     }
