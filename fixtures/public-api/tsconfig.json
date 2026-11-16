@@ -5,6 +5,9 @@
     "declaration": false,
     "declarationMap": false,
     "paths": {
+      "@fogrexon/glyph-arena": [
+        "../../packages/glyph-arena/dist/index.d.ts"
+      ],
       "@fogrexon/glyph-arena-*": [
         "../../packages/glyph-arena-*/dist/index.d.ts"
       ]

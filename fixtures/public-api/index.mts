@@ -44,6 +44,9 @@ import type { Timer } from "@fogrexon/glyph-arena-timer";
 import type { Transform } from "@fogrexon/glyph-arena-transform";
 import type { Tween } from "@fogrexon/glyph-arena-tween";
 
+import { createWorld as createWorldFromUmbrella } from "@fogrexon/glyph-arena";
+import type { Matrix2D as UmbrellaMatrix2D } from "@fogrexon/glyph-arena";
+
 /** One export per package: fails if a value export is missing or renamed. */
 export const publicFactories = {
   actions: createActions,
@@ -78,4 +81,17 @@ export type PublicTypes = {
   timer: Timer;
   transform: Transform;
   tween: Tween;
+};
+
+/**
+ * The single package intended for npm. Its flat surface must resolve by name
+ * too: the umbrella re-exports through relative paths inside its own `dist/`,
+ * never through the (unpublished) sibling package names.
+ */
+export const publicUmbrella = {
+  ecs: createWorldFromUmbrella,
+} satisfies Record<string, unknown>;
+
+export type PublicUmbrellaTypes = {
+  matrix: UmbrellaMatrix2D;
 };
