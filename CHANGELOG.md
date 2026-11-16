@@ -67,6 +67,8 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Changed
 
+- `examples/parry`: the wave table is now written as **target contact times** with the spawn time derived (`at = contact - (radius - 26) / speed`), so contacts stay in order and at least 0.9 s apart by construction rather than by inspection; `test/waves.test.ts` asserts the properties a run depends on (20 waves, the onboarding enemy untouched at 1.8 s / 55 px/s, contacts and spawn times both ascending and never closer than 0.9 s) and runs with `pnpm -r test` (demo-only)
+
 - `examples/parry`: the **second** enemy now waits until 5.0 s (was 3.0 s). It used to reach the player 0.33 s *before* the first enemy the HUD is teaching you to parry, so the tutorial punished the read it had just taught. Measured on the shipped build across three wave settings, the first parry landed without losing a life in 3 of 3 presses with the new timing against 1 of 2 with the old one (demo-only)
 
 - `examples/parry`: the first enemy is slower and later (55 px/s from 1.8 s) and the HUD shows "Dash into it" until the first parry lands, so a first run has a moment to learn the one verb before the pressure starts (demo-only)
