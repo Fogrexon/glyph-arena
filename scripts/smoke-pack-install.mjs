@@ -3,7 +3,7 @@
  * npm 公開 smoke test: `pnpm pack` → 一時ディレクトリへ install → import / tsc。
  *
  * It never touches a registry: `npm install --offline` against local tarballs,
- * and all 14 packages have empty `dependencies`, so the install resolves
+ * and every package has empty `dependencies`, so the install resolves
  * without network access.
  *
  * Checks (see the "npm 公開 smoke test 受け入れ" spec):
@@ -190,6 +190,30 @@ console.log("imported " + names.length);`,
     fail(`S2 import from node_modules failed:\n${imports.output}`);
   } else {
     ok("S2 every package imports from node_modules without the workspace");
+  }
+
+  // ---- S2b: the CommonJS entry (`require`) --------------------------------
+  // S2 only exercises `import`. `exports` declares a `require` target too, so a
+  // wrong or missing CJS build would otherwise ship unnoticed.
+  const umbrellaName = "@fogrexon/glyph-arena";
+  if (tarballs.has(umbrellaName)) {
+    const requiredSource = [
+      `const api = require(${JSON.stringify(umbrellaName)});`,
+      'const required = ["createWorld", "createLoop", "overlaps", "createTimer"];',
+      "const keys = Object.keys(api);",
+      'const missing = required.filter((name) => typeof api[name] !== "function");',
+      "if (keys.length !== 14 || missing.length > 0) {",
+      "  throw new Error(`require() surface: ${keys.length} exports, missing ${missing.join(\",\")}`);",
+      "}",
+      'console.log("required " + keys.length);',
+    ].join("\n");
+    writeFileSync(join(projectDir, "consumer.cjs"), `${requiredSource}\n`);
+    const required = tryRun("node", ["consumer.cjs"], { cwd: projectDir });
+    if (!required.ok) {
+      fail(`S2b require() of ${umbrellaName} failed:\n${required.output}`);
+    } else {
+      ok("S2b require() resolves the CJS build (14 exports)");
+    }
   }
 
   // ---- S3: strict typecheck against the packaged declarations --------------

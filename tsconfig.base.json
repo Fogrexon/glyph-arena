@@ -11,6 +11,9 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "paths": {
+      "@fogrexon/glyph-arena": [
+        "./packages/glyph-arena/src/index.ts"
+      ],
       "@fogrexon/glyph-arena-*": [
         "./packages/glyph-arena-*/src/index.ts"
       ]

@@ -1,7 +1,7 @@
 /**
  * Consumer used by `scripts/smoke-pack-install.mjs`.
  *
- * It is copied into a throwaway project where the 14 packed tarballs are
+ * It is copied into a throwaway project where the packed tarballs are
  * installed, so every import below must resolve through the published
  * `exports`/`types` fields — not through this repo's workspace links.
  * Keep it in sync with `fixtures/public-api/index.mts`.
@@ -37,6 +37,9 @@ import type { Timer } from "@fogrexon/glyph-arena-timer";
 import type { Transform } from "@fogrexon/glyph-arena-transform";
 import type { Tween } from "@fogrexon/glyph-arena-tween";
 
+import { createWorld as createWorldFromUmbrella } from "@fogrexon/glyph-arena";
+import type { Matrix2D as UmbrellaMatrix2D } from "@fogrexon/glyph-arena";
+
 export const factories = {
   actions: createActions,
   assets: createAssets,
@@ -69,4 +72,16 @@ export type Types = {
   timer: Timer;
   transform: Transform;
   tween: Tween;
+};
+
+/**
+ * The single package intended for npm: its packed tarball must import and
+ * typecheck on its own, without the 14 sibling packages installed.
+ */
+export const umbrellaFactories = {
+  ecs: createWorldFromUmbrella,
+} satisfies Record<string, unknown>;
+
+export type UmbrellaTypes = {
+  matrix: UmbrellaMatrix2D;
 };
