@@ -914,7 +914,58 @@ async function runParry(browser, errors) {
       winner !== "none",
       "I9: a computed press lands a parry",
       `${winner === "none" ? "neither system parried" : `winner=${winner}`} (derived ${a.parried}, absolute ${b.parried})`,
-    );  } finally {
+    );
+
+    // I10: two parries in one run. A hitstop that never ends still passes a one-parry check, so the
+    // fix is only proven once a second parry lands after the first.
+    //
+    // The press holds the direction while it waits: turning *after* the window opens is not something
+    // a player can do, and it costs the 90 ms the window is barely wide enough for.
+    const pressHolding = async () => {
+      let held = [];
+      let state = null;
+      const deadline = Date.now() + 20000;
+      while (Date.now() < deadline) {
+        const s = await page.evaluate(() => window.__parryState);
+        if (!s || s.phase !== "play" || s.pressMs === null) {
+          await page.waitForTimeout(30);
+          continue;
+        }
+        state = s;
+        const keys = [];
+        if (s.contactDirY > 0.35) keys.push("ArrowDown");
+        else if (s.contactDirY < -0.35) keys.push("ArrowUp");
+        if (s.contactDirX > 0.35) keys.push("ArrowRight");
+        else if (s.contactDirX < -0.35) keys.push("ArrowLeft");
+        for (const key of held) {
+          if (!keys.includes(key)) await page.keyboard.up(key);
+        }
+        for (const key of keys) {
+          if (!held.includes(key)) await page.keyboard.down(key);
+        }
+        held = keys;
+        if (s.pressMs <= s.windowMs + s.dashMs) break;
+        await page.waitForTimeout(30);
+      }
+      await page.keyboard.down("ShiftLeft");
+      await page.waitForTimeout(160);
+      await page.keyboard.up("ShiftLeft");
+      for (const key of held) await page.keyboard.up(key);
+      return state;
+    };
+
+    // No reload: I9 has just played this page. A reload would test the start path instead of whether
+    // the clock keeps running after a parry.
+    const beforeSecond = await page.evaluate(() => window.__parryState);
+    const secondPress = await pressHolding();
+    await page.waitForTimeout(350);
+    const afterSecond = await page.evaluate(() => window.__parryState);
+    check(
+      Boolean(beforeSecond) && beforeSecond.parried >= 1 && afterSecond.parried > beforeSecond.parried,
+      "I10: a second parry lands in the same run",
+      `parried ${beforeSecond?.parried} -> ${afterSecond.parried}, wave ${beforeSecond?.wave} -> ${secondPress?.wave}`,
+    );
+  } finally {
     await context.close();
     server.close();
   }
