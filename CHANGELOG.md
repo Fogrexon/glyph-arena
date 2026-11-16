@@ -63,6 +63,10 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 - `examples/parry`: the title subtitle wraps instead of being clipped at 390 px, `Median error` shows an em dash when a run parried nothing (the field no longer disappears), and the demo ships its own `favicon.svg` so the console stays clean (demo-only)
 
+### Added
+
+- `examples/parry`: the HUD now shows **`Contact in 1234ms`** - the time until the nearest approaching enemy touches the player, turning amber once that is inside the parry window. The window was already printed in ms while the thing you aim at was not, so a player (and every E2E) had to derive the moment from the wave table. `Contact in -` means nothing is closing in yet. The onboarding hint moves down one line to make room (demo-only)
+
 ### Fixed
 
 - `examples/parry`: the `DASH` button now shows that it took the press (a held button is filled and outlined harder while a finger is on it), and pointer positions are converted into canvas pixels before hit-testing. The bitmap is `innerWidth x innerHeight` while the CSS box is whatever the layout gives it, so on a phone a position compared straight against a canvas coordinate lands beside the button - the reason a correct tap could miss (demo-only)
