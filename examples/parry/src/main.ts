@@ -37,6 +37,8 @@ type ParryState = {
   contactDirX: number | null;
   contactDirY: number | null;
   windowMs: number;
+  /** How long a dash lasts, so "press a little early" is arithmetic instead of a magic number. */
+  dashMs: number;
 };
 
 type Matrix6 = [number, number, number, number, number, number];
@@ -581,6 +583,7 @@ async function main(): Promise<void> {
       contactDirX: contact === null ? null : Math.round(contact.dirX * 1000) / 1000,
       contactDirY: contact === null ? null : Math.round(contact.dirY * 1000) / 1000,
       windowMs: Math.round(parryWindow() * 1000),
+      dashMs: Math.round(DASH_DURATION * 1000),
     };
   }
 
@@ -603,6 +606,12 @@ async function main(): Promise<void> {
       const along = (dx * velocity.vx + dy * velocity.vy) / speed;
       const seconds = (along - CONTACT_DISTANCE) / speed;
       if (seconds <= 0) {
+        continue;
+      }
+      // How far the player sits from the line the enemy travels. An enemy that would slide past is
+      // not a contact, and pointing the player (or an E2E) at it is pointing them at a miss.
+      const perpendicular = Math.abs(dx * velocity.vy - dy * velocity.vx) / speed;
+      if (perpendicular > CONTACT_DISTANCE) {
         continue;
       }
       if (best !== null && seconds >= best.seconds) {
