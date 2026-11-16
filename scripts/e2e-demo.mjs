@@ -321,43 +321,20 @@ async function hold(page, keyName, ms) {
  * *and* a round timer that has just been reset.
  */
 async function restartRound(page) {
-  const mark = await frameCount(page);
+  // Detect the new round from the game's own clock instead of the HUD text:
+  // "READY and Time >= 59.5" also matches the *previous* round while it is still
+  // inside its grace window, which is what let two rounds into one sample.
+  const before = await pickupState(page);
   await hold(page, "KeyR", 220);
   const started = Date.now();
   while (Date.now() - started < 8000) {
-    const index = await page.evaluate((from) => {
-      const list = window.__e2e.frames;
-      for (let cursor = Math.max(from, 0); cursor < list.length; cursor += 1) {
-        const read = (frame) => {
-          let ready = false;
-          let left = null;
-          for (const text of frame.texts) {
-            if (text === "READY") ready = true;
-            if (text.startsWith("Time:")) left = Number(text.slice("Time:".length).trim());
-          }
-          return { ready, left };
-        };
-        const current = read(list[cursor]);
-        const previous = cursor > 0 ? read(list[cursor - 1]) : { ready: false, left: null };
-        // Unique reset signal: the round timer jumps *up* by more than a second.
-        // "READY and Time >= 59.5" also matches the previous round while it is
-        // still inside its own grace window, which is what let two rounds into
-        // one sample even with a 15-frame window.
-        const reset =
-          current.left !== null &&
-          previous.left !== null &&
-          current.left - previous.left > 1;
-        if (reset) return cursor;
-      }
-      return -1;
-    }, mark);
-    if (index >= 0) {
-      await page.waitForTimeout(160);
-      return index;
+    const state = await pickupState(page);
+    if (state && state.phase === "play" && (!before || state.roundTime > before.roundTime + 1)) {
+      return state;
     }
     await page.waitForTimeout(40);
   }
-  return mark;
+  return null;
 }
 
 const median = (values) => {
@@ -619,8 +596,11 @@ async function runDesktop(browser, baseUrl, errors) {
   );
 
   // ---- I5: the wall right of the spawn is at least 45 px away ------------
-  await restartRound(page);
-  const startState = await waitForPlay(page);
+  const resetState = await restartRound(page);
+  const startState = resetState && Math.abs(resetState.worldX - 600) <= 1 ? resetState : null;
+  if (!startState) {
+    check(false, "I5: the spawn opens at least 40 px of room (designed 45)", `sample missing (reset did not take: worldX ${resetState ? resetState.worldX : "none"}) — not reported as 0 px`);
+  }
   await page.keyboard.down("ArrowRight");
   let lastX = null;
   let stable = 0;
@@ -685,8 +665,10 @@ async function runDesktop(browser, baseUrl, errors) {
     );
   };
 
-  await restartRound(page);
-  await waitForPlay(page);
+  const i1Reset = await restartRound(page);
+  if (!i1Reset || Math.abs(i1Reset.worldX - 600) > 1) {
+    check(false, "I1: a dash frame is at least 1.3x a walk frame", `sample missing (reset did not take: worldX ${i1Reset ? i1Reset.worldX : "none"}) — not reported as a ratio`);
+  }
   await page.keyboard.down("ArrowUp");
   const walkSamples = [];
   for (let index = 0; index < 8; index += 1) {
