@@ -118,6 +118,30 @@ try {
         fail(`S1 ${pkg.manifest.name}: tarball is missing ${required}`);
       }
     }
+
+    // Every package here is ESM only (`"type": "module"`, no `require`
+    // condition), so a leftover CommonJS build means `dist/` was not rebuilt
+    // from scratch. S1 above cannot see it: it only asserts what must exist.
+    const commonjs = listing
+      .split("\n")
+      .filter((line) => line.endsWith(".cjs"));
+    if (commonjs.length > 0) {
+      fail(
+        `S1 ${pkg.manifest.name}: ESM-only package ships CommonJS: ${commonjs.join(", ")}`,
+      );
+    }
+
+    // A declared licence must travel with the tarball. npm only picks up a
+    // LICENSE inside the package directory, so the repo-root file needs the
+    // package's `prepack` copy — this catches it not running.
+    if (
+      typeof pkg.manifest.license === "string" &&
+      !listing.split("\n").includes("package/LICENSE")
+    ) {
+      fail(
+        `S1 ${pkg.manifest.name}: declares license "${pkg.manifest.license}" but the tarball has no LICENSE`,
+      );
+    }
   }
   if (!process.exitCode) {
     ok(`S1 ${tarballs.size} tarballs ship dist/index.js + dist/index.d.ts`);
