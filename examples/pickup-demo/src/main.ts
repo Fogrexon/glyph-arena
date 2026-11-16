@@ -574,6 +574,11 @@ async function main(): Promise<void> {
   let baseRotation = 0;
   let paused = false;
   let cleared = false;
+  /** Fastest clear of this page load, in seconds. Round-scoped on purpose: nothing is persisted. */
+  let bestClearSeconds: number | null = null;
+  /** Clear time of the round that just ended, or null if the round did not clear. */
+  let lastClearSeconds: number | null = null;
+  let lastClearWasBest = false;
   let failed = false;
   let roundRemaining = ROUND_SECONDS;
   let scheduleSeconds = 0;
@@ -600,6 +605,8 @@ async function main(): Promise<void> {
     cancelRoundTimer();
     roundRemaining = ROUND_SECONDS;
     roundStartedAt = scheduleSeconds;
+    lastClearSeconds = null;
+    lastClearWasBest = false;
     roundTimerHandle = timer.delay(ROUND_SECONDS, () => {
       roundTimerHandle = null;
       if (!cleared) {
@@ -612,6 +619,13 @@ async function main(): Promise<void> {
     cleared = true;
     failed = false;
     cancelRoundTimer();
+    lastClearSeconds = ROUND_SECONDS - roundRemaining;
+    if (bestClearSeconds === null || lastClearSeconds < bestClearSeconds) {
+      bestClearSeconds = lastClearSeconds;
+      lastClearWasBest = true;
+    } else {
+      lastClearWasBest = false;
+    }
   }
 
   function failRound(): void {
@@ -1470,12 +1484,19 @@ async function main(): Promise<void> {
         ctx.font = "16px system-ui, sans-serif";
         ctx.fillText(`Lives: ${lives}`, 16, 54);
         ctx.fillText(`Time: ${roundRemaining.toFixed(1)}`, 16, 76);
+        if (cleared && lastClearSeconds !== null) {
+          ctx.fillText(`Clear: ${lastClearSeconds.toFixed(1)}s`, 16, 98);
+        }
+        if (bestClearSeconds !== null) {
+          ctx.fillText(`Best: ${bestClearSeconds.toFixed(1)}s`, 16, cleared ? 120 : 98);
+        }
         ctx.fillStyle = "#fbbf24";
         ctx.font = "20px system-ui, sans-serif";
+        const verdictY = cleared ? (bestClearSeconds !== null ? 142 : 120) : (bestClearSeconds !== null ? 120 : 98);
         if (cleared) {
-          ctx.fillText("CLEAR — R restart", 16, 98);
+          ctx.fillText(lastClearWasBest ? "CLEAR — NEW BEST — R restart" : "CLEAR — R restart", 16, verdictY);
         } else if (failed) {
-          ctx.fillText("FAIL — R restart", 16, 98);
+          ctx.fillText("FAIL — R restart", 16, verdictY);
         }
       }
 
