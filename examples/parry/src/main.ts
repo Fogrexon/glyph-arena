@@ -802,14 +802,20 @@ async function main(): Promise<void> {
         }
       }
 
+      if (phase === "result") {
+        // The round is over: nothing left on the field still means anything, so show the verdict alone.
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        draw.clear("#0f1115");
+        drawHud();
+        return;
+      }
+
       const shakeOffset = scheduleSeconds < shakeUntil ? shakeStrength : 0;
       const jitterX = shakeOffset === 0 ? 0 : Math.sin(scheduleSeconds * 90) * shakeOffset;
       const jitterY = shakeOffset === 0 ? 0 : Math.cos(scheduleSeconds * 73) * shakeOffset;
       drawScene(jitterX + punchX, jitterY + punchY);
       drawHud();
-      if (phase === "play") {
-        drawTouchPad();
-      }
+      drawTouchPad();
     },
   });
 

@@ -65,6 +65,8 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Fixed
 
+- `examples/parry`: the result screen no longer draws the field. The enemies and the player used to sit frozen behind the verdict, at positions that stopped meaning anything the moment the last life went - the screen now shows the result, the comparison line and the run history on an empty background (demo-only)
+
 - `examples/parry`: **touch can now dash**, so a parry is reachable on a phone. The pad could move and the result screen could restart, but dashing was bound to `Shift`/`Space` only - the one verb the game is about. A `DASH` button now sits bottom-right and injects `Shift` at the same point the keys come from, the pad and the button track their own pointer so a thumb on each works, and the hint reads `Dash into it - tap DASH` on touch (`Shift or Space` with a keyboard) (demo-only)
 
 - `examples/parry`: a touch-only player is no longer stuck on the result screen. A fresh tap restarts the round through the same path as `R` (the hint reads `Tap to retry` on a touch device and `R restart` with a keyboard), and the d-pad is no longer drawn once the round is over, where touching it did nothing (demo-only)
