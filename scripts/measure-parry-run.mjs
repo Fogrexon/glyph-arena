@@ -255,6 +255,12 @@ async function main() {
   console.log(
     `parried: ${finalState?.parried ?? "?"} from ${presses} presses, lives: ${finalState?.lives ?? "?"}, wave: ${finalState?.wave ?? "?"}`,
   );
+  const best = finalState?.best ?? null;
+  console.log(
+    best === null
+      ? "best: none yet (no run has finished)"
+      : `best: ${best.parried} parries, ${best.lives} lives, ${best.clearMs === null ? "no clear" : `${(best.clearMs / 1000).toFixed(1)}s clear`}`,
+  );
   console.log("wave | windowMs | maxThreats | livesAt | parriedAt");
   for (const row of rows) {
     console.log(

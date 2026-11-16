@@ -6,6 +6,15 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+### Added
+
+- `examples/parry`: the result screen now shows the session's **best** - most parries, most lives left,
+  and the fastest clear - and turns amber when the run that just ended moved one of the three. Each
+  record stands on its own, so a slow clear can still hold the parry record and a failed run can still
+  hold "most lives left"; the fastest clear is only compared with other clears. `window.__parryState`
+  gains **`best`** (`{ parried, lives, clearMs }`, null until a run ends), so an E2E can watch the record
+  move (demo-only; no package API change; `index-*.js` changes)
+
 ### Fixed
 
 - `examples/parry`: **a run can now end.** An enemy left the field only by being parried, so one that slid

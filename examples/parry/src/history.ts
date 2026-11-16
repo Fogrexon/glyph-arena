@@ -5,7 +5,20 @@
  *
  * Session-only: the history it reads lives in memory and dies with the tab.
  */
-export type RunSummary = { parried: number; absoluteMs: number; wave: number };
+export type RunSummary = {
+  parried: number;
+  absoluteMs: number;
+  wave: number;
+  /** Lives left when the run ended. */
+  lives: number;
+  /** Seconds from the start of the run to its end. */
+  seconds: number;
+  /** Whether the run reached wave 20 and cleared. */
+  cleared: boolean;
+};
+
+/** The best a session has managed, so the result screen can say what to beat. */
+export type Best = { parried: number; lives: number; clearSeconds: number | null };
 
 function parryCount(delta: number): string {
   const count = Math.abs(delta);
@@ -43,4 +56,60 @@ export function isImprovement(latest: RunSummary, previous: RunSummary | undefin
     return false;
   }
   return latest.absoluteMs < previous.absoluteMs;
+}
+
+/**
+ * The session's best run: most parries, most lives left, and the fastest clear.
+ *
+ * Each number stands on its own on purpose. A run that cleared slowly can still
+ * hold the parry record, and the fastest clear is only comparable with other
+ * clears, so the best of one is not the best of another.
+ */
+export function bestOf(runs: ReadonlyArray<RunSummary>): Best | null {
+  if (runs.length === 0) {
+    return null;
+  }
+  let parried = 0;
+  let lives = 0;
+  let clearSeconds: number | null = null;
+  for (const run of runs) {
+    if (run.parried > parried) {
+      parried = run.parried;
+    }
+    if (run.lives > lives) {
+      lives = run.lives;
+    }
+    if (run.cleared && (clearSeconds === null || run.seconds < clearSeconds)) {
+      clearSeconds = run.seconds;
+    }
+  }
+  return { parried, lives, clearSeconds };
+}
+
+/** `Best: 12 parries, 2 lives, 27.1s clear` - or `no clear yet` while every run failed. */
+export function bestLine(best: Best | null): string {
+  if (best === null) {
+    return "Best: \u2014";
+  }
+  const parries = `${best.parried} ${best.parried === 1 ? "parry" : "parries"}`;
+  const lives = `${best.lives} ${best.lives === 1 ? "life" : "lives"}`;
+  const time = best.clearSeconds === null ? "no clear yet" : `${best.clearSeconds.toFixed(1)}s clear`;
+  return `Best: ${parries}, ${lives}, ${time}`;
+}
+
+/**
+ * Whether the latest run moved any of the three records. The first run is the
+ * baseline -- it sets the best, but calling it a new best says nothing.
+ */
+export function isNewBest(best: Best | null, previousBest: Best | null): boolean {
+  if (best === null || previousBest === null) {
+    return false;
+  }
+  if (best.parried > previousBest.parried || best.lives > previousBest.lives) {
+    return true;
+  }
+  if (best.clearSeconds === null) {
+    return false;
+  }
+  return previousBest.clearSeconds === null || best.clearSeconds < previousBest.clearSeconds;
 }
