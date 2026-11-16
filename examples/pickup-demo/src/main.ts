@@ -451,7 +451,7 @@ async function main(): Promise<void> {
         { x: 480, y: 440 },
       ],
       hazards: [
-        { x: 300, y: 610 },
+        { x: 300, y: 440 },
         { x: 930, y: 96 },
         { x: 470, y: 96 },
       ],
@@ -474,7 +474,7 @@ async function main(): Promise<void> {
       ],
       hazards: [
         { x: 110, y: 190 },
-        { x: 680, y: 96 },
+        { x: 584, y: 96 },
         { x: 360, y: 610 },
       ],
       velocities: [
