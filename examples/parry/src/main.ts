@@ -13,7 +13,7 @@ import { createTimer } from "@fogrexon/glyph-arena-timer";
 import { createTransform, type Matrix2D } from "@fogrexon/glyph-arena-transform";
 import { createTween } from "@fogrexon/glyph-arena-tween";
 import { comparisonLine, isImprovement } from "./history";
-import { WAVES } from "./waves";
+import { CONTACT_DISTANCE, WAVES } from "./waves";
 
 type Phase = "title" | "play" | "result";
 
@@ -540,6 +540,40 @@ async function main(): Promise<void> {
     return Math.round(offsetY / lineHeight) + 1;
   }
 
+  /**
+   * Seconds until the nearest enemy touches the player, or null when nothing is closing in.
+   *
+   * The parry window is shown in ms; without this line the player - and every E2E - has to guess
+   * when that window opens from the wave table instead of reading it off the screen.
+   */
+  function nextContactSeconds(): number | null {
+    const playerCenter = centerOf(getAabb(playerEntity));
+    let best: number | null = null;
+    for (const enemy of enemies) {
+      const velocity = world.get(enemy.entity, COMPONENT_VELOCITY) as Velocity | undefined;
+      if (velocity === undefined) {
+        continue;
+      }
+      const speed = Math.hypot(velocity.vx, velocity.vy);
+      if (speed === 0) {
+        continue;
+      }
+      const enemyCenter = centerOf(getAabb(enemy.entity));
+      const dx = playerCenter.x - enemyCenter.x;
+      const dy = playerCenter.y - enemyCenter.y;
+      // Distance left along the enemy's own line of travel: one that has gone past is not a threat.
+      const along = (dx * velocity.vx + dy * velocity.vy) / speed;
+      const seconds = (along - CONTACT_DISTANCE) / speed;
+      if (seconds <= 0) {
+        continue;
+      }
+      if (best === null || seconds < best) {
+        best = seconds;
+      }
+    }
+    return best;
+  }
+
   function drawHud(): void {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     if (phase === "play") {
@@ -555,7 +589,7 @@ async function main(): Promise<void> {
         ctx.fillText(
           touchEnabled ? "Dash into it \u2014 tap DASH" : "Dash into it \u2014 Shift or Space",
           16,
-          152,
+          176,
         );
       }
       if (lastErrorMs !== null) {
@@ -565,6 +599,9 @@ async function main(): Promise<void> {
       ctx.fillStyle = "#9aa0a6";
       ctx.font = "14px system-ui, sans-serif";
       ctx.fillText(`Parry window: ${Math.round(parryWindow() * 1000)}ms`, 16, 126);
+      const contact = nextContactSeconds();
+      ctx.fillStyle = contact !== null && contact <= parryWindow() ? "#fbbf24" : "#9aa0a6";
+      ctx.fillText(`Contact in ${contact === null ? "\u2014" : `${Math.round(contact * 1000)}ms`}`, 16, 150);
     } else if (phase === "result") {
       ctx.fillStyle = "#e8eaed";
       ctx.font = "20px system-ui, sans-serif";
