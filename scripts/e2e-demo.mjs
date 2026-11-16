@@ -607,11 +607,24 @@ async function runDesktop(browser, baseUrl, errors) {
   // ---- I5: the wall right of the spawn is at least 45 px away ------------
   await restartRound(page);
   await page.waitForTimeout(250);
+  // While READY is shown the hazards are frozen (moveHazards is skipped), so
+  // the "before" sample is correct here — and the run has to happen *after* the
+  // window closes, or the wall run is 0 px by construction.
   const beforeWall = (await frames(page)).filter((frame) => frame.ready).at(-1);
+  const graceEnd = Date.now() + 6000;
+  while (Date.now() < graceEnd) {
+    const last = await latestFrame(page);
+    if (last && last.time !== null && last.time < ROUND_SECONDS - HAZARD_GRACE_SECONDS - 0.05) break;
+    await page.waitForTimeout(50);
+  }
   await hold(page, "ArrowRight", 1400);
-  const afterWall = (await frames(page)).filter((frame) => frame.ready).at(-1);
-  if (!beforeWall || !afterWall) {
-    check(false, "I5: the spawn opens at least 45 px to the right", "sample missing (no READY frame before/after the run) — not reported as 0 px");
+  const afterWall = (await frames(page)).at(-1);
+  const wallSampleIsPostGrace =
+    afterWall !== undefined &&
+    afterWall.time !== null &&
+    afterWall.time < ROUND_SECONDS - HAZARD_GRACE_SECONDS - 0.05;
+  if (!beforeWall || !afterWall || !wallSampleIsPostGrace) {
+    check(false, "I5: the spawn opens at least 45 px to the right", "sample outside the measured window (before/after frames missing, or the run did not start after the grace) — not reported as 0 px");
   } else {
     const wallRun = Math.abs(afterWall.hazards[0].x - beforeWall.hazards[0].x);
     check(Number.isFinite(wallRun) && wallRun >= 40, "I5: the spawn opens at least 45 px to the right", `${wallRun.toFixed(1)} px`);
