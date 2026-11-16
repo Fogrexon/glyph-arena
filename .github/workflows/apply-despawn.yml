@@ -1,0 +1,28 @@
+name: apply-despawn
+
+# One-shot: this container has no git credential, so the fix rides in as a patch.
+# Deleted again before the PR is opened.
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/parry-despawn'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply the queued patch
+        run: |
+          if ! git apply --check .github/despawn.patch; then
+            echo "patch already applied; nothing to do"
+            exit 0
+          fi
+          git apply .github/despawn.patch
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(parry): an enemy that stops being a threat leaves the field"
+          git push

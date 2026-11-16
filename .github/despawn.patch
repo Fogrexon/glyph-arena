@@ -1,0 +1,167 @@
+diff --git a/.gitignore b/.gitignore
+index 180b4b1..0e72276 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -2,3 +2,4 @@ node_modules/
+ dist/
+ *.tsbuildinfo
+ examples/pickup-demo/public/docs/
++examples/parry/public/parry.wav
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 9990c7e..ee6b2c1 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -6,6 +6,17 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
+ 
+ ## [Unreleased]
+ 
++### Fixed
++
++- `examples/parry`: **a run can now end.** An enemy left the field only by being parried, so one that slid
++  past the player - or one that hit them - stayed in `enemies` for good. `clear()` needs
++  `enemies.length === 0`, so a single miss made the result screen unreachable: the run sat at wave 20 with
++  nothing closing in and could be neither won nor lost (measured with `pnpm measure:parry-run`). Enemies now
++  leave when they are parried, when they hit the player, or when they leave the play area (40 px of
++  margin), and `window.__parryState` gains **`enemyCount`** so an E2E can watch the field drain. A full
++  20-wave run is 25 s of game (first contact 7.5 s, one arrival every 0.9 s, the last at 24.6 s)
++  (demo-only; no package API change; `index-*.js` changes)
++
+ ### Added
+ 
+ - Pickup demo at `examples/pickup-demo` now ships `favicon.ico` and `favicon.svg` linked from `index.html`, removing the `/favicon.ico` 404 on the public URL (demo-only; no package API change)
+diff --git a/docs/bundles.json b/docs/bundles.json
+index afcd058..fb4376a 100644
+--- a/docs/bundles.json
++++ b/docs/bundles.json
+@@ -1,4 +1,4 @@
+ {
+   "root": "index-D1uMDI5x.js",
+-  "parry": "index-DlyMEYdb.js"
++  "parry": "index-Y6epbyq_.js"
+ }
+diff --git a/examples/parry/src/main.ts b/examples/parry/src/main.ts
+index 7ac3413..461a458 100644
+--- a/examples/parry/src/main.ts
++++ b/examples/parry/src/main.ts
+@@ -41,6 +41,11 @@ type ParryState = {
+   windowMs: number;
+   /** How long a dash lasts, so "press a little early" is arithmetic instead of a magic number. */
+   dashMs: number;
++  /**
++   * Enemies still on the field. Cleared, hit and off-screen enemies all leave it, so a run that
++   * misses a wave still reaches zero and the clear condition can fire.
++   */
++  enemyCount: number;
+ };
+ 
+ type Matrix6 = [number, number, number, number, number, number];
+@@ -70,6 +75,8 @@ const INVULN_SECONDS = 1;
+ const HIT_KNOCKBACK = 40;
+ const HITSTOP_SECONDS = 0.06;
+ const MAX_FRAME_DELTA = 0.1;
++/** An enemy this far outside the play area has left the run for good. */
++const OFFSCREEN_MARGIN = 40;
+ const INITIAL_LIVES = 3;
+ 
+ /**
+@@ -592,6 +599,7 @@ async function main(): Promise<void> {
+       })),
+       windowMs: Math.round(parryWindow() * 1000),
+       dashMs: Math.round(DASH_DURATION * 1000),
++      enemyCount: enemies.length,
+     };
+   }
+ 
+@@ -869,11 +877,29 @@ async function main(): Promise<void> {
+         setAabb(playerEntity, playerAabbAtCenter(clampedX, clampedY));
+         transform.set(playerDrawable.node, { rotation: Math.atan2(facingX, -facingY) });
+ 
+-        // Enemies move along the vector they were given at spawn.
+-        for (const enemy of enemies) {
++        // Enemies move along the vector they were given at spawn, and leave the run once they are
++        // past the arena. Without this an enemy that missed the player stays in `enemies` forever:
++        // nothing else removes it, so `clear()` (which needs `enemies.length === 0`) never fires and
++        // the run can neither be won nor lost.
++        for (let index = enemies.length - 1; index >= 0; index -= 1) {
++          const enemy = enemies[index];
++          if (enemy === undefined) {
++            continue;
++          }
+           const box = getAabb(enemy.entity);
+           const velocity = (world.get(enemy.entity, COMPONENT_VELOCITY) as Velocity | undefined) ?? { vx: 0, vy: 0 };
+-          setAabb(enemy.entity, { ...box, x: box.x + velocity.vx * delta, y: box.y + velocity.vy * delta });
++          const next = { ...box, x: box.x + velocity.vx * delta, y: box.y + velocity.vy * delta };
++          const center = centerOf(next);
++          if (
++            center.x < -OFFSCREEN_MARGIN ||
++            center.x > WORLD_WIDTH + OFFSCREEN_MARGIN ||
++            center.y < -OFFSCREEN_MARGIN ||
++            center.y > WORLD_HEIGHT + OFFSCREEN_MARGIN
++          ) {
++            removeEnemy(index);
++            continue;
++          }
++          setAabb(enemy.entity, next);
+         }
+ 
+         // Parry check: only while dashing, only inside the forward box, only for enemies still ahead.
+@@ -907,12 +933,19 @@ async function main(): Promise<void> {
+           }
+         }
+ 
+-        // Contact: an enemy that reaches the player and was not parried costs a life.
++        // Contact: an enemy that reaches the player and was not parried costs a life. It has spent
++        // itself, so it leaves the field as well -- the same rule as a parry or flying off, because
++        // an enemy that stays would block the clear condition the same way a missed one used to.
+         if (!isInvulnerable()) {
+           const box = getAabb(playerEntity);
+-          for (const enemy of enemies) {
++          for (let index = enemies.length - 1; index >= 0; index -= 1) {
++            const enemy = enemies[index];
++            if (enemy === undefined) {
++              continue;
++            }
+             if (overlaps(box, getAabb(enemy.entity))) {
+               damagePlayer();
++              removeEnemy(index);
+               break;
+             }
+           }
+@@ -1017,6 +1017,37 @@ async function runParry(browser, errors) {
+       "I11: five waves defended without losing a life",
+       `${defenceState?.parried} parried, ${defenceState?.lives} lives, wave ${defenceState?.wave}`,
+     );
++
++    // I12: an enemy that stops being a threat leaves the field. Before this, only a parry removed an
++    // enemy, so one that missed the player - or one that hit them - stayed in `enemies` for good and
++    // `clear()` (which needs `enemies.length === 0`) could never fire: the run could be neither won
++    // nor lost. Standing still makes the first enemy hit at 7.5 s, and by then `enemyCount` must have
++    // fallen behind the number of waves spawned. With the old code it never does.
++    await page.goto(`http://127.0.0.1:${PARRY_PORT}/?i12=1`, { waitUntil: "load" });
++    await page.waitForTimeout(600);
++    await hold(page, "Space", 160);
++    const drainDeadline = Date.now() + 15000;
++    let drainState = null;
++    let drained = false;
++    while (Date.now() < drainDeadline) {
++      const s = await page.evaluate(() => window.__parryState);
++      if (!s) {
++        await page.waitForTimeout(100);
++        continue;
++      }
++      drainState = s;
++      if (s.phase !== "play") break;
++      if (s.parried === 0 && s.wave - s.enemyCount >= 1) {
++        drained = true;
++        break;
++      }
++      await page.waitForTimeout(100);
++    }
++    check(
++      drained,
++      "I12: an enemy leaves the field once it has resolved",
++      `enemyCount ${drainState?.enemyCount}, wave ${drainState?.wave}, lives ${drainState?.lives}, parried ${drainState?.parried}`,
++    );
+   } finally {
+     await context.close();
+     server.close();
