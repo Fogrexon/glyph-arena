@@ -607,27 +607,38 @@ async function runDesktop(browser, baseUrl, errors) {
   // ---- I5: the wall right of the spawn is at least 45 px away ------------
   await restartRound(page);
   await page.waitForTimeout(250);
-  // While READY is shown the hazards are frozen (moveHazards is skipped), so
-  // the "before" sample is correct here — and the run has to happen *after* the
-  // window closes, or the wall run is 0 px by construction.
-  const beforeWall = (await frames(page)).filter((frame) => frame.ready).at(-1);
-  const graceEnd = Date.now() + 6000;
-  while (Date.now() < graceEnd) {
-    const last = await latestFrame(page);
-    if (last && last.time !== null && last.time < ROUND_SECONDS - HAZARD_GRACE_SECONDS - 0.05) break;
-    await page.waitForTimeout(50);
+  // Measure the PLAYER, not a hazard: a hazard stops at walls too, so its
+  // movement is an arbitrary number ("22.0 px" was one that hit a wall 0.27 s
+  // after the grace). Hold right until the player stops for two consecutive
+  // polls — that is the wall — and the distance travelled is the gap.
+  const startFrame = (await frames(page)).filter((frame) => frame.ready).at(-1);
+  await page.keyboard.down("ArrowRight");
+  let lastX = null;
+  let stablePolls = 0;
+  let stoppedX = null;
+  const wallDeadline = Date.now() + 5000;
+  while (Date.now() < wallDeadline) {
+    const current = await latestFrame(page);
+    const x = current?.player ? current.player.x : null;
+    if (x !== null && lastX !== null && Math.abs(x - lastX) < 0.01) {
+      stablePolls += 1;
+      if (stablePolls >= 2) {
+        stoppedX = x;
+        break;
+      }
+    } else {
+      stablePolls = 0;
+    }
+    lastX = x;
+    await page.waitForTimeout(60);
   }
-  await hold(page, "ArrowRight", 1400);
-  const afterWall = (await frames(page)).at(-1);
-  const wallSampleIsPostGrace =
-    afterWall !== undefined &&
-    afterWall.time !== null &&
-    afterWall.time < ROUND_SECONDS - HAZARD_GRACE_SECONDS - 0.05;
-  if (!beforeWall || !afterWall || !wallSampleIsPostGrace) {
-    check(false, "I5: the spawn opens at least 45 px to the right", "sample outside the measured window (before/after frames missing, or the run did not start after the grace) — not reported as 0 px");
+  await page.keyboard.up("ArrowRight");
+
+  if (!startFrame?.player || stoppedX === null) {
+    check(false, "I5: the spawn opens at least 45 px to the right", "sample missing (the player never stopped against the wall within 5 s, or the start frame has no player sprite) — not reported as 0 px");
   } else {
-    const wallRun = Math.abs(afterWall.hazards[0].x - beforeWall.hazards[0].x);
-    check(Number.isFinite(wallRun) && wallRun >= 40, "I5: the spawn opens at least 45 px to the right", `${wallRun.toFixed(1)} px`);
+    const wallRun = stoppedX - startFrame.player.x;
+    check(wallRun >= 45, "I5: the spawn opens at least 45 px to the right", `${wallRun.toFixed(1)} px`);
   }
 
   // ---- I1: a 400 ms Shift hold moves 1.3x further than walking ----------
