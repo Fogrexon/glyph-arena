@@ -59,7 +59,7 @@ type Velocity = { vx: number; vy: number };
 /** Fixed wave script: no RNG, so a given run index is always the same run. */
 const WAVES: Array<{ at: number; angle: number; speed: number; radius: number }> = [
   { at: 1.8, angle: 90, speed: 55, radius: 340 },
-  { at: 3.0, angle: 270, speed: 78, radius: 360 },
+  { at: 5.0, angle: 270, speed: 78, radius: 360 },
   { at: 4.6, angle: 0, speed: 84, radius: 360 },
   { at: 6.2, angle: 180, speed: 90, radius: 360 },
   { at: 7.6, angle: 45, speed: 96, radius: 380 },
