@@ -26,7 +26,7 @@
  * overrides the browser; `E2E_KEEP=1` leaves screenshots behind.
  */
 
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join, resolve, sep } from "node:path";
@@ -158,12 +158,12 @@ function check(ok, label, detail) {
   }
 }
 
-function serveDist() {
+function serveDist(GIVEN_DIST = DIST, givenPort = PORT) {
   const server = createServer(async (request, response) => {
-    const url = new URL(request.url ?? "/", `http://127.0.0.1:${PORT}`);
+    const url = new URL(request.url ?? "/", `http://127.0.0.1:${givenPort}`);
     const relative = decodeURIComponent(url.pathname).replace(/^\/+/, "");
-    const path = resolve(DIST, relative === "" ? "index.html" : relative);
-    if (!path.startsWith(DIST + sep) && path !== join(DIST, "index.html")) {
+    const path = resolve(GIVEN_DIST, relative === "" ? "index.html" : relative);
+    if (!path.startsWith(GIVEN_DIST + sep) && path !== join(GIVEN_DIST, "index.html")) {
       response.writeHead(403).end("forbidden");
       return;
     }
@@ -177,7 +177,7 @@ function serveDist() {
   });
 
   return new Promise((resolvePromise) => {
-    server.listen(PORT, "127.0.0.1", () => resolvePromise(server));
+    server.listen(givenPort, "127.0.0.1", () => resolvePromise(server));
   });
 }
 
@@ -229,6 +229,7 @@ async function latestFrame(page) {
     };
     return {
       at: frame.at,
+      texts: frame.texts,
       zoom: frame.zoom,
       time: valueOf("Time:"),
       lives: valueOf("Lives:"),
@@ -555,7 +556,13 @@ async function runDesktop(browser, baseUrl, errors) {
   const sampleRound = async () => {
     const mark = await restartRound(page);
     await page.waitForTimeout(300);
-    const recording = (await frames(page)).slice(mark).filter((frame) => frame.ready);
+    // Only the first 15 frames (~0.25 s) of the new round: a longer window can
+    // catch the next round if R is pressed again, and the player has not moved
+    // yet, so a stable camera is all this sample needs.
+    const recording = (await frames(page))
+      .slice(mark)
+      .filter((frame) => frame.ready)
+      .slice(0, 15);
     return { recording, sets: positionSet(recording) };
   };
   await restartRound(page);
@@ -727,6 +734,113 @@ async function runTouch(browser, baseUrl, errors) {
   await context.close();
 }
 
+/**
+ * When to press for the first parry, derived from the demo's own wave table.
+ *
+ * Hardcoding 7.4 s would go red the moment WAVES[0] changes, so read the first
+ * wave out of `examples/parry/src/main.ts` and apply the measured formula:
+ *   contact = at + (radius - 26) / speed     (26 px = player 28 + enemy 24 halves)
+ *   press   = contact - 0.40 s               (inside the window: 200..550 ms)
+ * plus the +0.30 s systematic lag measured between theory and a real run.
+ */
+function parryPressTime() {
+  // The wave table moved to `waves.ts` and its `at` is now derived from target
+  // contact times, so read the literal `FIRST_WAVE` (the taught enemy) and keep
+  // the old `WAVES[0]` literal as a fallback.
+  const tryRead = (path, pattern) => {
+    if (!existsSync(path)) return null;
+    const body = pattern.exec(readFileSync(path, "utf8"))?.[1] ?? "";
+    const value = (key) => Number(new RegExp(`${key}\\s*:\\s*([0-9.]+)`).exec(body)?.[1]);
+    const at = value("at");
+    const speed = value("speed");
+    const radius = value("radius");
+    return [at, speed, radius].every((n) => Number.isFinite(n)) ? { at, speed, radius } : null;
+  };
+
+  const first =
+    tryRead(join(ROOT, "examples/parry/src/waves.ts"), /export const FIRST_WAVE\s*=\s*\{([^}]*)\}/) ??
+    tryRead(join(ROOT, "examples/parry/src/main.ts"), /const WAVES[^=]*=\s*\[([\s\S]*?)\n\];/);
+
+  if (first === null) {
+    throw new Error("could not read the first wave from examples/parry/src/waves.ts (FIRST_WAVE) or main.ts (WAVES[0])");
+  }
+  const { at, speed, radius } = first;
+  // No systematic-lag fudge: the formula alone is system A. Whether it or
+  // QA's measured absolute times land is decided by running both (see I9).
+  const contact = at + (radius - 26) / speed;
+  return { contact, at, speed, radius };
+}
+
+/**
+ * I9: the parry recipe, mechanically. QA reproduced it by hand (press at a
+ * computed instant); this repeats it every push so the acceptance is not a
+ * human procedure.
+ */
+async function runParry(browser, errors) {
+  const PARRY_DIST = join(ROOT, "examples/parry/dist");
+  const PARRY_PORT = PORT + 1;
+  if (!existsSync(join(PARRY_DIST, "index.html"))) {
+    throw new Error(`no built parry demo at ${PARRY_DIST} — run \`pnpm -r build\` first`);
+  }
+  const recipe = parryPressTime();
+  const server = await serveDist(PARRY_DIST, PARRY_PORT);
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 });
+  await context.addInitScript(PROBE);
+  const page = await context.newPage();
+  withConsoleErrors(page, errors, "parry");
+
+  const pressAt = async (seconds) => {
+    await page.keyboard.down("ArrowDown");
+    await page.waitForTimeout(40);
+    await page.keyboard.down("ShiftLeft");
+    await page.waitForTimeout(160);
+    await page.keyboard.up("ShiftLeft");
+    await page.keyboard.up("ArrowDown");
+    return seconds;
+  };
+
+  const attempt = async (system, times) => {
+    await page.goto(`http://127.0.0.1:${PARRY_PORT}/?system=${encodeURIComponent(system)}`, { waitUntil: "load" });
+    await page.waitForTimeout(600);
+    const clock = await page.evaluate(() => performance.now());
+    await hold(page, "Space", 160);
+    if (!(await waitForText(page, "Parried:", 10000))) return { system, parried: 0, pressed: [] };
+    const pressed = [];
+    for (const seconds of times) {
+      const elapsed = (await page.evaluate(() => performance.now()) - clock) / 1000;
+      const wait = seconds - elapsed;
+      if (wait > 0) await page.waitForTimeout(wait * 1000);
+      pressed.push(await pressAt(seconds));
+      const line = (await latestFrame(page))?.texts?.find((t) => t.startsWith("Parried:")) ?? null;
+      const parried = line ? Number(line.slice("Parried:".length).split("/")[0].trim()) || 0 : 0;
+      if (parried >= 1) return { system, parried, pressed };
+    }
+    const line = (await latestFrame(page))?.texts?.find((t) => t.startsWith("Parried:")) ?? null;
+    return { system, parried: line ? Number(line.slice("Parried:".length).split("/")[0].trim()) || 0 : 0, pressed };
+  };
+
+  try {
+    // Two systems, run separately (a reload resets the run history):
+    //   A: the derived contact (at + (radius-26)/speed), no fudge
+    //   B: the absolute times QA measured by hand
+    const derivedTimes = [0, 1, 2, 3, 4, 5].map((index) => recipe.contact - 0.6 + index * 0.14);
+    const absoluteTimes = [7.0, 7.2, 7.4];
+    const a = await attempt("derived", derivedTimes);
+    const b = await attempt("absolute", absoluteTimes);
+    console.log(
+      `     I9 systems: derived(contact ${recipe.contact.toFixed(2)}s) pressed ${a.pressed.map((t) => t.toFixed(2)).join("/")} -> ${a.parried}; absolute pressed ${b.pressed.map((t) => t.toFixed(2)).join("/")} -> ${b.parried}`,
+    );
+    const winner = a.parried >= 1 ? "derived" : b.parried >= 1 ? "absolute" : "none";
+    check(
+      winner !== "none",
+      "I9: a computed press lands a parry",
+      `${winner === "none" ? "neither system parried" : `winner=${winner}`} (derived ${a.parried}, absolute ${b.parried})`,
+    );  } finally {
+    await context.close();
+    server.close();
+  }
+}
+
 async function main() {
   if (!existsSync(join(DIST, "index.html"))) {
     throw new Error(`no built demo at ${DIST} — run \`pnpm -r build\` first`);
@@ -752,6 +866,7 @@ async function main() {
   try {
     await runDesktop(browser, baseUrl, errors);
     await runTouch(browser, baseUrl, errors);
+    await runParry(browser, errors);
   } finally {
     await browser.close();
     server.close();
