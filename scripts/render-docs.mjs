@@ -27,10 +27,29 @@ const REPO = resolve(import.meta.dirname, "..");
 const DOCS_DIR = join(REPO, "docs");
 const OUT_DIR = join(REPO, "examples/pickup-demo/public/docs");
 
+/**
+ * Pages listed here come first, in this order; every other page follows in
+ * filename order (== package name order, stable across machines). The umbrella
+ * page is pinned because it answers "what do I install", and alphabetically it
+ * would otherwise sit between `gamepad` and `input`.
+ */
+const PINNED_FIRST = ["api-glyph-arena.md"];
+
+function orderDocs(names) {
+  const rank = (name) => {
+    const index = PINNED_FIRST.indexOf(name);
+    return index === -1 ? PINNED_FIRST.length : index;
+  };
+
+  return [...names].sort(
+    (a, b) => rank(a) - rank(b) || (a < b ? -1 : a > b ? 1 : 0),
+  );
+}
+
 function main() {
-  const files = readdirSync(DOCS_DIR)
-    .filter((name) => name.endsWith(".md"))
-    .sort(); // filename order == package name order, stable across machines
+  const files = orderDocs(
+    readdirSync(DOCS_DIR).filter((name) => name.endsWith(".md")),
+  );
 
   if (files.length === 0) {
     throw new Error(`no markdown found in ${DOCS_DIR}`);
@@ -43,7 +62,7 @@ function main() {
     return { file, path, markdown, title: titleOf(path, file) };
   });
 
-  // Sidebar: filename order, labels from each page's H1.
+  // Sidebar: pinned pages first, then filename order; labels from each page's H1.
   const sidebar = sources.map(({ file, title }) => ({
     href: file.replace(/\.md$/, ".html"),
     label: title,
