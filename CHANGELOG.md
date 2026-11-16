@@ -45,6 +45,10 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 - Pickup demo now reacts to a hit: the player is knocked 44 px away from the hazard (halved or skipped when a wall is in the way) and blinks at 10 Hz for the 1 s of invulnerability, so damage reads as an event instead of only a counter change (demo-only; no package API change; `index-*.js` changes)
 
+### Added
+
+- Pickup demo's title now states the goal and the controls before the round starts: "Collect 8 gems in 60s - 3 lives" plus the arrow/Shift/R keys (or the touch wording on touch devices) (demo-only; no package API change; `index-*.js` changes)
+
 ### Changed
 
 - Pickup demo hazard lanes now run straight over gems the player has to reach (H1 over the north gem's column, H2 beside the east gem) instead of patrolling empty floor, so the danger is spatial rather than a timing coincidence; the central wall block moves 40 px east so the spawn no longer opens 6 px from a wall (demo-only; no package API change; `index-*.js` changes)
