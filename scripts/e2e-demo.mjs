@@ -786,20 +786,21 @@ async function runParry(browser, errors) {
     const elapsed = await page.evaluate(() => performance.now()) - pressAt;
     // Multi-point, not a single bet: the window is 480-550 ms wide and where it
     // lands depends on frame quantisation, so press every 120 ms from
-    // contact-0.6 s to contact+0.1 s. ArrowDown is held before Shift (dash into
+    // contact-0.9 s to contact+0.1 s (the passing instant has been measured
+    // between 7.0 s and 7.4 s, so the spread is wider than one window). ArrowDown is held before Shift (dash into
     // it) and that order is reported on failure.
     const presses = [];
-    const firstPress = recipe.contact - 0.6;
+    const firstPress = recipe.contact - 0.9;
     await page.waitForTimeout(Math.max(0, firstPress * 1000 - elapsed));
     let parried = 0;
-    for (let index = 0; index < 4 && parried < 1; index += 1) {
+    for (let index = 0; index < 8 && parried < 1; index += 1) {
       await page.keyboard.down("ArrowDown");
       await page.waitForTimeout(40);
       await page.keyboard.down("ShiftLeft");
       await page.waitForTimeout(160);
       await page.keyboard.up("ShiftLeft");
       await page.keyboard.up("ArrowDown");
-      presses.push((firstPress + index * 0.12).toFixed(2));
+      presses.push((firstPress + index * 0.14).toFixed(2));
       const line = (await latestFrame(page))?.texts?.find((t) => t.startsWith("Parried:")) ?? null;
       if (line) parried = Number(line.slice("Parried:".length).split("/")[0].trim()) || 0;
       await page.waitForTimeout(80);
