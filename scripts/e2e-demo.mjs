@@ -321,20 +321,30 @@ async function hold(page, keyName, ms) {
  * *and* a round timer that has just been reset.
  */
 async function restartRound(page) {
-  // Detect the new round from the game's own clock instead of the HUD text:
-  // "READY and Time >= 59.5" also matches the *previous* round while it is still
-  // inside its grace window, which is what let two rounds into one sample.
-  const before = await pickupState(page);
-  await hold(page, "KeyR", 220);
-  const started = Date.now();
-  while (Date.now() - started < 8000) {
-    const state = await pickupState(page);
-    if (state && state.phase === "play" && (!before || state.roundTime > before.roundTime + 1)) {
-      return state;
+  // One place decides "did R take effect": wait for the game clock to jump,
+  // retry twice, and report the roundTime when it never did. Every caller
+  // (I2/I5/I1) then trusts this instead of guessing.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const before = await pickupState(page);
+    const beforeTime = before && before.roundTime !== null ? before.roundTime : null;
+    await hold(page, "KeyR", 220);
+    const started = Date.now();
+    while (Date.now() - started < 3000) {
+      const state = await pickupState(page);
+      if (
+        state &&
+        state.phase === "play" &&
+        beforeTime !== null &&
+        state.roundTime !== null &&
+        state.roundTime > beforeTime + 1
+      ) {
+        return state;
+      }
+      await page.waitForTimeout(40);
     }
-    await page.waitForTimeout(40);
   }
-  return null;
+  const last = await pickupState(page);
+  return { failed: "restart-not-observed", roundTime: last ? last.roundTime : null };
 }
 
 const median = (values) => {
@@ -466,7 +476,11 @@ async function waitForSpawn(page, timeoutMs = 8000) {
     }
     await page.waitForTimeout(40);
   }
-  return { failed: true, samples: samples.slice(-5) };
+  const last = samples[samples.length - 1] ?? null;
+  const reason = !last || last.worldX === null
+    ? "worldX null (the loop never published a position)"
+    : `worldX ${last.worldX} is not the spawn 600 +/- 1 (roundTime ${last.roundTime})`;
+  return { failed: true, reason, samples: samples.slice(-5) };
 }
 
 async function waitForPlay(page, timeoutMs = 8000) {
@@ -585,15 +599,15 @@ async function runDesktop(browser, baseUrl, errors) {
     await restartRound(page);
     const state = await waitForSpawn(page);
     if (state.failed) {
-      check(false, "I2: sample taken", `sample missing (no spawn within 8 s; last 5 states ${JSON.stringify(state.samples)})`);
+      check(false, "I2: sample taken", `sample missing — ${state.reason}; last 5 states ${JSON.stringify(state.samples)}`);
       return null;
     }
     return state;
   };
 
   const base = await restartRound(page);
-  if (!base) {
-    check(false, "I2: R returns the player to spawn", "sample missing (no phase=play after R)");
+  if (base.failed) {
+    check(false, "I2: R returns the player to spawn", `restart not observed (roundTime ${base.roundTime})`);
   } else {
     let samePlace = 0;
     let worst = 0;
@@ -615,7 +629,7 @@ async function runDesktop(browser, baseUrl, errors) {
   await restartRound(page);
   const startState = await waitForSpawn(page);
   if (startState.failed) {
-    check(false, "I5: the spawn opens at least 40 px of room (designed 45)", `sample missing (no spawn within 8 s; last 5 states ${JSON.stringify(startState.samples)}) — not reported as 0 px`);
+    check(false, "I5: the spawn opens at least 40 px of room (designed 45)", `sample missing — ${startState.reason}; last 5 states ${JSON.stringify(startState.samples)} — not reported as 0 px`);
   } else {
     await page.keyboard.down("ArrowRight");
     let lastX = null;
@@ -678,7 +692,7 @@ async function runDesktop(browser, baseUrl, errors) {
   let i1SpawnFailed = false;
   const i1Reset = await waitForSpawn(page);
   if (i1Reset.failed) {
-    check(false, "I1: a dash frame is at least 1.3x a walk frame", `sample missing (no spawn within 8 s; last 5 states ${JSON.stringify(i1Reset.samples)}) — not reported as a ratio`);
+    check(false, "I1: a dash frame is at least 1.3x a walk frame", `sample missing — ${i1Reset.reason}; last 5 states ${JSON.stringify(i1Reset.samples)} — not reported as a ratio`);
     i1SpawnFailed = true;
   }
   await page.keyboard.down("ArrowUp");
