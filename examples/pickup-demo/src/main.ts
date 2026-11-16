@@ -30,6 +30,8 @@ type PickupState = {
   worldY: number | null;
   speed: number;
   roundTime: number;
+  /** False before the player entity exists; a null `worldX` with this true would be a bug. */
+  hasPlayer: boolean;
 };
 
 type EntityKind = "player" | "gem" | "wall" | "hazard";
@@ -1337,6 +1339,7 @@ async function main(): Promise<void> {
     (window as typeof window & { __pickupState?: PickupState }).__pickupState = {
       phase,
       ready: isHazardGraceActive(),
+      hasPlayer: playerEntity !== undefined,
       worldX,
       worldY,
       speed,
