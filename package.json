@@ -10,7 +10,8 @@
     "smoke:pack-install": "node scripts/smoke-pack-install.mjs",
     "docs:render": "node scripts/render-docs.mjs",
     "e2e:demo": "node scripts/e2e-demo.mjs",
-    "check:deployed": "node scripts/check-deployed-bundles.mjs"
+    "check:deployed": "node scripts/check-deployed-bundles.mjs",
+    "measure:parry-run": "node scripts/measure-parry-run.mjs"
   },
   "devDependencies": {
     "playwright-core": "^1.49.0",
