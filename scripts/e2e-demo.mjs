@@ -444,6 +444,25 @@ async function pickupState(page) {
   return page.evaluate(() => (typeof window.__pickupState === "object" ? window.__pickupState : null));
 }
 
+async function waitForSpawn(page, timeoutMs = 3000) {
+  // `restartRound` returns on the roundTime jump, which can land on a frame
+  // before the loop has published worldX. Wait for a play frame that has the
+  // coordinates, then require the spawn (600 +/- 1).
+  const started = Date.now();
+  let lastPhase = null;
+  while (Date.now() - started < timeoutMs) {
+    const state = await pickupState(page);
+    if (state) {
+      lastPhase = state.phase;
+      if (state.phase === "play" && state.worldX !== null && Math.abs(state.worldX - 600) <= 1) {
+        return state;
+      }
+    }
+    await page.waitForTimeout(40);
+  }
+  return { failed: true, lastPhase };
+}
+
 async function waitForPlay(page, timeoutMs = 8000) {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
@@ -557,10 +576,9 @@ async function runDesktop(browser, baseUrl, errors) {
   // hazard sprites, which move when the layout cycles.
   const spawnSample = async () => {
     await hold(page, "ArrowDown", 300);
-    const state = await restartRound(page);
-    if (!state) return null;
-    await page.waitForTimeout(120);
-    return pickupState(page);
+    await restartRound(page);
+    const state = await waitForSpawn(page);
+    return state.failed ? null : state;
   };
 
   const base = await restartRound(page);
@@ -584,40 +602,33 @@ async function runDesktop(browser, baseUrl, errors) {
   }
 
   // ---- I5: the wall right of the spawn is at least 45 px away ------------
-  const resetState = await restartRound(page);
-  const startState = resetState && Math.abs(resetState.worldX - 600) <= 1 ? resetState : null;
-  if (!startState) {
-    check(false, "I5: the spawn opens at least 40 px of room (designed 45)", `sample missing (reset did not take: worldX ${resetState ? resetState.worldX : "none"}) — not reported as 0 px`);
-  }
-  await page.keyboard.down("ArrowRight");
-  let lastX = null;
-  let stable = 0;
-  let stoppedX = null;
-  const deadline = Date.now() + 5000;
-  while (Date.now() < deadline) {
-    const state = await pickupState(page);
-    const x = state ? state.worldX : null;
-    if (x !== null && lastX !== null && Math.abs(x - lastX) < 0.01) {
-      stable += 1;
-      if (stable >= 2) { stoppedX = x; break; }
-    } else { stable = 0; }
-    lastX = x;
-    await page.waitForTimeout(60);
-  }
-  await page.keyboard.up("ArrowRight");
-
-  if (!startState || stoppedX === null) {
-    check(false, "I5: the spawn opens at least 45 px to the right", `sample missing (${!startState ? "no phase=play" : "the player never stopped within 5 s"}; last worldX ${lastX}) — not reported as 0 px`);
+  await restartRound(page);
+  const startState = await waitForSpawn(page);
+  if (startState.failed) {
+    check(false, "I5: the spawn opens at least 40 px of room (designed 45)", `sample missing (no play frame with worldX within 3 s, last phase ${startState.lastPhase}) — not reported as 0 px`);
   } else {
-    const wallRun = stoppedX - startState.worldX;
-    // The designed gap is exactly 45 px, so a 45 px floor sits on the measured
-    // value and turns every 0.1 px of rounding into a coin flip. Check 40 (a
-    // regression to the old 6 px still fails loudly) and report the measurement.
-    check(
-      wallRun >= 40,
-      "I5: the spawn opens at least 40 px of room (designed 45)",
-      `measured ${wallRun.toFixed(1)} px (worldX ${startState.worldX.toFixed(1)} → ${stoppedX.toFixed(1)})`,
-    );
+    await page.keyboard.down("ArrowRight");
+    let lastX = null;
+    let stable = 0;
+    let stoppedX = null;
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline) {
+      const state = await pickupState(page);
+      const x = state ? state.worldX : null;
+      if (x !== null && lastX !== null && Math.abs(x - lastX) < 0.01) {
+        stable += 1;
+        if (stable >= 2) { stoppedX = x; break; }
+      } else { stable = 0; }
+      lastX = x;
+      await page.waitForTimeout(60);
+    }
+    await page.keyboard.up("ArrowRight");
+    if (stoppedX === null) {
+      check(false, "I5: the spawn opens at least 40 px of room (designed 45)", `sample missing (the player never stopped within 5 s; last worldX ${lastX}) — not reported as 0 px`);
+    } else {
+      const wallRun = stoppedX - startState.worldX;
+      check(wallRun >= 40, "I5: the spawn opens at least 40 px of room (designed 45)", `measured ${wallRun.toFixed(1)} px (worldX ${startState.worldX.toFixed(1)} → ${stoppedX.toFixed(1)})`);
+    }
   }
 
   // ---- I1: a 400 ms Shift hold moves 1.3x further than walking ----------
@@ -653,9 +664,10 @@ async function runDesktop(browser, baseUrl, errors) {
     );
   };
 
-  const i1Reset = await restartRound(page);
-  if (!i1Reset || Math.abs(i1Reset.worldX - 600) > 1) {
-    check(false, "I1: a dash frame is at least 1.3x a walk frame", `sample missing (reset did not take: worldX ${i1Reset ? i1Reset.worldX : "none"}) — not reported as a ratio`);
+  await restartRound(page);
+  const i1Reset = await waitForSpawn(page);
+  if (i1Reset.failed) {
+    check(false, "I1: a dash frame is at least 1.3x a walk frame", `sample missing (no play frame with worldX within 3 s, last phase ${i1Reset.lastPhase}) — not reported as a ratio`);
   }
   await page.keyboard.down("ArrowUp");
   const walkSamples = [];
