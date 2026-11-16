@@ -57,6 +57,15 @@ Examples live under `examples/`. The pickup sample is at `examples/pickup-demo`;
 - Do **not** add runtime dependencies unless explicitly required.
 - Do **not** import the other first-party package (`glyph-arena-loop` and `glyph-arena-input` are independent).
 
+## What ships to npm
+
+Only one package is published: `@fogrexon/glyph-arena`. It bundles the 14 modules into a single ESM build and re-exports their value exports flat with self-contained type declarations. The 14 `@fogrexon/glyph-arena-*` modules stay workspace-internal and are never published on their own, so nothing outside this repository can install them by name.
+
+- **Adding or renaming a module** means adding it to `packages/glyph-arena/src/index.ts` (relative `export *`) and to `fixtures/public-api/index.mts`. Skip either and `pnpm -r typecheck` stays green while the published package is missing the export.
+- **The emitted declarations must stay self-contained**: no bare `@fogrexon/*` specifiers inside `dist/`. `pnpm typecheck:public-api` and `pnpm smoke:pack-install` check this.
+- **The version lives on the umbrella** (`packages/glyph-arena/package.json`); the 14 subpackage versions are internal values.
+- A module that runs code at import time would break `sideEffects: false` in the umbrella — keep every module a factory.
+
 ## API documentation
 
 These files are rendered to HTML by `scripts/render-docs.mjs` during the demo build and published at [fogrexon.github.io/glyph-arena/docs](https://fogrexon.github.io/glyph-arena/docs/). Edit the `docs/api-*.md` sources, not the generated pages.
