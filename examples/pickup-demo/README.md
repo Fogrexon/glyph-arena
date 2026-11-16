@@ -59,6 +59,12 @@ pnpm dev
 
 Open the URL Vite prints (usually `http://localhost:5173`).
 
+## Frame delta
+
+The simulation advances by at most `0.1 s` per frame (`MAX_FRAME_DELTA`). A backgrounded tab can hand the
+loop a multi-second delta; without the clamp that single frame would spend the whole round clock and
+teleport the hazards, ending the round the moment the tab is focused again.
+
 ## Layouts
 
 The field has **three fixed layouts** — gems and hazard lanes both move — and the **restart count** picks

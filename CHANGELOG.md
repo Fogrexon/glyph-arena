@@ -33,6 +33,14 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 - Pickup demo cycles through **three fixed layouts** (gems and hazard lanes) by restart count, so a second round is not the first one memorised. No RNG: the sequence is fixed and `layout = restarts % 3` (demo-only; no package API change; `index-*.js` changes)
 
+### Fixed
+
+- Pickup demo no longer ends a round when the tab was in the background: the frame delta is clamped to `0.1 s` before it reaches movement, hazards and the round clock (the missing cap in `@fogrexon/glyph-arena-loop` is tracked separately) (demo-only; `index-*.js` changes)
+
+### Added
+
+- `examples/pickup-demo/e2e/clear-run.json` - a verified 8/8 CLEAR route (258 world-space waypoints) for the CI E2E to replay; measured CLEAR 25.1 s with 1 life left (test fixture only)
+
 ### Changed
 
 - Pickup demo hazard lanes now run straight over gems the player has to reach (H1 over the north gem's column, H2 beside the east gem) instead of patrolling empty floor, so the danger is spatial rather than a timing coincidence; the central wall block moves 40 px east so the spawn no longer opens 6 px from a wall (demo-only; no package API change; `index-*.js` changes)

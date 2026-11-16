@@ -60,6 +60,12 @@ const INITIAL_LIVES = 3;
 const INVULN_SECONDS = 1;
 /** Hazards stay put for this long after the round starts (and after R), so the first hit is not a surprise. */
 const HAZARD_GRACE_SECONDS = 3;
+/**
+ * Longest frame the simulation will advance in one step. A backgrounded tab can
+ * hand the loop a multi-second delta, which would otherwise spend the round clock
+ * (and teleport hazards) in a single frame.
+ */
+const MAX_FRAME_DELTA = 0.1;
 /** On-screen d-pad for touch devices: offset from the bottom-left corner and its radius (CSS px). */
 const TOUCH_PAD_MARGIN = 104;
 const TOUCH_PAD_RADIUS = 64;
@@ -1247,6 +1253,7 @@ async function main(): Promise<void> {
     onFrame(time) {
       const pads = gamepad.snapshot();
       const pad = pads[0];
+      const delta = Math.min(time.delta, MAX_FRAME_DELTA);
 
       const snapshot = input.snapshot();
       const keys = new Set(snapshot.keys);
@@ -1392,8 +1399,8 @@ async function main(): Promise<void> {
 
           if (dx !== 0 || dy !== 0) {
             const moveSpeed = scheduleSeconds < dashUntil ? DASH_SPEED : MOVE_SPEED;
-            const stepX = dx * moveSpeed * time.delta;
-            const stepY = dy * moveSpeed * time.delta;
+            const stepX = dx * moveSpeed * delta;
+            const stepY = dy * moveSpeed * delta;
 
             const tentativeX = playerX + stepX;
             if (!collidesWithWalls(playerAabbAtCenter(tentativeX, playerY), walls)) {
@@ -1420,7 +1427,7 @@ async function main(): Promise<void> {
           }
 
           if (!cleared && !failed && !isHazardGraceActive()) {
-            moveHazards(time.delta, walls);
+            moveHazards(delta, walls);
             applyHazardDamage(playerBox);
           }
         }
@@ -1436,10 +1443,10 @@ async function main(): Promise<void> {
           dashUntil = scheduleSeconds + DASH_DURATION;
         }
 
-        scheduleSeconds += time.delta;
+        scheduleSeconds += delta;
 
         if (phase === "play" && !cleared && !failed) {
-          roundRemaining = Math.max(0, roundRemaining - time.delta);
+          roundRemaining = Math.max(0, roundRemaining - delta);
         }
 
         timer.tick(scheduleSeconds);
