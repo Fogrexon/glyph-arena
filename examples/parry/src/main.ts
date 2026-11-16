@@ -807,7 +807,10 @@ async function main(): Promise<void> {
       }
 
       if (phase === "play" && scheduleSeconds < hitstopUntil) {
-        // Hitstop: hold everything for a few frames so a parry lands with weight.
+        // Hitstop: hold the world still for a moment so a parry lands with weight.
+        // The clock has to keep running - it is what the stop is measured against, so freezing it
+        // here would hold the game for good instead of for HITSTOP_SECONDS.
+        scheduleSeconds += delta;
         drawScene(0, 0);
         drawHud();
         drawTouchPad();

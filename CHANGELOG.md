@@ -69,6 +69,10 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Fixed
 
+- `examples/parry`: **the game no longer freezes after a parry.** The hitstop branch returned before `scheduleSeconds += delta`, so the clock that the hitstop is measured against never advanced and `scheduleSeconds < hitstopUntil` stayed true for good - one parry and the world stopped. The clock now advances inside the branch; the world still holds still for the 60 ms of the effect (and every multi-parry run, including the acceptance that needs wave 5, was impossible until this) (demo-only)
+
+### Fixed
+
 - `examples/parry`: **`Contact in` no longer counts enemies that will miss.** The candidate was chosen by the projection along an enemy's travel only, so an enemy sliding past a few dozen pixels beside the player read as `Contact in 6ms` while it was really 316 ms away - the HUD said "now" and the state pointed at an enemy a dash could not parry. Candidates now also have to be within `CONTACT_DISTANCE` of the line they travel, so the HUD, `contactMs`, `pressMs` and `contactDir` all describe an enemy that is actually coming. `window.__parryState` also gains **`dashMs`**, so an E2E can press at `pressMs <= windowMs + dashMs` instead of a magic number (demo-only)
 
 ### Added
