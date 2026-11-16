@@ -67,6 +67,10 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 - `examples/pickup-demo`: the run is published every frame as **`window.__pickupState`** (`{ phase, ready, worldX, worldY, speed, roundTime }` - the player's world position and measured speed, not a draw call). The E2E read movement out of `hazards[0].x`, which is a hazard that stops against walls, and out of screen coordinates, which the camera pins in place; both made a real measurement look like a pass or a zero. Drawing unchanged (demo-only)
 
+### Added
+
+- `examples/parry`: `window.__parryState` gains **`threats`** - every enemy that will actually reach the player, soonest first, each `{ ms, dirX, dirY }` (the same numbers as `pressMs`/`contactDir` for that enemy). `contactDir` is the first entry. A single direction could only ever answer the nearest enemy, so a harness (or a player watching the HUD) could not defend against two at once; with the list, turning to the next threat is arithmetic (demo-only)
+
 ### Fixed
 
 - `examples/parry`: **the game no longer freezes after a parry.** The hitstop branch returned before `scheduleSeconds += delta`, so the clock that the hitstop is measured against never advanced and `scheduleSeconds < hitstopUntil` stayed true for good - one parry and the world stopped. The clock now advances inside the branch; the world still holds still for the 60 ms of the effect (and every multi-parry run, including the acceptance that needs wave 5, was impossible until this) (demo-only)
