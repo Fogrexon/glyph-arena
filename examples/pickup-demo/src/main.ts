@@ -388,7 +388,7 @@ async function main(): Promise<void> {
     { x: 0, y: 0, width: 32, height: WORLD_HEIGHT },
     { x: WORLD_WIDTH - 32, y: 0, width: 32, height: WORLD_HEIGHT },
     { x: 280, y: 180, width: 220, height: 40 },
-    { x: 620, y: 320, width: 40, height: 240 },
+    { x: 660, y: 320, width: 40, height: 240 },
     { x: 180, y: 520, width: 300, height: 40 },
     { x: 760, y: 120, width: 40, height: 200 },
     { x: 420, y: 680, width: 260, height: 40 },
@@ -399,21 +399,24 @@ async function main(): Promise<void> {
 
   /**
    * Fixed play-field hazards (deterministic; no runtime RNG).
-   * Lanes cross the routes the player actually takes: H0 sweeps the spawn row,
-   * H1 runs the spawn column, H2 sweeps the bottom gem row. Every lane crosses
-   * open floor, so standing still is punished.
+   * Lanes cross the routes the player actually takes, and two of them run
+   * straight over gems the player has to reach: H0 sweeps the spawn row,
+   * H1 runs the column of the north gem and H2 the column next to the east
+   * gem. Hazards pass through gems (no collision), so a lane never blocks a
+   * pickup - it just makes the approach a timed one. Every lane crosses open
+   * floor, so standing still is punished.
    */
   const hazardSpawns: Array<{ x: number; y: number }> = [
-    { x: 96, y: 434 },
-    { x: 584, y: 96 },
-    { x: 1104, y: 760 },
+    { x: 300, y: 434 },
+    { x: 530, y: 96 },
+    { x: 820, y: 96 },
   ];
 
   /** Initial hazard velocities in spawn order: H0, H1, H2 (px/s, axis-aligned, 80 px/s each). */
   const hazardInitialVelocities: Array<{ vx: number; vy: number }> = [
     { vx: HAZARD_SPEED, vy: 0 },
     { vx: 0, vy: HAZARD_SPEED },
-    { vx: -HAZARD_SPEED, vy: 0 },
+    { vx: 0, vy: HAZARD_SPEED },
   ];
 
   const hazardVelocities = new Map<Entity, { vx: number; vy: number }>();
