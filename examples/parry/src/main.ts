@@ -29,7 +29,13 @@ type ParryState = {
   parried: number;
   lives: number;
   wave: number;
+  /** Physics: projected time until the boxes touch, the number on the HUD. */
   contactMs: number | null;
+  /** The number the parry judgement compares with `windowMs`: straight-line distance / speed. */
+  pressMs: number | null;
+  /** Player -> nearest closing enemy, unit vector, so a dash can be aimed instead of guessed. */
+  contactDirX: number | null;
+  contactDirY: number | null;
   windowMs: number;
 };
 
@@ -564,20 +570,23 @@ async function main(): Promise<void> {
    */
   /** Publishes the run for anything that is not a human looking at the canvas. */
   function publishParryState(): void {
-    const contact = phase === "play" ? nextContactSeconds() : null;
+    const contact = phase === "play" ? nextContact() : null;
     (window as typeof window & { __parryState?: ParryState }).__parryState = {
       phase,
       parried,
       lives,
       wave: Math.min(waveIndex, WAVES.length),
-      contactMs: contact === null ? null : Math.round(contact * 1000),
+      contactMs: contact === null ? null : Math.round(contact.seconds * 1000),
+      pressMs: contact === null ? null : Math.round(contact.pressSeconds * 1000),
+      contactDirX: contact === null ? null : Math.round(contact.dirX * 1000) / 1000,
+      contactDirY: contact === null ? null : Math.round(contact.dirY * 1000) / 1000,
       windowMs: Math.round(parryWindow() * 1000),
     };
   }
 
-  function nextContactSeconds(): number | null {
+  function nextContact(): { seconds: number; pressSeconds: number; dirX: number; dirY: number } | null {
     const playerCenter = centerOf(getAabb(playerEntity));
-    let best: number | null = null;
+    let best: { seconds: number; pressSeconds: number; dirX: number; dirY: number } | null = null;
     for (const enemy of enemies) {
       const velocity = world.get(enemy.entity, COMPONENT_VELOCITY) as Velocity | undefined;
       if (velocity === undefined) {
@@ -596,11 +605,25 @@ async function main(): Promise<void> {
       if (seconds <= 0) {
         continue;
       }
-      if (best === null || seconds < best) {
-        best = seconds;
+      if (best !== null && seconds >= best.seconds) {
+        continue;
       }
+      const distance = Math.hypot(dx, dy) || 1;
+      // The number the parry itself compares with the window: straight-line distance over speed.
+      best = {
+        seconds,
+        pressSeconds: distance / speed,
+        // Player -> enemy, so dashing along it goes *into* the incoming box.
+        dirX: -dx / distance,
+        dirY: -dy / distance,
+      };
     }
     return best;
+  }
+
+  function nextContactSeconds(): number | null {
+    const contact = nextContact();
+    return contact === null ? null : contact.seconds;
   }
 
   function drawHud(): void {
