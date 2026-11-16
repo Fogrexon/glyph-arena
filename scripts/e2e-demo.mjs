@@ -965,6 +965,58 @@ async function runParry(browser, errors) {
       "I10: a second parry lands in the same run",
       `parried ${beforeSecond?.parried} -> ${afterSecond.parried}, wave ${beforeSecond?.wave} -> ${secondPress?.wave}`,
     );
+
+    // I11: five waves defended in a row. This is the check that makes `lives` a machine criterion: every
+    // frame it turns to the soonest threat and presses inside the window, which a single direction could
+    // not do when two enemies arrive together.
+    await page.goto(`http://127.0.0.1:${PARRY_PORT}/?i11=1`, { waitUntil: "load" });
+    await page.waitForTimeout(600);
+    await hold(page, "Space", 160);
+    const defenceStart = Date.now();
+    let heldArrows = [];
+    let defenceState = null;
+    let lostLife = false;
+    while (Date.now() - defenceStart < 20000) {
+      const s = await page.evaluate(() => window.__parryState);
+      if (!s || s.phase !== "play") {
+        await page.waitForTimeout(20);
+        continue;
+      }
+      defenceState = s;
+      if (s.lives < 3) {
+        lostLife = true;
+        break;
+      }
+      if (s.parried >= 5) break;
+      const threat = (s.threats && s.threats[0]) || null;
+      const arrows = [];
+      if (threat) {
+        if (threat.dirY > 0.35) arrows.push("ArrowDown");
+        else if (threat.dirY < -0.35) arrows.push("ArrowUp");
+        if (threat.dirX > 0.35) arrows.push("ArrowRight");
+        else if (threat.dirX < -0.35) arrows.push("ArrowLeft");
+      }
+      for (const key of heldArrows) {
+        if (!arrows.includes(key)) await page.keyboard.up(key);
+      }
+      for (const key of arrows) {
+        if (!heldArrows.includes(key)) await page.keyboard.down(key);
+      }
+      heldArrows = arrows;
+      if (threat && threat.ms <= s.windowMs + s.dashMs) {
+        await page.keyboard.down("ShiftLeft");
+        await page.waitForTimeout(120);
+        await page.keyboard.up("ShiftLeft");
+        await page.waitForTimeout(60);
+      }
+      await page.waitForTimeout(20);
+    }
+    for (const key of heldArrows) await page.keyboard.up(key);
+    check(
+      !lostLife && Boolean(defenceState) && defenceState.parried >= 5 && defenceState.lives === 3,
+      "I11: five waves defended without losing a life",
+      `${defenceState?.parried} parried, ${defenceState?.lives} lives, wave ${defenceState?.wave}`,
+    );
   } finally {
     await context.close();
     server.close();
