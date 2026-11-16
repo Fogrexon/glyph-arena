@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "examples/pickup-demo/**"
+      - "examples/parry/**"
       - "docs/**"
       - "README.md"
       - "scripts/render-docs.mjs"
@@ -71,9 +72,19 @@ jobs:
         env:
           GITHUB_PAGES: "true"
 
+      # The parry demo is published beside the frozen pickup demo, at /glyph-arena/parry/.
+      - run: pnpm --filter @fogrexon/glyph-arena-parry-demo build
+        env:
+          PARRY_BASE: "/glyph-arena/parry/"
+
+      - run: |
+          mkdir -p site/parry
+          cp -r examples/pickup-demo/dist/. site/
+          cp -r examples/parry/dist/. site/parry/
+
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: examples/pickup-demo/dist
+          path: site
 
   deploy:
     needs: build
