@@ -67,6 +67,10 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 - `examples/pickup-demo`: the run is published every frame as **`window.__pickupState`** (`{ phase, ready, worldX, worldY, speed, roundTime }` - the player's world position and measured speed, not a draw call). The E2E read movement out of `hazards[0].x`, which is a hazard that stops against walls, and out of screen coordinates, which the camera pins in place; both made a real measurement look like a pass or a zero. Drawing unchanged (demo-only)
 
+### Fixed
+
+- `examples/parry`: **`Contact in` no longer counts enemies that will miss.** The candidate was chosen by the projection along an enemy's travel only, so an enemy sliding past a few dozen pixels beside the player read as `Contact in 6ms` while it was really 316 ms away - the HUD said "now" and the state pointed at an enemy a dash could not parry. Candidates now also have to be within `CONTACT_DISTANCE` of the line they travel, so the HUD, `contactMs`, `pressMs` and `contactDir` all describe an enemy that is actually coming. `window.__parryState` also gains **`dashMs`**, so an E2E can press at `pressMs <= windowMs + dashMs` instead of a magic number (demo-only)
+
 ### Added
 
 - `examples/parry`: `window.__parryState` now also carries **`contactDirX` / `contactDirY`** (player -> nearest closing enemy, unit vector) and **`pressMs`** (straight-line distance / speed - the number the parry judgement compares with `windowMs`, which is not the same as the HUD's projected `contactMs`). A parry is aimed and timed from those two instead of guessing a direction and a moment (demo-only)
