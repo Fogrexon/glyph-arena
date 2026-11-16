@@ -1,1 +1,137 @@
-IyEvdXNyL2Jpbi9lbnYgbm9kZQovLyDlgpjjg5Hjg4PjgrHjg7zjgrjjga4gcHVibGlzaCDlvozmpJzoqLzjgIJyZWdpc3RyeSAvIHRhcmJhbGwg44Gu44Gp44Gh44KJ44Gn44KC5ZCM44GYNemgheebruOCkuWIpOWumuOBmeOCi+OAggovLwovLyAgIG5vZGUgdmVyaWZ5LXB1Ymxpc2hlZC5tanMgLS10YXJiYWxsPS9wYXRoL3RvL2ZvZ3JleG9uLWdseXBoLWFyZW5hLTAuMS4yLnRneiAtLXRzYz0vcGF0aC90by90c2MKLy8gICBub2RlIHZlcmlmeS1wdWJsaXNoZWQubWpzIC0tc3BlYz1AZm9ncmV4b24vZ2x5cGgtYXJlbmFAMC4xLjIgLS10c2M9L3BhdGgvdG8vdHNjCi8vCi8vIOWIpOWumjog4pGgaW5zdGFsbCDjgafjgY3jgosg4pGhbGljZW5zZT1NSVTjg7tFU00gb25seSDikaIuY2pzIDDku7bjg7tMSUNFTlNFIOWQjOaisQovLyAgICAgICDikaPlrqPoqIDjga4gaW1wb3J0IOaMh+WumuWtkOOBjOWFqOOBpuebuOWvviDikaRFU00gaW1wb3J0IOOBpyAxNCBleHBvcnQg4pGlc3RyaWN0K05vZGVOZXh0IOOBpyB0c2Mg44GM6YCa44KLCmltcG9ydCB7IG1rZHRlbXBTeW5jLCB3cml0ZUZpbGVTeW5jLCByZWFkRmlsZVN5bmMsIHJlYWRkaXJTeW5jLCBzdGF0U3luYywgcm1TeW5jIH0gZnJvbSAibm9kZTpmcyI7CmltcG9ydCB7IHRtcGRpciB9IGZyb20gIm5vZGU6b3MiOwppbXBvcnQgeyBqb2luIH0gZnJvbSAibm9kZTpwYXRoIjsKaW1wb3J0IHsgZXhlY0ZpbGVTeW5jIH0gZnJvbSAibm9kZTpjaGlsZF9wcm9jZXNzIjsKCmNvbnN0IGFyZ3MgPSBPYmplY3QuZnJvbUVudHJpZXMoCiAgcHJvY2Vzcy5hcmd2LnNsaWNlKDIpLm1hcCgoYSkgPT4gewogICAgY29uc3QgaSA9IGEuaW5kZXhPZigiPSIpOwogICAgcmV0dXJuIGkgPT09IC0xID8gW2EucmVwbGFjZSgvXi0tLywgIiIpLCB0cnVlXSA6IFthLnNsaWNlKDIsIGkpLCBhLnNsaWNlKGkgKyAxKV07CiAgfSksCik7CmNvbnN0IHRhcmdldCA9IGFyZ3MudGFyYmFsbCA/IGFyZ3MudGFyYmFsbCA6IGFyZ3Muc3BlYzsKaWYgKCF0YXJnZXQpIHsKICBjb25zb2xlLmVycm9yKCJ1c2FnZTogLS10YXJiYWxsPTxwYXRoPiB8IC0tc3BlYz1AZm9ncmV4b24vZ2x5cGgtYXJlbmFAPHZlcnNpb24+Iik7CiAgcHJvY2Vzcy5leGl0KDIpOwp9Cgpjb25zdCByZXN1bHRzID0gW107CmNvbnN0IGNoZWNrID0gKG5hbWUsIG9rLCBkZXRhaWwpID0+IHsKICByZXN1bHRzLnB1c2goeyBuYW1lLCBvaywgZGV0YWlsIH0pOwogIGNvbnNvbGUubG9nKGAke29rID8gIlBBU1MiIDogIkZBSUwifSAgJHtuYW1lfSR7ZGV0YWlsID8gYCDigJQgJHtkZXRhaWx9YCA6ICIifWApOwp9OwoKY29uc3QgZGlyID0gbWtkdGVtcFN5bmMoam9pbih0bXBkaXIoKSwgImdhLXZlcmlmeS0iKSk7CmNvbnN0IHJ1biA9IChjbWQsIGFyZ3YsIG9wdHMgPSB7fSkgPT4KICBleGVjRmlsZVN5bmMoY21kLCBhcmd2LCB7IGN3ZDogZGlyLCBlbmNvZGluZzogInV0ZjgiLCBzdGRpbzogInBpcGUiLCAuLi5vcHRzIH0pOwoKdHJ5IHsKICB3cml0ZUZpbGVTeW5jKGpvaW4oZGlyLCAicGFja2FnZS5qc29uIiksIEpTT04uc3RyaW5naWZ5KHsgbmFtZTogInZlcmlmeSIsIHByaXZhdGU6IHRydWUsIHR5cGU6ICJtb2R1bGUiIH0sIG51bGwsIDIpKTsKCiAgLy8gMSkgaW5zdGFsbAogIGxldCBpbnN0YWxsT2sgPSB0cnVlOwogIGxldCBpbnN0YWxsRXJyID0gIiI7CiAgdHJ5IHsKICAgIHJ1bigibnBtIiwgWyJpbnN0YWxsIiwgIi0tbm8tYXVkaXQiLCAiLS1uby1mdW5kIiwgIi0tbG9nbGV2ZWw9ZXJyb3IiLCB0YXJnZXRdKTsKICB9IGNhdGNoIChlKSB7CiAgICBpbnN0YWxsT2sgPSBmYWxzZTsKICAgIGluc3RhbGxFcnIgPSBTdHJpbmcoZS5zdGRlcnIgPz8gZS5tZXNzYWdlKS50cmltKCkuc3BsaXQoIlxuIikuc2xpY2UoLTIpLmpvaW4oIiAiKTsKICB9CiAgY2hlY2soImluc3RhbGwiLCBpbnN0YWxsT2ssIGluc3RhbGxPayA/IHRhcmdldCA6IGluc3RhbGxFcnIpOwogIGlmICghaW5zdGFsbE9rKSB0aHJvdyBuZXcgRXJyb3IoImluc3RhbGwgZmFpbGVkIik7CgogIGNvbnN0IHBrZ0RpciA9IGpvaW4oZGlyLCAibm9kZV9tb2R1bGVzIiwgIkBmb2dyZXhvbiIsICJnbHlwaC1hcmVuYSIpOwogIGNvbnN0IG1hbmlmZXN0ID0gSlNPTi5wYXJzZShyZWFkRmlsZVN5bmMoam9pbihwa2dEaXIsICJwYWNrYWdlLmpzb24iKSwgInV0ZjgiKSk7CgogIC8vIDIpIG1hbmlmZXN0CiAgY29uc3QgZXggPSBtYW5pZmVzdC5leHBvcnRzPy5bIi4iXSA/PyB7fTsKICBjb25zdCBlc21Pbmx5ID0gbWFuaWZlc3QudHlwZSA9PT0gIm1vZHVsZSIgJiYgZXguaW1wb3J0ICYmICFleC5yZXF1aXJlICYmIE9iamVjdC5rZXlzKGV4KS5zb3J0KCkuam9pbigiLCIpID09PSAiaW1wb3J0LHR5cGVzIjsKICBjaGVjaygibWFuaWZlsdCIsIG1hbmlmZXN0LmxpY2Vuc2UgPT09ICJNSVQiICYmIGVzbU9ubHksCiAgICBgbGljZW5zZT0ke21hbmlmZXN0LmxpY2Vuc2V9IHR5cGU9JHttYW5pZmVzdC50eXBlfSBleHBvcnRzPSR7SlNPTi5zdHJpbmdpZnkoZXgpfWApOwoKICAvLyAzKSBmaWxlcwogIGNvbnN0IHdhbGsgPSAocCwgYWNjID0gW10pID0+IHsKICAgIGZvciAoY29uc3QgZSBvZiByZWFkZGlyU3luYyhwKSkgewogICAgICBjb25zdCBmID0gam9pbihwLCBlKTsKICAgICAgaWYgKHN0YXRTeW5jKGYpLmlzRGlyZWN0b3J5KCkpIHdhbGsoZiwgYWNjKTsKICAgICAgZWxzZSBhY2MucHVzaChmKTsKICAgIH0KICAgIHJldHVybiBhY2M7CiAgfTsKICBjb25zdCBmaWxlcyA9IHdhbGsocGtnRGlyKS5tYXAoKGYpID0+IGYuc2xpY2UocGtnRGlyLmxlbmd0aCArIDEpKTsKICBjb25zdCBjanMgPSBmaWxlcy5maWx0ZXIoKGYpID0+IGYuZW5kc1dpdGgoIi5janMiKSk7CiAgY29uc3QgaGFzTGljZW5zZSA9IGZpbGVzLmluY2x1ZGVzKCJMSUNFTlNFIik7CiAgY2hlY2soImZpbGVzIiwgY2pzLmxlbmd0aCA9PT0gMCAmJiBoYXNMaWNlbnNlLCBgY2pzPSR7Y2pzLmxlbmd0aH0gTElDRU5TRT0ke2hhc0xpY2Vuc2V9IHRvdGFsPSR7ZmlsZXMubGVuZ3RofWApOwoKICAvLyA0KSBkZWNsYXJhdGlvbnM6IGltcG9ydCBzcGVjaWZpZXJzIG11c3QgYWxsIGJlIHJlbGF0aXZlCiAgY29uc3Qgc3BlY1JlID0gLyg/OmZyb21ccyp8aW1wb3J0XHMqXChccyopWyInXShbXiInXSspWyInXS9nOwogIGNvbnN0IGJhcmUgPSBbXTsKICBmb3IgKGNvbnN0IGYgb2YgZmlsZXMuZmlsdGVyKCh4KSA9PiB4LmVuZHNXaXRoKCIuZC50cyIpKSkgewogICAgY29uc3QgcmF3ID0gcmVhZEZpbGVTeW5jKGpvaW4ocGtnRGlyLCBmKSwgInV0ZjgiKTsKICAgIC8vIOOCs+ODoeODs+ODiOOBr+Wuo+iooOOBp+OBr+OBquOBhO+8iEpTRG9jIOOBqyBgQGZvZ3JleG9uLy4uLmAg44Gu5L2/55So5L6L44GM5pu444GL44KM44Gm44GE44KL77yJCiAgICBjb25zdCB0ZXh0ID0gcmF3LnJlcGxhY2UoL1wvXCpbXHNcU10qP1wqXC8vZywgIiIpLnJlcGxhY2UoL1wvXC9bXlxuXSovZywgIiIpOwogICAgZm9yIChjb25zdCBtIG9mIHRleHQubWF0Y2hBbGwoc3BlY1JlKSkgewogICAgICBjb25zdCBzID0gbVsxXTsKICAgICAgaWYgKCFzLnN0YXJ0c1dpdGgoIi4iKSAmJiAhcy5zdGFydHNXaXRoKCJub2RlOiIpKSBiYXJlLnB1c2goYCR7Zn06ICR7c31gKTsKICAgIH0KICB9CiAgY2hlY2soImRlY2xhcmF0aW9ucy1yZWxhdGl2ZSIsIGJhcmUubGVuZ3RoID09PSAwLCBiYXJlLmxlbmd0aCA/IGJhcmUuc2xpY2UoMCwgMykuam9pbigiIHwgIikgOiBgJHtmaWxlcy5maWx0ZXIoKHgpID0+IHguZW5kc1dpdGgoIi5kLnRzIikpLmxlbmd0aH0gZC50cyBmaWxlc2ApOwoKICAvLyA1KSBFU00gaW1wb3J0CiAgY29uc3QgcHJvYmUgPSBqb2luKGRpciwgInByb2JlLm1qcyIpOwogIHdyaXRlRmlsZVN5bmMocHJvYmUsIGBpbXBvcnQgKiBhcyBtIGZyb20gJ0Bmb2dyZXhvbi9nbHlwaC1hcmVuYSc7XG5jb25zb2xlLmxvZyhPYmplY3Qua2V5cyhtKS5zb3J0KCkuam9pbignLCcpKTtcbmApOwogIGNvbnN0IG91dCA9IHJ1bihwcm9jZXNzLmV4ZWNQYXRoLCBbcHJvYmVdKS50cmltKCk7CiAgY29uc3QgbmFtZXMgPSBvdXQgPyBvdXQuc3BsaXQoIiwiKSA6IFtdOwogIGNoZWNrKCJlc20taW1wb3J0IiwgbmFtZXMubGVuZ3RoID09PSAxNCwgYCR7bmFtZXMubGVuZ3RofSBleHBvcnRzYCk7CgogIC8vIDYpIHN0cmljdCB0eXBlY2hlY2sgKE5vZGVOb2RlTmV4dCkKICBjb25zdCB0c2MgPSBhcmdzLnRzYyB8fCAidHNjIjsKICB3cml0ZUZpbGVTeW5jKGpvaW4oZGlyLCAidHNjb25maWcuanNvbiIpLCBKU09OLnN0cmluZ2lmeSh7CiAgICBjb21waWxlck9wdGlvbnM6IHsgc3RyaWN0OiB0cnVlLCBtb2R1bGU6ICJOb2RlTmV4dCIsIG1vZHVsZVJlc29sdXRpb246ICJOb2RlTmV4dCIsIHRhcmdldDogIkVTMjAyMiIsIG5vRW1pdDogdHJ1ZSwgc2tpcExpYkNoZWNrOiBmYWxzZSB9LAogICAgaW5jbHVkZTogWyJ1c2UudHMiXSwKICB9LCBudWxsLCAyKSk7CiAgd3JpdGVGaWxlU3luYyhqb2luKGRpciwgInVzZS50cyIpLAogICAgYGltcG9ydCB7IGNyZWF0ZVdvcmxkLCBjcmVhdGVMb29wLCBjcmVhdGVUaW1lciwgY3JlYXRlQ2FtZXJhLCB0eXBlIE1hdHJpeDJEIH0gZnJvbSAiQGZvZ3JleG9uL2dseXBoLWFyZW5hIjsKY29uc3QgdDogTWF0cml4MkQgPSB7IGE6IDEsIGI6IDAsIGM6IDAsIGQ6IDEsIGU6IDAsIGY6IDAgfTsKY29uc3QgdyA9IGNyZWF0ZVdvcmxkKCk7IGNvbnN0IHRpbWVyID0gY3JlYXRlVGltZXIoKTsKY3JlYXRlTG9vcCh7IG9uRnJhbWU6ICgpID0+IHsgdGltZXIuZGVsYXkoMC4xLCAoKSA9PiB7fSk7IH0gfSk7IGNyZWF0ZUNhbWVyYSgpOwpjb25zb2xlLmxvZyh3LCB0KTsKYCk7CiAgbGV0IHRzY09rID0gdHJ1ZSwgdHNjRXJyID0gIiI7CiAgdHJ5IHsKICAgIHJ1bih0c2MsIFsiLXAiLCAidHNjb25maWcuanNvbiJdKTsKICB9IGNhdGNoIChlKSB7CiAgICB0c2NPayA9IGZhbHNlOwogICAgdHNjRXJyID0gU3RyaW5nKGUuc3Rkb3V0ID8/IGUubWVzc2FnZSkudHJpbSgpLnNwbGl0KCJcbiIpWzBdOwogIH0KICBjaGVjaygidHNjLXN0cmljdCIsIHRzY09rLCB0c2NPayA/ICJzdHJpY3QgKyBOb2RlTmV4dCIgOiB0c2NFcnIpOwoKICBpZiAoYXJncy5zcGVjICYmIGFyZ3Muc3BlYy5pbmNsdWRlcygiQCIpICYmICFhcmdzLnNwZWMuc3RhcnRzV2l0aCgiZmlsZToiKSAmJiAhYXJncy5zcGVjLmluY2x1ZGVzKCIvIikpIHsKICAgIGNvbnN0IFssIG5hbWUsIHZlcnNpb25dID0gYXJncy5zcGVjLm1hdGNoKC9eKEBbXi9dK1wvW15AXSspQD8oLiopJC8pID8/IFtdOwogICAgaWYgKG5hbWUpIHsKICAgICAgdHJ5IHsKICAgICAgICBjb25zdCByZXMgPSBhd2FpdCBmZXRjaChgaHR0cHM6Ly9yZWdpc3RyeS5ucG1qcy5vcmcvJHtlbmNvZGVVUklDb21wb25lbnQobmFtZSkucmVwbGFjZSgiJTQwIiwgIkAiKX0vJHt2ZXJzaW9uIHx8ICJsYXRlc3QifWApOwogICAgICAgIGNvbnN0IG1ldGEgPSBhd2FpdCByZXMuanNvbigpOwogICAgICAgIGNoZWNrKCJyZWdpc3RyeS1tZXRhZGF0YSIsIHJlcy5vayAmJiBtZXRhLmxpY2Vuc2UgPT09ICJNSVQiLCBgJHtyZXMuc3RhdHVzfSBsaWNlbnNlPSR7bWV0YS5saWNlbnNlfWApOwogICAgICB9IGNhdGNoIChlKSB7CiAgICAgICAgY2hlY2soInJlZ2lzdHJ5LW1ldGFkYXRhIiwgZmFsc2UsIFN0cmluZyhlLm1lc3NhZ2UpKTsKICAgICAgfQogICAgfQogIH0KfSBjYXRjaCAoZSkgewogIGNvbnNvbGUuZXJyb3IoYGVycm9yOiAke2UubWVzc2FnZX1gKTsKfSBmaW5hbGx5IHsKICBybVN5bmMoZGlyLCB7IHJlY3Vyc2l2ZTogdHJ1ZSwgZm9yY2U6IHRydWUgfSk7Cn0KCmNvbnN0IGZhaWxlZCA9IHJlc3VsdHMuZmlsdGVyKChyKSA9PiAhci5vayk7CmNvbnNvbGUubG9nKGBcbiR7ZmFpbGVkLmxlbmd0aCA9PT0gMCA/ICJBTEwgUEFTUyIgOiBgJHtmYWlsZWQubGVuZ3RofSBGQUlMRURgfSAoJHtyZXN1bHRzLmxlbmd0aH0gY2hlY2tzKWApOwpwcm9jZXNzLmV4aXQoZmFpbGVkLmxlbmd0aCA9PT0gMCA/IDAgOiAxKTsK
+#!/usr/bin/env node
+// 傘パッケージの publish 後検証。registry / tarball のどちらでも同じ6項目を判定する。
+//
+//   node verify-published.mjs --tarball=/path/to/fogrexon-glyph-arena-0.1.2.tgz --tsc=/path/to/tsc
+//   node verify-published.mjs --spec=@fogrexon/glyph-arena@0.1.2 --tsc=/path/to/tsc
+//
+// 判定: ①install できる ②license=MIT・ESM only ③.cjs 0件・LICENSE 同梱
+//       ④宣言の import 指定子が全て相対 ⑤ESM import で 14 export ⑥strict+NodeNext で tsc が通る
+import { mkdtempSync, writeFileSync, readFileSync, readdirSync, statSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { execFileSync } from "node:child_process";
+
+const args = Object.fromEntries(
+  process.argv.slice(2).map((a) => {
+    const i = a.indexOf("=");
+    return i === -1 ? [a.replace(/^--/, ""), true] : [a.slice(2, i), a.slice(i + 1)];
+  }),
+);
+const target = args.tarball ? args.tarball : args.spec;
+if (!target) {
+  console.error("usage: --tarball=<path> | --spec=@fogrexon/glyph-arena@<version>");
+  process.exit(2);
+}
+
+const results = [];
+const check = (name, ok, detail) => {
+  results.push({ name, ok, detail });
+  console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? ` — ${detail}` : ""}`);
+};
+
+const dir = mkdtempSync(join(tmpdir(), "ga-verify-"));
+const run = (cmd, argv, opts = {}) =>
+  execFileSync(cmd, argv, { cwd: dir, encoding: "utf8", stdio: "pipe", ...opts });
+
+try {
+  writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "verify", private: true, type: "module" }, null, 2));
+
+  // 1) install
+  let installOk = true;
+  let installErr = "";
+  try {
+    run("npm", ["install", "--no-audit", "--no-fund", "--loglevel=error", target]);
+  } catch (e) {
+    installOk = false;
+    installErr = String(e.stderr ?? e.message).trim().split("\n").slice(-2).join(" ");
+  }
+  check("install", installOk, installOk ? target : installErr);
+  if (!installOk) throw new Error("install failed");
+
+  const pkgDir = join(dir, "node_modules", "@fogrexon", "glyph-arena");
+  const manifest = JSON.parse(readFileSync(join(pkgDir, "package.json"), "utf8"));
+
+  // 2) manifest
+  const ex = manifest.exports?.["."] ?? {};
+  const esmOnly = manifest.type === "module" && ex.import && !ex.require && Object.keys(ex).sort().join(",") === "import,types";
+  check("manifest", manifest.license === "MIT" && esmOnly,
+    `license=${manifest.license} type=${manifest.type} exports=${JSON.stringify(ex)}`);
+
+  // 3) files
+  const walk = (p, acc = []) => {
+    for (const e of readdirSync(p)) {
+      const f = join(p, e);
+      if (statSync(f).isDirectory()) walk(f, acc);
+      else acc.push(f);
+    }
+    return acc;
+  };
+  const files = walk(pkgDir).map((f) => f.slice(pkgDir.length + 1));
+  const cjs = files.filter((f) => f.endsWith(".cjs"));
+  const hasLicense = files.includes("LICENSE");
+  check("files", cjs.length === 0 && hasLicense, `cjs=${cjs.length} LICENSE=${hasLicense} total=${files.length}`);
+
+  // 4) declarations: import specifiers must all be relative
+  const specRe = /(?:from\s*|import\s*\(\s*)["']([^"']+)["']/g;
+  const bare = [];
+  for (const f of files.filter((x) => x.endsWith(".d.ts"))) {
+    const raw = readFileSync(join(pkgDir, f), "utf8");
+    // コメントは宣言ではない（JSDoc に `@fogrexon/...` の使用例が書かれている）
+    const text = raw.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+    for (const m of text.matchAll(specRe)) {
+      const s = m[1];
+      if (!s.startsWith(".") && !s.startsWith("node:")) bare.push(`${f}: ${s}`);
+    }
+  }
+  check("declarations-relative", bare.length === 0, bare.length ? bare.slice(0, 3).join(" | ") : `${files.filter((x) => x.endsWith(".d.ts")).length} d.ts files`);
+
+  // 5) ESM import
+  const probe = join(dir, "probe.mjs");
+  writeFileSync(probe, `import * as m from '@fogrexon/glyph-arena';\nconsole.log(Object.keys(m).sort().join(','));\n`);
+  const out = run(process.execPath, [probe]).trim();
+  const names = out ? out.split(",") : [];
+  check("esm-import", names.length === 14, `${names.length} exports`);
+
+  // 6) strict typecheck (NodeNext)
+  const tsc = args.tsc || "tsc";
+  writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({
+    compilerOptions: { strict: true, module: "NodeNext", moduleResolution: "NodeNext", target: "ES2022", noEmit: true, skipLibCheck: false },
+    include: ["use.ts"],
+  }, null, 2));
+  writeFileSync(join(dir, "use.ts"),
+    `import { createWorld, createLoop, createTimer, createCamera, type Matrix2D } from "@fogrexon/glyph-arena";
+const t: Matrix2D = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+const w = createWorld(); const timer = createTimer();
+createLoop({ onFrame: () => { timer.delay(0.1, () => {}); } }); createCamera();
+console.log(w, t);
+`);
+  let tscOk = true, tscErr = "";
+  try {
+    run(tsc, ["-p", "tsconfig.json"]);
+  } catch (e) {
+    tscOk = false;
+    tscErr = String(e.stdout ?? e.message).trim().split("\n")[0];
+  }
+  check("tsc-strict", tscOk, tscOk ? "strict + NodeNext" : tscErr);
+
+  if (args.spec && args.spec.includes("@") && !args.spec.startsWith("file:") && !args.spec.includes("/")) {
+    const [, name, version] = args.spec.match(/^(@[^/]+\/[^@]+)@?(.*)$/) ?? [];
+    if (name) {
+      try {
+        const res = await fetch(`https://registry.npmjs.org/${encodeURIComponent(name).replace("%40", "@")}/${version || "latest"}`);
+        const meta = await res.json();
+        check("registry-metadata", res.ok && meta.license === "MIT", `${res.status} license=${meta.license}`);
+      } catch (e) {
+        check("registry-metadata", false, String(e.message));
+      }
+    }
+  }
+} catch (e) {
+  console.error(`error: ${e.message}`);
+} finally {
+  rmSync(dir, { recursive: true, force: true });
+}
+
+const failed = results.filter((r) => !r.ok);
+console.log(`\n${failed.length === 0 ? "ALL PASS" : `${failed.length} FAILED`} (${results.length} checks)`);
+process.exit(failed.length === 0 ? 0 : 1);
