@@ -406,6 +406,18 @@ async function main(): Promise<void> {
   resize();
   window.addEventListener("resize", resize);
 
+  /**
+   * Pointer coordinates in canvas pixels. The bitmap is `innerWidth x innerHeight` while the CSS box is
+   * whatever the layout gives it, so on a phone those are not the same numbers - comparing a client position
+   * against a canvas position puts the buttons somewhere the player cannot see.
+   */
+  function toCanvasPoint(point: { x: number; y: number }): { x: number; y: number } {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = rect.width === 0 ? 1 : canvas.width / rect.width;
+    const scaleY = rect.height === 0 ? 1 : canvas.height / rect.height;
+    return { x: (point.x - rect.left) * scaleX, y: (point.y - rect.top) * scaleY };
+  }
+
   function touchDirections(): { left: boolean; right: boolean; up: boolean; down: boolean } {
     const snapshot = input.snapshot();
     if (!touchEnabled) {
@@ -414,9 +426,9 @@ async function main(): Promise<void> {
     const centerX = TOUCH_CONTROL_INSET;
     const centerY = canvas.height - TOUCH_CONTROL_INSET;
     // The pointer on the pad, not "the first pointer": the other thumb may be on DASH.
-    const point = snapshot.pointers.find(
-      (candidate) => Math.hypot(candidate.x - centerX, candidate.y - centerY) <= 160,
-    );
+    const point = snapshot.pointers
+      .map(toCanvasPoint)
+      .find((candidate) => Math.hypot(candidate.x - centerX, candidate.y - centerY) <= 160);
     if (point === undefined) {
       return { left: false, right: false, up: false, down: false };
     }
@@ -451,19 +463,22 @@ async function main(): Promise<void> {
     // The dash button: a phone has no Shift, and parrying is the whole game.
     const dashX = canvas.width - TOUCH_CONTROL_INSET;
     const dashY = canvas.height - TOUCH_CONTROL_INSET;
-    ctx.globalAlpha = 0.2;
+    // Pressed state on purpose: "did my tap land?" was the question that cost an hour today.
+    ctx.globalAlpha = touchDashHeld ? 0.55 : 0.2;
     ctx.fillStyle = "#fbbf24";
     ctx.beginPath();
     ctx.arc(dashX, dashY, TOUCH_CONTROL_RADIUS, 0, Math.PI * 2);
     ctx.fill();
-    ctx.globalAlpha = 0.6;
+    ctx.globalAlpha = touchDashHeld ? 1 : 0.6;
+    ctx.lineWidth = touchDashHeld ? 4 : 2;
     ctx.strokeStyle = "#fbbf24";
     ctx.beginPath();
     ctx.arc(dashX, dashY, TOUCH_CONTROL_RADIUS, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.globalAlpha = 0.9;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 1;
     ctx.fillStyle = "#fbbf24";
-    ctx.font = "16px system-ui, sans-serif";
+    ctx.font = touchDashHeld ? "bold 17px system-ui, sans-serif" : "16px system-ui, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText("DASH", dashX, dashY);
@@ -616,6 +631,8 @@ async function main(): Promise<void> {
 
   // Pointer ids seen on the previous frame, so a tap is an edge and not a held finger.
   let seenPointerIds: ReadonlySet<number> = new Set<number>();
+  // True while a finger is on the DASH button, so the button can show that it took the press.
+  let touchDashHeld = false;
 
   const loop = createLoop({
     onFrame(time) {
@@ -634,6 +651,7 @@ async function main(): Promise<void> {
         if (directions.down) keys.add("ArrowDown");
       }
       if (touchEnabled) {
+        touchDashHeld = false;
         const touch = touchDirections();
         if (touch.left) keys.add("ArrowLeft");
         if (touch.right) keys.add("ArrowRight");
@@ -642,9 +660,10 @@ async function main(): Promise<void> {
         // The button is a Shift, injected where the keys come from, so the dash gate stays in one place.
         const dashX = canvas.width - TOUCH_CONTROL_INSET;
         const dashY = canvas.height - TOUCH_CONTROL_INSET;
-        if (
-          snapshot.pointers.some((point) => Math.hypot(point.x - dashX, point.y - dashY) <= TOUCH_CONTROL_RADIUS)
-        ) {
+        touchDashHeld = snapshot.pointers
+          .map(toCanvasPoint)
+          .some((point) => Math.hypot(point.x - dashX, point.y - dashY) <= TOUCH_CONTROL_RADIUS);
+        if (touchDashHeld) {
           keys.add("ShiftLeft");
         }
       }
