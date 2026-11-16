@@ -976,6 +976,11 @@ async function runParry(browser, errors) {
     let heldArrows = [];
     let defenceState = null;
     let lostLife = false;
+    // Press and re-press while the enemy is inside the window instead of pressing once: a dash that
+    // starts slightly early ends before the parry box reaches, and one that starts late lets the enemy
+    // touch first. A single press makes the check depend on the runner's frame timing; pressing again
+    // as soon as the dash is over does not.
+    let pressCooldownUntil = 0;
     while (Date.now() - defenceStart < 20000) {
       const s = await page.evaluate(() => window.__parryState);
       if (!s || s.phase !== "play") {
@@ -1003,13 +1008,16 @@ async function runParry(browser, errors) {
         if (!heldArrows.includes(key)) await page.keyboard.down(key);
       }
       heldArrows = arrows;
-      if (threat && threat.ms <= s.windowMs + s.dashMs) {
+      // In the window: dash, then come straight back to read the result. If the parry did not land,
+      // the next pass presses again -- `pressCooldownUntil` only covers the dash that is still running.
+      if (threat && threat.ms <= s.windowMs + s.dashMs && Date.now() > pressCooldownUntil) {
         await page.keyboard.down("ShiftLeft");
         await page.waitForTimeout(120);
         await page.keyboard.up("ShiftLeft");
-        await page.waitForTimeout(60);
+        pressCooldownUntil = Date.now() + 60;
+        continue;
       }
-      await page.waitForTimeout(20);
+      await page.waitForTimeout(10);
     }
     for (const key of heldArrows) await page.keyboard.up(key);
     check(
