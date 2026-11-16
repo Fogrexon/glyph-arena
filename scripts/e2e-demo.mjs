@@ -610,8 +610,12 @@ async function runDesktop(browser, baseUrl, errors) {
   const beforeWall = (await frames(page)).filter((frame) => frame.ready).at(-1);
   await hold(page, "ArrowRight", 1400);
   const afterWall = (await frames(page)).filter((frame) => frame.ready).at(-1);
-  const wallRun = beforeWall && afterWall ? Math.abs(afterWall.hazards[0].x - beforeWall.hazards[0].x) : 0;
-  check(wallRun >= 40, "I5: the spawn opens at least 45 px to the right", `${wallRun.toFixed(1)} px`);
+  if (!beforeWall || !afterWall) {
+    check(false, "I5: the spawn opens at least 45 px to the right", "sample missing (no READY frame before/after the run) — not reported as 0 px");
+  } else {
+    const wallRun = Math.abs(afterWall.hazards[0].x - beforeWall.hazards[0].x);
+    check(Number.isFinite(wallRun) && wallRun >= 40, "I5: the spawn opens at least 45 px to the right", `${wallRun.toFixed(1)} px`);
+  }
 
   // ---- I1: a 400 ms Shift hold moves 1.3x further than walking ----------
   // The burst lasts 0.15 s (~9 frames), so a single 400 ms window can lose one
@@ -630,7 +634,7 @@ async function runDesktop(browser, baseUrl, errors) {
     const recorded = (await frames(page)).filter((frame) => frame.ready && frame.at >= from);
     const first = recorded[0];
     const last = recorded.find((frame) => frame.at >= (first?.at ?? 0) + 400) ?? recorded.at(-1);
-    if (!first || !last) return 0;
+    if (!first || !last) return null;
     return (
       Math.abs(last.hazards[0].x - first.hazards[0].x) +
       Math.abs(last.hazards[0].y - first.hazards[0].y)
@@ -654,12 +658,17 @@ async function runDesktop(browser, baseUrl, errors) {
 
   const walkDistance = median(walkWindows);
   const dashDistance = median(dashWindows);
+  const missingWindow = [...walkWindows, ...dashWindows].some((value) => value === null || !Number.isFinite(value));
+  if (missingWindow) {
+    check(false, "I1: a 400 ms Shift hold multiplies the distance by 1.3+", "sample missing (a 400 ms window had no frames) — not reported as 0 px");
+  } else {
   const ratioValue = walkDistance > 0 ? dashDistance / walkDistance : 0;
   check(
     walkDistance >= 40 && ratioValue >= 1.3,
     "I1: a 400 ms Shift hold multiplies the distance by 1.3+",
     `walk ${walkDistance.toFixed(0)}px / dash ${dashDistance.toFixed(0)}px (median of 3), ratio ${ratioValue.toFixed(2)}`,
   );
+  }
 
   // I8 (CLEAR) is intentionally not asserted here yet: clearing needs a route
   // around the walls, and a heuristic bot dies before 8/8. See the PR notes.
@@ -728,8 +737,13 @@ async function runTouch(browser, baseUrl, errors) {
     await pointer("pointerup", direction.x, direction.y);
     await page.waitForTimeout(140);
     const after = await latestFrame(page);
-    const dx = before && after ? after.hazards[0].x - before.hazards[0].x : 0;
-    const dy = before && after ? after.hazards[0].y - before.hazards[0].y : 0;
+    if (!before || !after) {
+      check(false, `I6: d-pad ${direction.name}`, "sample missing (no frame before/after the press) — not reported as 0 px");
+      reached[direction.name] = Number.NaN;
+      continue;
+    }
+    const dx = after.hazards[0].x - before.hazards[0].x;
+    const dy = after.hazards[0].y - before.hazards[0].y;
     reached[direction.name] = Math.hypot(dx, dy);
   }
   check(
