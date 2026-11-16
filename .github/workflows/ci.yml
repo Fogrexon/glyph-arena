@@ -53,3 +53,11 @@ jobs:
       - run: pnpm smoke:pack-install
 
       - run: pnpm -r test
+
+      # 8. The demo in a real browser: the 3 s hazard grace, "standing still
+      # gets you hit", the dash burst and touch start + d-pad, all read off the
+      # running canvas. Offline — it serves the built dist from 127.0.0.1 and
+      # drives the runner's preinstalled Chrome through playwright-core (no
+      # browser download). Assertions are made in simulated time, so the run
+      # takes longer on a slow machine but reaches the same verdict.
+      - run: pnpm e2e:demo
