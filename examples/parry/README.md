@@ -1,11 +1,59 @@
 # Parry Demo
 
 Second sample for Glyph Arena. Enemies converge from a fixed script; **dash into one** and it is
-parried. Each parry lands with a hitstop, a camera shake and a `Last parry: Nms early` readout — the
-window starts at 200 ms and narrows to 120 ms as the run goes on.
+parried. A parry lands with a hitstop, a camera shake and a readout of how early the dash was.
 
-**Flow:** title -> **Space** (or tap) -> play -> **FAIL** (lives run out) or **CLEAR** (survive all 20
-waves) -> **R** restart. Nothing is randomised: wave *n* of a page load is always the same wave.
+**Flow:** title -> **Space** / **Enter** -> play -> **FAIL** (lives run out) or **CLEAR** (survive all
+20 waves) -> **R** restart. Nothing is randomised: wave *n* of a page load is always the same wave.
+
+## On screen
+
+Everything below was measured on the published build at
+<https://fogrexon.github.io/glyph-arena/parry/> on 2026-11-16.
+
+While playing, the HUD prints four lines: `Parried: n/20`, `Lives: 3`, `Wave: n/20`, and
+`Parry window: NNNms` — the live parry window. **The window narrows as the run goes on:** 533 ms at
+wave 1/20 and 463 ms at wave 5/20 in a measured run.
+
+The result screen prints, in order:
+
+```
+Parried: 0/20
+Reached wave: 7/20
+Median error: —
+FAIL — R restart
+First run — this is the baseline
+Last runs (newest first):
+1. FAIL - parried 0, —, wave 7
+```
+
+- That verdict line was measured as `FAIL — R restart`; a cleared run uses the same template
+  (`CLEAR — R restart`). `Median error` showed `—` while the run had no parries to average.
+- The line under the verdict answers **"was that better?"**: `First run — this is the baseline` on the
+  first run, then `vs last run: …`. Measured with two identical runs, the line read
+  `vs last run: same parries`; the comparison reports the parry delta, and falls back to the median
+  error when the parry counts match.
+- From the second run on, `Last runs (newest first)` lists each run and a
+  `2-run median: parried n, Nms` line follows it.
+- History lives **inside the round only** — a reload starts from `First run`. Nothing is written to
+  `localStorage`.
+
+A run with no input ends at **wave 7/20** with `Parried: 0/20`: the enemies come to you, so standing
+still is not a win.
+
+## The wave script
+
+Difficulty lives in one place, `src/waves.ts`. Each row is the *shape* of an enemy (angle, speed,
+radius); the spawn time is **derived** from when it should reach the player:
+
+```
+contact = at + (radius - CONTACT_DISTANCE) / speed
+```
+
+`CONTACT_DISTANCE` is 26 px (a 28 px player box and a 24 px enemy box touch at 26 px between centres)
+and `CONTACT_SPACING` is 0.9 s, so no two enemies arrive closer together than you can read one and
+answer the next. The first enemy is the onboarding one: 1.8 s, 55 px/s, radius 340. There is no RNG —
+a given page load always plays the same 20 rows.
 
 ## Packages used
 
