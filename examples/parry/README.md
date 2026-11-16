@@ -3,17 +3,42 @@
 Second sample for Glyph Arena. Enemies converge from a fixed script; **dash into one** and it is
 parried. A parry lands with a hitstop, a camera shake and a readout of how early the dash was.
 
-**Flow:** title -> **Space** / **Enter** -> play -> **FAIL** (lives run out) or **CLEAR** (survive all
-20 waves) -> **R** restart. Nothing is randomised: wave *n* of a page load is always the same wave.
+**Flow:** title -> **Space** / **Enter** (or a tap) -> play -> **FAIL** (lives run out) or **CLEAR**
+(survive all 20 waves) -> **R** restart (or a tap, on touch). Nothing is randomised: wave *n* of a page
+load is always the same wave.
+
+## Controls
+
+| | Keyboard | Touch |
+|---|---|---|
+| move | arrows or stick | drag the left pad |
+| dash | **Shift** or **Space** | **DASH** button (bottom right) |
+| start / restart | **Space** / **Enter** / **R** | tap the screen |
+
+The in-game hint follows the device: `Dash into it — Shift or Space` on a keyboard,
+`Dash into it — tap DASH` on a touch screen. The result line follows it too — `FAIL — R restart` on a
+keyboard, `FAIL — Tap to retry` on touch.
 
 ## On screen
 
 Everything below was measured on the published build at
 <https://fogrexon.github.io/glyph-arena/parry/> on 2026-11-16.
 
-While playing, the HUD prints four lines: `Parried: n/20`, `Lives: 3`, `Wave: n/20`, and
-`Parry window: NNNms` — the live parry window. **The window narrows as the run goes on:** 533 ms at
-wave 1/20 and 463 ms at wave 5/20 in a measured run.
+While playing, the HUD prints five lines: `Parried: n`, `Lives: 3`, `Wave: n/20`,
+`Parry window: NNNms` (the live parry window) and `Contact in NNNms` (time until the next enemy
+reaches you, or `Contact in —` when nothing is closing in). **The window narrows as the run goes on**
+— measured 533 ms at wave 1/20, 498 ms at wave 3/20 and 463 ms at wave 5/20 — and `Contact in` is the
+aim: **dash when it drops inside the window.**
+
+```
+Parried: 0
+Lives: 3
+Wave: 1/20
+
+Parry window: 533ms
+Contact in 4948ms
+Dash into it — tap DASH
+```
 
 The result screen prints, in order:
 
@@ -26,6 +51,9 @@ First run — this is the baseline
 Last runs (newest first):
 1. FAIL - parried 0, —, wave 7
 ```
+
+The field is **cleared** on the result screen — no enemies or player are drawn behind the verdict, so
+the numbers and the history are all there is to read.
 
 - That verdict line was measured as `FAIL — R restart`; a cleared run uses the same template
   (`CLEAR — R restart`). `Median error` showed `—` while the run had no parries to average.
