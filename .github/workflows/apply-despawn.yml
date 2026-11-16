@@ -1,6 +1,6 @@
 name: apply-despawn
 
-# One-shot: this container has no git credential, so the fix rides in as a patch.
+# One-shot: this container has no git credential, so changes ride in as patches.
 # Deleted again before the PR is opened.
 on:
   push:
@@ -16,12 +16,17 @@ jobs:
       - uses: actions/checkout@v4
       - name: Apply the queued patch
         run: |
-          if ! git apply --check .github/despawn.patch; then
+          P=.github/despawn2.patch
+          if [ ! -f "$P" ]; then
+            echo "nothing queued"
+            exit 0
+          fi
+          if ! git apply --check "$P"; then
             echo "::error::the patch does not apply; leaving the branch alone"
             exit 1
           fi
-          git apply .github/despawn.patch && git add -A
+          git apply "$P" && git add -A
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "fix(parry): an enemy that stops being a threat leaves the field"
+          git commit -m "test(e2e): an enemy that leaves the field is counted"
           git push

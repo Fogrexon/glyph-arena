@@ -1,0 +1,42 @@
+diff --git a/scripts/e2e-demo.mjs b/scripts/e2e-demo.mjs
+index b2c094f..745adee 100644
+--- a/scripts/e2e-demo.mjs
++++ b/scripts/e2e-demo.mjs
+@@ -1017,6 +1017,37 @@ async function runParry(browser, errors) {
+       "I11: five waves defended without losing a life",
+       `${defenceState?.parried} parried, ${defenceState?.lives} lives, wave ${defenceState?.wave}`,
+     );
++
++    // I12: an enemy that stops being a threat leaves the field. Before this, only a parry removed an
++    // enemy, so one that missed the player - or one that hit them - stayed in `enemies` for good and
++    // `clear()` (which needs `enemies.length === 0`) could never fire: the run could be neither won
++    // nor lost. Standing still makes the first enemy hit at 7.5 s, and by then `enemyCount` must have
++    // fallen behind the number of waves spawned. With the old code it never does.
++    await page.goto(`http://127.0.0.1:${PARRY_PORT}/?i12=1`, { waitUntil: "load" });
++    await page.waitForTimeout(600);
++    await hold(page, "Space", 160);
++    const drainDeadline = Date.now() + 15000;
++    let drainState = null;
++    let drained = false;
++    while (Date.now() < drainDeadline) {
++      const s = await page.evaluate(() => window.__parryState);
++      if (!s) {
++        await page.waitForTimeout(100);
++        continue;
++      }
++      drainState = s;
++      if (s.phase !== "play") break;
++      if (s.parried === 0 && s.wave - s.enemyCount >= 1) {
++        drained = true;
++        break;
++      }
++      await page.waitForTimeout(100);
++    }
++    check(
++      drained,
++      "I12: an enemy leaves the field once it has resolved",
++      `enemyCount ${drainState?.enemyCount}, wave ${drainState?.wave}, lives ${drainState?.lives}, parried ${drainState?.parried}`,
++    );
+   } finally {
+     await context.close();
+     server.close();
