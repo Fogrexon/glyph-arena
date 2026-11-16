@@ -158,12 +158,12 @@ function check(ok, label, detail) {
   }
 }
 
-function serveDist() {
+function serveDist(GIVEN_DIST = DIST, givenPort = PORT) {
   const server = createServer(async (request, response) => {
-    const url = new URL(request.url ?? "/", `http://127.0.0.1:${PORT}`);
+    const url = new URL(request.url ?? "/", `http://127.0.0.1:${givenPort}`);
     const relative = decodeURIComponent(url.pathname).replace(/^\/+/, "");
-    const path = resolve(DIST, relative === "" ? "index.html" : relative);
-    if (!path.startsWith(DIST + sep) && path !== join(DIST, "index.html")) {
+    const path = resolve(GIVEN_DIST, relative === "" ? "index.html" : relative);
+    if (!path.startsWith(GIVEN_DIST + sep) && path !== join(GIVEN_DIST, "index.html")) {
       response.writeHead(403).end("forbidden");
       return;
     }
@@ -177,7 +177,7 @@ function serveDist() {
   });
 
   return new Promise((resolvePromise) => {
-    server.listen(PORT, "127.0.0.1", () => resolvePromise(server));
+    server.listen(givenPort, "127.0.0.1", () => resolvePromise(server));
   });
 }
 
@@ -229,6 +229,7 @@ async function latestFrame(page) {
     };
     return {
       at: frame.at,
+      texts: frame.texts,
       zoom: frame.zoom,
       time: valueOf("Time:"),
       lives: valueOf("Lives:"),
@@ -727,6 +728,88 @@ async function runTouch(browser, baseUrl, errors) {
   await context.close();
 }
 
+/**
+ * When to press for the first parry, derived from the demo's own wave table.
+ *
+ * Hardcoding 7.4 s would go red the moment WAVES[0] changes, so read the first
+ * wave out of `examples/parry/src/main.ts` and apply the measured formula:
+ *   contact = at + (radius - 26) / speed     (26 px = player 28 + enemy 24 halves)
+ *   press   = contact - 0.40 s               (inside the window: 200..550 ms)
+ * plus the +0.30 s systematic lag measured between theory and a real run.
+ */
+function parryPressTime() {
+  const source = readFileSync(join(ROOT, "examples/parry/src/main.ts"), "utf8");
+  const table = /const WAVES[^=]*=\s*\[([\s\S]*?)\n\];/.exec(source)?.[1] ?? "";
+  const first = /\{([^}]*)\}/.exec(table)?.[1] ?? "";
+  const value = (key) => Number(new RegExp(`${key}\\s*:\\s*([0-9.]+)`).exec(first)?.[1]);
+  const at = value("at");
+  const speed = value("speed");
+  const radius = value("radius");
+  if (![at, speed, radius].every((n) => Number.isFinite(n))) {
+    throw new Error(`could not read WAVES[0] from examples/parry/src/main.ts (at=${at} speed=${speed} radius=${radius})`);
+  }
+  const contact = at + (radius - 26) / speed + 0.3;
+  return { contact, press: contact - 0.4, at, speed, radius };
+}
+
+/**
+ * I9: the parry recipe, mechanically. QA reproduced it by hand (press at a
+ * computed instant); this repeats it every push so the acceptance is not a
+ * human procedure.
+ */
+async function runParry(browser, errors) {
+  const PARRY_DIST = join(ROOT, "examples/parry/dist");
+  const PARRY_PORT = PORT + 1;
+  if (!existsSync(join(PARRY_DIST, "index.html"))) {
+    throw new Error(`no built parry demo at ${PARRY_DIST} — run \`pnpm -r build\` first`);
+  }
+  const recipe = parryPressTime();
+  const server = await serveDist(PARRY_DIST, PARRY_PORT);
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 });
+  await context.addInitScript(PROBE);
+  const page = await context.newPage();
+  withConsoleErrors(page, errors, "parry");
+
+  try {
+    await page.goto(`http://127.0.0.1:${PARRY_PORT}/`, { waitUntil: "load" });
+    const started = await waitForText(page, "Parried:", 15000);
+    if (!started) {
+      check(false, "I9: the parry demo starts", "title never showed the play HUD");
+      return;
+    }
+    const startAt = await page.evaluate(() => performance.now());
+    // Space with a hold: the demo samples keys once per frame.
+    await hold(page, "Space", 160);
+    const playStart = await page.evaluate(() => performance.now());
+    const waitMs = Math.max(0, recipe.press - (playStart - startAt) / 1000);
+    await page.waitForTimeout(waitMs * 1000);
+    await page.keyboard.down("ArrowDown");
+    await page.waitForTimeout(60);
+    await page.keyboard.down("ShiftLeft");
+    await page.waitForTimeout(160);
+    await page.keyboard.up("ShiftLeft");
+    await page.keyboard.up("ArrowDown");
+
+    let parried = 0;
+    const deadline = Date.now() + 3000;
+    while (Date.now() < deadline) {
+      const frame = await latestFrame(page);
+      const line = frame?.texts?.find((t) => t.startsWith("Parried:")) ?? null;
+      if (line) parried = Number(line.slice("Parried:".length).split("/")[0].trim()) || 0;
+      if (parried >= 1) break;
+      await page.waitForTimeout(60);
+    }
+    check(
+      parried >= 1,
+      "I9: the derived press lands a parry",
+      `press at ${recipe.press.toFixed(2)}s (contact ${recipe.contact.toFixed(2)}s from wave0 at=${recipe.at} speed=${recipe.speed} radius=${recipe.radius}) → Parried ${parried}`,
+    );
+  } finally {
+    await context.close();
+    server.close();
+  }
+}
+
 async function main() {
   if (!existsSync(join(DIST, "index.html"))) {
     throw new Error(`no built demo at ${DIST} — run \`pnpm -r build\` first`);
@@ -752,6 +835,7 @@ async function main() {
   try {
     await runDesktop(browser, baseUrl, errors);
     await runTouch(browser, baseUrl, errors);
+    await runParry(browser, errors);
   } finally {
     await browser.close();
     server.close();
