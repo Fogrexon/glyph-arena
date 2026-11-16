@@ -620,6 +620,15 @@ async function runDesktop(browser, baseUrl, errors) {
 
   const walkWindows = [];
   for (let index = 0; index < 3; index += 1) walkWindows.push(await window400(false));
+  await page.keyboard.up("ArrowUp");
+
+  // Fresh round for the dash windows: three 400 ms windows of walking already
+  // cover ~225 px, which runs the player into the wall above the spawn and
+  // would measure 0 px of dash. Both arms start from spawn; the hazard deltas
+  // are relative, so the layout changing between rounds does not matter.
+  await restartRound(page);
+  await page.waitForTimeout(150);
+  await page.keyboard.down("ArrowUp");
   const dashWindows = [];
   for (let index = 0; index < 3; index += 1) dashWindows.push(await window400(true));
   await page.keyboard.up("ArrowUp");
