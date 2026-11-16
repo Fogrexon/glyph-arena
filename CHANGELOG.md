@@ -69,8 +69,6 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 - `examples/parry`: the **second** enemy now waits until 5.0 s (was 3.0 s). It used to reach the player 0.33 s *before* the first enemy the HUD is teaching you to parry, so the tutorial punished the read it had just taught. Measured on the shipped build across three wave settings, the first parry landed without losing a life in 3 of 3 presses with the new timing against 1 of 2 with the old one (demo-only)
 
-- `examples/parry`: the **second** enemy now waits until 5.0 s (was 3.0 s). It used to reach the player 0.33 s *before* the first enemy the HUD is teaching you to parry, so the tutorial punished the read it had just taught. Measured on the shipped build across three wave settings, the first parry landed without losing a life in 3 of 3 presses with the new timing against 1 of 2 with the old one (demo-only)
-
 - `examples/parry`: the first enemy is slower and later (55 px/s from 1.8 s) and the HUD shows "Dash into it" until the first parry lands, so a first run has a moment to learn the one verb before the pressure starts (demo-only)
 
 - Pickup demo hazard lanes now run straight over gems the player has to reach (H1 over the north gem's column, H2 beside the east gem) instead of patrolling empty floor, so the danger is spatial rather than a timing coincidence; the central wall block moves 40 px east so the spawn no longer opens 6 px from a wall (demo-only; no package API change; `index-*.js` changes)
