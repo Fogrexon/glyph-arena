@@ -250,19 +250,23 @@ type TouchDirections = {
   down: boolean;
 };
 
-const NO_TOUCH_DIRECTION: TouchDirections = { left: false, right: false, up: false, down: false };
-
-/** Maps a touch point onto the on-screen d-pad (bottom-left of the canvas). Eight-way, like the arrows. */
+/** Maps a touch point onto the on-screen d-pad (bottom-left of the canvas). */
 function touchPadDirections(x: number, y: number, width: number, height: number): TouchDirections {
   const centerX = TOUCH_PAD_MARGIN;
   const centerY = height - TOUCH_PAD_MARGIN;
   const dx = x - centerX;
   const dy = y - centerY;
 
-  if (Math.hypot(dx, dy) > TOUCH_PAD_RADIUS * 2.5) {
-    return NO_TOUCH_DIRECTION;
+  if (Math.hypot(dx, dy) < TOUCH_PAD_DEADZONE) {
+    return { left: false, right: false, up: false, down: false };
   }
 
+  const withinPad = Math.hypot(dx, dy) <= TOUCH_PAD_RADIUS * 2.5;
+  if (!withinPad) {
+    return { left: false, right: false, up: false, down: false };
+  }
+
+  // Eight-way: each axis is independent, so a diagonal touch moves diagonally like the arrows do.
   return {
     left: dx < -TOUCH_PAD_DEADZONE,
     right: dx > TOUCH_PAD_DEADZONE,
