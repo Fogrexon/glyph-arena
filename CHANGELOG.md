@@ -19,6 +19,7 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 ### Changed
 
 - Pickup demo hazards now patrol lanes that cross the floor instead of running three short edge lanes: H0 sweeps the spawn row, H1 runs the spawn column, H2 sweeps the bottom gem row (all still 80 px/s, fixed spawns, no RNG). Standing still now costs a life, so a round involves dodging rather than a safe 26-second errand (demo-only; no package API change; `index-*.js` changes)
+- Pickup demo hazards hold still for the first 3 s of every round (HUD shows `READY`) and move only after that, so a first-time player can read the controls before the first hit; `R` re-arms the same 3 s window (demo-only; no package API change; `index-*.js` changes)
 
 ### Fixed
 
