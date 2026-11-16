@@ -644,7 +644,16 @@ async function runDesktop(browser, baseUrl, errors) {
     if (withDash) await page.keyboard.down("ShiftLeft");
     await page.waitForTimeout(430);
     if (withDash) await page.keyboard.up("ShiftLeft");
-    const recorded = (await frames(page)).filter((frame) => frame.ready && frame.at >= from);
+    // I1 uses the frozen hazards as its camera reference, so the window MUST be
+    // inside the grace: outside it the hazards move on their own and the deltas
+    // are not the player's movement. Guard it instead of trusting the timing.
+    const recorded = (await frames(page)).filter(
+      (frame) =>
+        frame.ready &&
+        frame.at >= from &&
+        frame.time !== null &&
+        frame.time >= ROUND_SECONDS - HAZARD_GRACE_SECONDS + 0.05,
+    );
     const first = recorded[0];
     const last = recorded.find((frame) => frame.at >= (first?.at ?? 0) + 400) ?? recorded.at(-1);
     if (!first || !last) return null;
