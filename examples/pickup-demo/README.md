@@ -59,6 +59,13 @@ pnpm dev
 
 Open the URL Vite prints (usually `http://localhost:5173`).
 
+## Layouts
+
+The field has **three fixed layouts** — gems and hazard lanes both move — and the **restart count** picks
+them in order (`layout = restarts % 3`). There is still no RNG: round *n* after loading the page always
+plays the same field, so a run is reproducible, but a second round is not the first one memorised.
+A fresh page load starts on layout 0; the first `R` moves to layout 1.
+
 ## Controls
 
 - **Space** / **Enter** — start from title (`actions.pressed("start")`, edge-triggered; title only)
