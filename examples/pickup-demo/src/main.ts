@@ -1362,8 +1362,20 @@ async function main(): Promise<void> {
         ctx.font = "28px system-ui, sans-serif";
         ctx.fillText("Pickup", 16, 48);
         ctx.font = "18px system-ui, sans-serif";
+        ctx.fillStyle = "#e8eaed";
+        ctx.fillText(`Collect ${GEM_TOTAL} gems in ${ROUND_SECONDS}s — ${INITIAL_LIVES} lives`, 16, 84);
+        ctx.font = "14px system-ui, sans-serif";
         ctx.fillStyle = "#9aa0a6";
-        ctx.fillText(touchEnabled ? "Tap — start" : "Space / Enter — start", 16, 80);
+        ctx.fillText(
+          touchEnabled
+            ? "Drag the pad to move — tapping starts"
+            : "Arrows / gamepad move · Shift dash · R restart",
+          16,
+          110,
+        );
+        ctx.fillStyle = "#fbbf24";
+        ctx.font = "18px system-ui, sans-serif";
+        ctx.fillText(touchEnabled ? "Tap — start" : "Space / Enter — start", 16, 146);
         return;
       }
 
