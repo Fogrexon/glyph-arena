@@ -17,6 +17,22 @@ import { CONTACT_DISTANCE, WAVES } from "./waves";
 
 type Phase = "title" | "play" | "result";
 
+/**
+ * Read-only mirror of the run in `window.__parryState`, refreshed every frame.
+ *
+ * The HUD is painted into the canvas, so nothing outside the page can assert on it without guessing
+ * at pixels or colours. E2E and the acceptance run read this object instead; the drawing stays
+ * exactly as it is for the player.
+ */
+type ParryState = {
+  phase: Phase;
+  parried: number;
+  lives: number;
+  wave: number;
+  contactMs: number | null;
+  windowMs: number;
+};
+
 type Matrix6 = [number, number, number, number, number, number];
 
 type Drawable = {
@@ -546,6 +562,19 @@ async function main(): Promise<void> {
    * The parry window is shown in ms; without this line the player - and every E2E - has to guess
    * when that window opens from the wave table instead of reading it off the screen.
    */
+  /** Publishes the run for anything that is not a human looking at the canvas. */
+  function publishParryState(): void {
+    const contact = phase === "play" ? nextContactSeconds() : null;
+    (window as typeof window & { __parryState?: ParryState }).__parryState = {
+      phase,
+      parried,
+      lives,
+      wave: Math.min(waveIndex, WAVES.length),
+      contactMs: contact === null ? null : Math.round(contact * 1000),
+      windowMs: Math.round(parryWindow() * 1000),
+    };
+  }
+
   function nextContactSeconds(): number | null {
     const playerCenter = centerOf(getAabb(playerEntity));
     let best: number | null = null;
@@ -707,6 +736,7 @@ async function main(): Promise<void> {
       const query = actions.tick(keys);
 
       if (phase === "title") {
+        publishParryState();
         if (query.pressed("start") || (touchEnabled && snapshot.pointers[0] !== undefined)) {
           destroyTitle();
           startPlay();
@@ -857,6 +887,8 @@ async function main(): Promise<void> {
           }
         }
       }
+
+      publishParryState();
 
       if (phase === "result") {
         // The round is over: nothing left on the field still means anything, so show the verdict alone.
