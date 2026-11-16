@@ -463,6 +463,20 @@ function withConsoleErrors(page, errors, tag) {
   page.on("pageerror", (error) => errors.push(`${tag} pageerror: ${error.message}`));
 }
 
+async function pickupState(page) {
+  return page.evaluate(() => (typeof window.__pickupState === "object" ? window.__pickupState : null));
+}
+
+async function waitForPlay(page, timeoutMs = 8000) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const state = await pickupState(page);
+    if (state && state.phase === "play") return state;
+    await page.waitForTimeout(40);
+  }
+  return null;
+}
+
 async function runDesktop(browser, baseUrl, errors) {
   const canvas = { width: 1280, height: 800 };
   const context = await browser.newContext({ viewport: canvas, deviceScaleFactor: 1 });
@@ -606,12 +620,30 @@ async function runDesktop(browser, baseUrl, errors) {
 
   // ---- I5: the wall right of the spawn is at least 45 px away ------------
   await restartRound(page);
-  await page.waitForTimeout(250);
-  const beforeWall = (await frames(page)).filter((frame) => frame.ready).at(-1);
-  await hold(page, "ArrowRight", 1400);
-  const afterWall = (await frames(page)).filter((frame) => frame.ready).at(-1);
-  const wallRun = beforeWall && afterWall ? Math.abs(afterWall.hazards[0].x - beforeWall.hazards[0].x) : 0;
-  check(wallRun >= 40, "I5: the spawn opens at least 45 px to the right", `${wallRun.toFixed(1)} px`);
+  const startState = await waitForPlay(page);
+  await page.keyboard.down("ArrowRight");
+  let lastX = null;
+  let stable = 0;
+  let stoppedX = null;
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    const state = await pickupState(page);
+    const x = state ? state.worldX : null;
+    if (x !== null && lastX !== null && Math.abs(x - lastX) < 0.01) {
+      stable += 1;
+      if (stable >= 2) { stoppedX = x; break; }
+    } else { stable = 0; }
+    lastX = x;
+    await page.waitForTimeout(60);
+  }
+  await page.keyboard.up("ArrowRight");
+
+  if (!startState || stoppedX === null) {
+    check(false, "I5: the spawn opens at least 45 px to the right", `sample missing (${!startState ? "no phase=play" : "the player never stopped within 5 s"}; last worldX ${lastX}) — not reported as 0 px`);
+  } else {
+    const wallRun = stoppedX - startState.worldX;
+    check(wallRun >= 45, "I5: the spawn opens at least 45 px to the right", `${wallRun.toFixed(1)} px (worldX ${startState.worldX.toFixed(1)} → ${stoppedX.toFixed(1)})`);
+  }
 
   // ---- I1: a 400 ms Shift hold moves 1.3x further than walking ----------
   // The burst lasts 0.15 s (~9 frames), so a single 400 ms window can lose one
@@ -627,39 +659,52 @@ async function runDesktop(browser, baseUrl, errors) {
     if (withDash) await page.keyboard.down("ShiftLeft");
     await page.waitForTimeout(430);
     if (withDash) await page.keyboard.up("ShiftLeft");
-    const recorded = (await frames(page)).filter((frame) => frame.ready && frame.at >= from);
+    // I1 uses the frozen hazards as its camera reference, so the window MUST be
+    // inside the grace: outside it the hazards move on their own and the deltas
+    // are not the player's movement. Guard it instead of trusting the timing.
+    const recorded = (await frames(page)).filter(
+      (frame) =>
+        frame.ready &&
+        frame.at >= from &&
+        frame.time !== null &&
+        frame.time >= ROUND_SECONDS - HAZARD_GRACE_SECONDS + 0.05,
+    );
     const first = recorded[0];
     const last = recorded.find((frame) => frame.at >= (first?.at ?? 0) + 400) ?? recorded.at(-1);
-    if (!first || !last) return 0;
+    if (!first || !last) return null;
     return (
       Math.abs(last.hazards[0].x - first.hazards[0].x) +
       Math.abs(last.hazards[0].y - first.hazards[0].y)
     );
   };
 
-  const walkWindows = [];
-  for (let index = 0; index < 3; index += 1) walkWindows.push(await window400(false));
-  await page.keyboard.up("ArrowUp");
-
-  // Fresh round for the dash windows: three 400 ms windows of walking already
-  // cover ~225 px, which runs the player into the wall above the spawn and
-  // would measure 0 px of dash. Both arms start from spawn; the hazard deltas
-  // are relative, so the layout changing between rounds does not matter.
   await restartRound(page);
-  await page.waitForTimeout(150);
+  await waitForPlay(page);
   await page.keyboard.down("ArrowUp");
-  const dashWindows = [];
-  for (let index = 0; index < 3; index += 1) dashWindows.push(await window400(true));
+  const walkSamples = [];
+  for (let index = 0; index < 8; index += 1) {
+    const state = await pickupState(page);
+    if (state) walkSamples.push(state.speed);
+    await page.waitForTimeout(40);
+  }
+  await page.keyboard.down("ShiftLeft");
+  const dashSamples = [];
+  for (let index = 0; index < 8; index += 1) {
+    const state = await pickupState(page);
+    if (state) dashSamples.push(state.speed);
+    await page.waitForTimeout(25);
+  }
+  await page.keyboard.up("ShiftLeft");
   await page.keyboard.up("ArrowUp");
 
-  const walkDistance = median(walkWindows);
-  const dashDistance = median(dashWindows);
-  const ratioValue = walkDistance > 0 ? dashDistance / walkDistance : 0;
-  check(
-    walkDistance >= 40 && ratioValue >= 1.3,
-    "I1: a 400 ms Shift hold multiplies the distance by 1.3+",
-    `walk ${walkDistance.toFixed(0)}px / dash ${dashDistance.toFixed(0)}px (median of 3), ratio ${ratioValue.toFixed(2)}`,
-  );
+  const walkSpeed = median(walkSamples);
+  const dashSpeed = dashSamples.length > 0 ? Math.max(...dashSamples) : 0;
+  const ratioValue = walkSpeed > 0 ? dashSpeed / walkSpeed : 0;
+  if (walkSamples.length < 5 || dashSamples.length < 3) {
+    check(false, "I1: a dash frame is at least 1.3x a walk frame", `sample missing (walk ${walkSamples.length}, dash ${dashSamples.length}) — not reported as a ratio`);
+  } else {
+    check(walkSpeed >= 100 && ratioValue >= 1.3, "I1: a dash frame is at least 1.3x a walk frame", `walk median ${walkSpeed.toFixed(0)} px/s, dash max ${dashSpeed.toFixed(0)} px/s, ratio ${ratioValue.toFixed(2)}`);
+  }
 
   // I8 (CLEAR) is intentionally not asserted here yet: clearing needs a route
   // around the walls, and a heuristic bot dies before 8/8. See the PR notes.
@@ -728,8 +773,13 @@ async function runTouch(browser, baseUrl, errors) {
     await pointer("pointerup", direction.x, direction.y);
     await page.waitForTimeout(140);
     const after = await latestFrame(page);
-    const dx = before && after ? after.hazards[0].x - before.hazards[0].x : 0;
-    const dy = before && after ? after.hazards[0].y - before.hazards[0].y : 0;
+    if (!before || !after) {
+      check(false, `I6: d-pad ${direction.name}`, "sample missing (no frame before/after the press) — not reported as 0 px");
+      reached[direction.name] = Number.NaN;
+      continue;
+    }
+    const dx = after.hazards[0].x - before.hazards[0].x;
+    const dy = after.hazards[0].y - before.hazards[0].y;
     reached[direction.name] = Math.hypot(dx, dy);
   }
   check(
