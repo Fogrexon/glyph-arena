@@ -548,34 +548,41 @@ async function runDesktop(browser, baseUrl, errors) {
   // runner's Chrome, so it needs a root cause first (PR #99 notes).
 
   // ---- I2: R puts the player back at spawn --------------------------------
-  // Both samples come from their own round (see `restartRound`): the field
-  // position of a hazard is the camera's, so an unchanged set means the player
-  // is back at the same spawn point.
-  const spawnMark = await restartRound(page);
-  await page.waitForTimeout(300);
-  const spawnFrames = (await frames(page)).slice(spawnMark).filter((frame) => frame.ready);
+  // The hazards are laid out by restart count (`layout = restarts % 3`), so two
+  // consecutive rounds intentionally differ. Compare rounds three restarts
+  // apart, i.e. the same layout: the field position of a hazard is the camera's,
+  // so an unchanged set means the player is back on the same spawn point.
+  const sampleRound = async () => {
+    const mark = await restartRound(page);
+    await page.waitForTimeout(300);
+    const recording = (await frames(page)).slice(mark).filter((frame) => frame.ready);
+    return { recording, sets: positionSet(recording) };
+  };
+  await restartRound(page);
+  const spawnSample = await sampleRound();
   await hold(page, "ArrowDown", 500);
-  const restoredMark = await restartRound(page);
-  await page.waitForTimeout(300);
-  const restoredFrames = (await frames(page)).slice(restoredMark).filter((frame) => frame.ready);
+  await restartRound(page);
+  await restartRound(page);
+  const restoredSample = await sampleRound();
 
-  const spawnSets = positionSet(spawnFrames);
-  const restoredSets = positionSet(restoredFrames);
   check(
-    spawnFrames.length > 5 && spawnSets.size === 1 && restoredFrames.length > 5 && restoredSets.size === 1,
+    spawnSample.recording.length > 5 &&
+      spawnSample.sets.size === 1 &&
+      restoredSample.recording.length > 5 &&
+      restoredSample.sets.size === 1,
     "I2: each sample comes from a single round",
-    `spawn ${spawnFrames.length} frames / ${spawnSets.size} set(s), restored ${restoredFrames.length} / ${restoredSets.size}`,
+    `first ${spawnSample.recording.length} frames / ${spawnSample.sets.size} set(s), second ${restoredSample.recording.length} / ${restoredSample.sets.size}`,
   );
   const pointOf = (set) => [...([...set][0] ?? "").split("|")[0].split(",")].map(Number);
-  const [ax, ay] = pointOf(spawnSets);
-  const [bx, by] = pointOf(restoredSets);
+  const [ax, ay] = pointOf(spawnSample.sets);
+  const [bx, by] = pointOf(restoredSample.sets);
   const drift = [ax, ay, bx, by].every((value) => Number.isFinite(value))
     ? Math.hypot(bx - ax, by - ay)
     : Number.POSITIVE_INFINITY;
   check(
     drift < 0.5,
     "I2: R returns the player to spawn",
-    Number.isFinite(drift) ? `${drift.toFixed(1)} px` : "no sample",
+    Number.isFinite(drift) ? `${drift.toFixed(1)} px (same layout)` : "no sample",
   );
 
   // ---- I5: the wall right of the spawn is at least 45 px away ------------
