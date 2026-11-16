@@ -78,8 +78,19 @@ pixels. The demo mirrors the run into `window.__parryState`, refreshed every fra
 | --- | --- |
 | `phase` | `"title"`, `"play"` or `"result"` |
 | `parried`, `lives`, `wave` | the same numbers the HUD shows |
-| `contactMs` | ms until the next enemy reaches you, `null` when nothing is closing in (this is what `Contact in` prints) |
+| `contactMs` | projected ms until the boxes touch — **the HUD's `Contact in`**, i.e. the human-facing warning |
+| `pressMs` | straight-line distance / speed — **the number the parry judgement compares with `windowMs`** |
+| `contactDirX`, `contactDirY` | unit vector from the player to the nearest closing enemy — the direction to dash |
 | `windowMs` | the live parry window in ms (what `Parry window` prints) |
+| `dashMs` | how long a dash lasts, so "press a little early" is arithmetic instead of a magic number |
+
+`contactMs`, `pressMs` and the direction are `null` when no enemy is closing in. **Aim with the
+vector, and press on a frame where `pressMs <= windowMs + dashMs`** — the dash itself takes `dashMs`,
+so a press slightly before the window still lands.
+
+**Which enemies count as contacts:** only those whose flight path passes within `CONTACT_DISTANCE`
+(26 px) of the player. An enemy crossing in front of you that will miss is not a contact, so it never
+shows up in `Contact in` or in these fields.
 
 End-to-end runs read this object instead of the canvas; the drawing the player sees is unchanged.
 
