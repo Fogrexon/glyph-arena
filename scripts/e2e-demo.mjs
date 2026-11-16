@@ -914,7 +914,46 @@ async function runParry(browser, errors) {
       winner !== "none",
       "I9: a computed press lands a parry",
       `${winner === "none" ? "neither system parried" : `winner=${winner}`} (derived ${a.parried}, absolute ${b.parried})`,
-    );  } finally {
+    );
+
+    // I10: two parries in one run. A hitstop that never ends still passes a one-parry check, so the
+    // fix is only proven once the second window is reachable - the game used to freeze after the first.
+    const pressFromState = async () => {
+      await page.waitForFunction(
+        "() => { const s = window.__parryState; return Boolean(s) && s.phase === 'play' && s.pressMs !== null && s.pressMs <= s.windowMs + s.dashMs; }",
+        undefined,
+        { timeout: 20000 },
+      );
+      const at = await page.evaluate(() => window.__parryState);
+      const keys = [];
+      if (at.contactDirY > 0.35) keys.push("ArrowDown");
+      else if (at.contactDirY < -0.35) keys.push("ArrowUp");
+      if (at.contactDirX > 0.35) keys.push("ArrowRight");
+      else if (at.contactDirX < -0.35) keys.push("ArrowLeft");
+      for (const key of keys) await page.keyboard.down(key);
+      await page.waitForTimeout(90);
+      await page.keyboard.down("ShiftLeft");
+      await page.waitForTimeout(160);
+      await page.keyboard.up("ShiftLeft");
+      for (const key of keys) await page.keyboard.up(key);
+      return at;
+    };
+
+    await page.goto(`http://127.0.0.1:${PARRY_PORT}/?i10=1`, { waitUntil: "load" });
+    await page.waitForTimeout(600);
+    await hold(page, "Space", 160);
+    const firstPress = await pressFromState();
+    await page.waitForTimeout(350);
+    const afterFirst = await page.evaluate(() => window.__parryState);
+    const secondPress = await pressFromState();
+    await page.waitForTimeout(350);
+    const afterSecond = await page.evaluate(() => window.__parryState);
+    check(
+      afterFirst.parried >= 1 && afterSecond.parried >= 2,
+      "I10: a second parry lands in the same run",
+      `parried ${afterFirst.parried} -> ${afterSecond.parried}, wave ${firstPress.wave} -> ${secondPress.wave}`,
+    );
+  } finally {
     await context.close();
     server.close();
   }
