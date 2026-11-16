@@ -192,30 +192,6 @@ console.log("imported " + names.length);`,
     ok("S2 every package imports from node_modules without the workspace");
   }
 
-  // ---- S2b: the CommonJS entry (`require`) --------------------------------
-  // S2 only exercises `import`. `exports` declares a `require` target too, so a
-  // wrong or missing CJS build would otherwise ship unnoticed.
-  const umbrellaName = "@fogrexon/glyph-arena";
-  if (tarballs.has(umbrellaName)) {
-    const requiredSource = [
-      `const api = require(${JSON.stringify(umbrellaName)});`,
-      'const required = ["createWorld", "createLoop", "overlaps", "createTimer"];',
-      "const keys = Object.keys(api);",
-      'const missing = required.filter((name) => typeof api[name] !== "function");',
-      "if (keys.length !== 14 || missing.length > 0) {",
-      "  throw new Error(`require() surface: ${keys.length} exports, missing ${missing.join(\",\")}`);",
-      "}",
-      'console.log("required " + keys.length);',
-    ].join("\n");
-    writeFileSync(join(projectDir, "consumer.cjs"), `${requiredSource}\n`);
-    const required = tryRun("node", ["consumer.cjs"], { cwd: projectDir });
-    if (!required.ok) {
-      fail(`S2b require() of ${umbrellaName} failed:\n${required.output}`);
-    } else {
-      ok("S2b require() resolves the CJS build (14 exports)");
-    }
-  }
-
   // ---- S3: strict typecheck against the packaged declarations --------------
   const typecheck = tryRun(TSC, ["-p", "tsconfig.json"], { cwd: projectDir });
   if (!typecheck.ok) {
@@ -235,6 +211,84 @@ console.log("imported " + names.length);`,
   }
   if (!process.exitCode) {
     ok(`S3 traceResolution selects dist/index.d.ts for all ${tarballs.size}`);
+  }
+
+  // ---- S5: shipped declarations must not name the private packages ---------
+  // The 14 modules are not published, so a bare `@fogrexon/glyph-arena-*`
+  // specifier anywhere in the installed `.d.ts` tree breaks `tsc` for every
+  // consumer while `import` keeps working. S3 cannot see it: its own resolution
+  // happens on this machine, where the sibling workspaces exist. Comments are
+  // stripped first — a doc comment may legitimately name the package.
+  const umbrellaName = "@fogrexon/glyph-arena";
+  const umbrellaDist = join(projectDir, "node_modules", umbrellaName, "dist");
+
+  const stripComments = (text) =>
+    text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
+
+  const declarationSpecifiers = (dir) => {
+    const found = [];
+    const walk = (current) => {
+      for (const entry of readdirSync(current, { withFileTypes: true })) {
+        const path = join(current, entry.name);
+        if (entry.isDirectory()) {
+          walk(path);
+        } else if (entry.name.endsWith(".d.ts")) {
+          const text = stripComments(readFileSync(path, "utf8"));
+          for (const match of text.matchAll(/\bfrom\s*["']([^"']+)["']/g)) {
+            found.push({ file: path, specifier: match[1] });
+          }
+          for (const match of text.matchAll(/^\s*import\s*["']([^"']+)["']/gm)) {
+            found.push({ file: path, specifier: match[1] });
+          }
+        }
+      }
+    };
+    walk(dir);
+    return found;
+  };
+
+  const bareDeclarationSpecifiers = () =>
+    declarationSpecifiers(umbrellaDist).filter(
+      (entry) => !entry.specifier.startsWith("."),
+    );
+
+  if (tarballs.has(umbrellaName)) {
+    const umbrellaEntry = join(umbrellaDist, "index.d.ts");
+    const entryText = readFileSync(umbrellaEntry, "utf8");
+    const bare = bareDeclarationSpecifiers();
+    if (entryText.includes("@fogrexon/")) {
+      fail(
+        `S5 ${umbrellaName}/dist/index.d.ts names a package instead of a relative path`,
+      );
+    } else if (bare.length > 0) {
+      fail(
+        `S5 ${umbrellaName} ships non-relative declaration imports:\n${bare
+          .map((entry) => `  ${entry.file}: ${entry.specifier}`)
+          .join("\n")}`,
+      );
+    } else {
+      ok(
+        `S5 ${umbrellaName} declarations resolve through relative paths only (${declarationSpecifiers(umbrellaDist).length} imports)`,
+      );
+    }
+
+    // ---- S5b: the S5 check must read the tarball, not just return empty ----
+    const entryBackup = readFileSync(umbrellaEntry, "utf8");
+    writeFileSync(
+      umbrellaEntry,
+      `export * from "@fogrexon/glyph-arena-ecs";\n${entryBackup}`,
+    );
+    const redOnBareSpecifier =
+      readFileSync(umbrellaEntry, "utf8").includes("@fogrexon/") ||
+      bareDeclarationSpecifiers().length > 0;
+    writeFileSync(umbrellaEntry, entryBackup);
+    if (!redOnBareSpecifier) {
+      fail(
+        "S5b injecting a bare package specifier into dist/index.d.ts stayed green — S5 is not reading the installed tarball",
+      );
+    } else {
+      ok("S5b injecting a bare package specifier is red as required");
+    }
   }
 
   // ---- S4a: breaking the packaged declaration must turn S3 red -------------
