@@ -69,6 +69,10 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Added
 
+- `examples/parry`: `window.__parryState` now also carries **`contactDirX` / `contactDirY`** (player -> nearest closing enemy, unit vector) and **`pressMs`** (straight-line distance / speed - the number the parry judgement compares with `windowMs`, which is not the same as the HUD's projected `contactMs`). A parry is aimed and timed from those two instead of guessing a direction and a moment (demo-only)
+
+### Added
+
 - `examples/parry`: the run is published every frame as **`window.__parryState`** (`{ phase, parried, lives, wave, contactMs, windowMs }`, read-only, drawing unchanged). The HUD is canvas pixels, so anything that is not a human eye - E2E, the acceptance run - was reduced to guessing from colours, and a hint line in the same amber as the countdown was mistaken for the countdown. Read it with `page.evaluate(() => window.__parryState)` (demo-only)
 
 ### Added
