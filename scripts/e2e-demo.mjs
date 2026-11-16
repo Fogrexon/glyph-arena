@@ -310,15 +310,41 @@ async function hold(page, keyName, ms) {
   await page.keyboard.up(keyName);
 }
 
+/**
+ * Press R and return the index of the **first frame of the new round**.
+ *
+ * Waiting for `READY` alone is not enough: while R is being processed the
+ * previous round is still drawing, and if it was inside its own grace window it
+ * emits READY too — so the caller would sample a mix of two rounds (that is
+ * where the runner's "314 px" came from). A new round is identified by READY
+ * *and* a round timer that has just been reset.
+ */
 async function restartRound(page) {
-  // Wait for READY, not "Lives: 3": the previous round already shows 3 lives,
-  // so that needle returns before R is processed and the caller reads a frame
-  // from the round it is trying to replace.
   const mark = await frameCount(page);
   await hold(page, "KeyR", 220);
-  const ok = await waitForTextAfter(page, mark, "READY", 8000);
-  await page.waitForTimeout(160);
-  return ok;
+  const started = Date.now();
+  while (Date.now() - started < 8000) {
+    const index = await page.evaluate((from) => {
+      const list = window.__e2e.frames;
+      for (let cursor = Math.max(from, 0); cursor < list.length; cursor += 1) {
+        const texts = list[cursor].texts;
+        let ready = false;
+        let left = null;
+        for (const text of texts) {
+          if (text === "READY") ready = true;
+          if (text.startsWith("Time:")) left = Number(text.slice("Time:".length).trim());
+        }
+        if (ready && left !== null && left >= 59.5) return cursor;
+      }
+      return -1;
+    }, mark);
+    if (index >= 0) {
+      await page.waitForTimeout(160);
+      return index;
+    }
+    await page.waitForTimeout(40);
+  }
+  return mark;
 }
 
 const median = (values) => {
@@ -520,6 +546,37 @@ async function runDesktop(browser, baseUrl, errors) {
   // I2 (R returns the player to spawn, 0 px) is not asserted here: the same
   // code reports 0.0 px on Chromium 156 in the Pod and 314.0 px on the
   // runner's Chrome, so it needs a root cause first (PR #99 notes).
+
+  // ---- I2: R puts the player back at spawn --------------------------------
+  // Both samples come from their own round (see `restartRound`): the field
+  // position of a hazard is the camera's, so an unchanged set means the player
+  // is back at the same spawn point.
+  const spawnMark = await restartRound(page);
+  await page.waitForTimeout(300);
+  const spawnFrames = (await frames(page)).slice(spawnMark).filter((frame) => frame.ready);
+  await hold(page, "ArrowDown", 500);
+  const restoredMark = await restartRound(page);
+  await page.waitForTimeout(300);
+  const restoredFrames = (await frames(page)).slice(restoredMark).filter((frame) => frame.ready);
+
+  const spawnSets = positionSet(spawnFrames);
+  const restoredSets = positionSet(restoredFrames);
+  check(
+    spawnFrames.length > 5 && spawnSets.size === 1 && restoredFrames.length > 5 && restoredSets.size === 1,
+    "I2: each sample comes from a single round",
+    `spawn ${spawnFrames.length} frames / ${spawnSets.size} set(s), restored ${restoredFrames.length} / ${restoredSets.size}`,
+  );
+  const pointOf = (set) => [...([...set][0] ?? "").split("|")[0].split(",")].map(Number);
+  const [ax, ay] = pointOf(spawnSets);
+  const [bx, by] = pointOf(restoredSets);
+  const drift = [ax, ay, bx, by].every((value) => Number.isFinite(value))
+    ? Math.hypot(bx - ax, by - ay)
+    : Number.POSITIVE_INFINITY;
+  check(
+    drift < 0.5,
+    "I2: R returns the player to spawn",
+    Number.isFinite(drift) ? `${drift.toFixed(1)} px` : "no sample",
+  );
 
   // ---- I5: the wall right of the spawn is at least 45 px away ------------
   await restartRound(page);
