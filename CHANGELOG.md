@@ -49,6 +49,10 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 - Pickup demo's title now states the goal and the controls before the round starts: "Collect 8 gems in 60s - 3 lives" plus the arrow/Shift/R keys (or the touch wording on touch devices) (demo-only; no package API change; `index-*.js` changes)
 
+### Added
+
+- `examples/parry` - a second sample game (dash into an incoming enemy to parry it; the waves are a fixed script, so no RNG). Published beside the frozen pickup demo at `/glyph-arena/parry/`, while the pickup demo keeps `/glyph-arena/`. `collide` is the backbone (the parry box is an AABB), with `ecs` enemies, `camera` shake, `tween` punch and `input`/`actions`/`gamepad` control (demo-only; no package API change)
+
 ### Changed
 
 - Pickup demo hazard lanes now run straight over gems the player has to reach (H1 over the north gem's column, H2 beside the east gem) instead of patrolling empty floor, so the danger is spatial rather than a timing coincidence; the central wall block moves 40 px east so the spawn no longer opens 6 px from a wall (demo-only; no package API change; `index-*.js` changes)

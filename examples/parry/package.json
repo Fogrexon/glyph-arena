@@ -1,0 +1,32 @@
+{
+  "name": "@fogrexon/glyph-arena-parry-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "node -e \"require('node:fs').copyFileSync('../pickup-demo/public/pickup.wav','public/parry.wav')\" && vite build",
+    "build:pages": "node -e \"require('node:fs').copyFileSync('../pickup-demo/public/pickup.wav','public/parry.wav')\" && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@fogrexon/glyph-arena-actions": "workspace:*",
+    "@fogrexon/glyph-arena-assets": "workspace:*",
+    "@fogrexon/glyph-arena-audio": "workspace:*",
+    "@fogrexon/glyph-arena-camera": "workspace:*",
+    "@fogrexon/glyph-arena-collide": "workspace:*",
+    "@fogrexon/glyph-arena-draw": "workspace:*",
+    "@fogrexon/glyph-arena-ecs": "workspace:*",
+    "@fogrexon/glyph-arena-gamepad": "workspace:*",
+    "@fogrexon/glyph-arena-input": "workspace:*",
+    "@fogrexon/glyph-arena-loop": "workspace:*",
+    "@fogrexon/glyph-arena-scene": "workspace:*",
+    "@fogrexon/glyph-arena-timer": "workspace:*",
+    "@fogrexon/glyph-arena-transform": "workspace:*",
+    "@fogrexon/glyph-arena-tween": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5"
+  }
+}
