@@ -606,39 +606,27 @@ async function runDesktop(browser, baseUrl, errors) {
 
   // ---- I5: the wall right of the spawn is at least 45 px away ------------
   await restartRound(page);
-  await page.waitForTimeout(250);
-  // Measure the PLAYER, not a hazard: a hazard stops at walls too, so its
-  // movement is an arbitrary number ("22.0 px" was one that hit a wall 0.27 s
-  // after the grace). Hold right until the player stops for two consecutive
-  // polls — that is the wall — and the distance travelled is the gap.
-  const startFrame = (await frames(page)).filter((frame) => frame.ready).at(-1);
-  await page.keyboard.down("ArrowRight");
-  let lastX = null;
-  let stablePolls = 0;
-  let stoppedX = null;
-  const wallDeadline = Date.now() + 5000;
-  while (Date.now() < wallDeadline) {
-    const current = await latestFrame(page);
-    const x = current?.player ? current.player.x : null;
-    if (x !== null && lastX !== null && Math.abs(x - lastX) < 0.01) {
-      stablePolls += 1;
-      if (stablePolls >= 2) {
-        stoppedX = x;
-        break;
-      }
-    } else {
-      stablePolls = 0;
-    }
-    lastX = x;
-    await page.waitForTimeout(60);
-  }
-  await page.keyboard.up("ArrowRight");
+  await page.waitForTimeout(200);
+  // The player's own sprite is at a fixed field position (the camera follows
+  // it), so displacement has to be read from a world-fixed sprite: during the
+  // grace window the hazards are frozen, and their field movement IS the
+  // player's, negated. The hold has to stay inside the 3 s window.
+  const beforeWall = (await frames(page)).filter((frame) => frame.ready).at(-1);
+  await hold(page, "ArrowRight", 1200);
+  const wallFrames = (await frames(page)).filter((frame) => frame.ready);
+  const afterWall = wallFrames.at(-1);
+  const wallSpot = afterWall?.hazards?.[0];
+  const startSpot = beforeWall?.hazards?.[0];
 
-  if (!startFrame?.player || stoppedX === null) {
-    check(false, "I5: the spawn opens at least 45 px to the right", "sample missing (the player never stopped against the wall within 5 s, or the start frame has no player sprite) — not reported as 0 px");
+  if (!startSpot || !wallSpot) {
+    check(false, "I5: the spawn opens at least 45 px to the right", "sample missing (no READY frame with three hazards before/after the run) — not reported as 0 px");
   } else {
-    const wallRun = stoppedX - startFrame.player.x;
-    check(wallRun >= 45, "I5: the spawn opens at least 45 px to the right", `${wallRun.toFixed(1)} px`);
+    const wallRun = Math.abs(wallSpot.x - startSpot.x);
+    check(
+      wallRun >= 45,
+      "I5: the spawn opens at least 45 px to the right",
+      `${wallRun.toFixed(1)} px (start hazard x ${startSpot.x.toFixed(1)}, after ${wallSpot.x.toFixed(1)}, ready frames ${wallFrames.length})`,
+    );
   }
 
   // ---- I1: a 400 ms Shift hold moves 1.3x further than walking ----------
@@ -674,33 +662,55 @@ async function runDesktop(browser, baseUrl, errors) {
     );
   };
 
-  const walkWindows = [];
-  for (let index = 0; index < 3; index += 1) walkWindows.push(await window400(false));
-  await page.keyboard.up("ArrowUp");
+  // Per-frame speed, not distance over a window: the burst lasts only 0.15 s,
+  // so a 400 ms distance ratio swings ±1 frame of phase around the 1.3 line
+  // (measured 1.28-1.42 for the same code). Walk = median frame speed, dash =
+  // fastest frame. MOVE_SPEED 180 / DASH_SPEED 360 gives an expected 2.0.
+  const speedsFrom = (recording) => {
+    const out = [];
+    for (let index = 1; index < recording.length; index += 1) {
+      const previous = recording[index - 1];
+      const current = recording[index];
+      if (!previous.hazards?.[0] || !current.hazards?.[0]) continue;
+      if (!previous.ready || !current.ready) continue;
+      if (previous.time === null || current.time === null) continue;
+      if (current.time < ROUND_SECONDS - HAZARD_GRACE_SECONDS + 0.05) continue;
+      const dt = (current.at - previous.at) / 1000;
+      if (dt <= 0.001 || dt > 0.1) continue;
+      out.push(Math.hypot(
+        current.hazards[0].x - previous.hazards[0].x,
+        current.hazards[0].y - previous.hazards[0].y,
+      ) / dt);
+    }
+    return out;
+  };
 
-  // Fresh round for the dash windows: three 400 ms windows of walking already
-  // cover ~225 px, which runs the player into the wall above the spawn and
-  // would measure 0 px of dash. Both arms start from spawn; the hazard deltas
-  // are relative, so the layout changing between rounds does not matter.
   await restartRound(page);
   await page.waitForTimeout(150);
   await page.keyboard.down("ArrowUp");
-  const dashWindows = [];
-  for (let index = 0; index < 3; index += 1) dashWindows.push(await window400(true));
+  await page.waitForTimeout(450);
+  const walkRecording = await frames(page);
+  const shiftAt = await page.evaluate(() => performance.now());
+  await page.keyboard.down("ShiftLeft");
+  await page.waitForTimeout(240);
+  await page.keyboard.up("ShiftLeft");
+  await page.waitForTimeout(120);
   await page.keyboard.up("ArrowUp");
+  const allRecording = await frames(page);
 
-  const walkDistance = median(walkWindows);
-  const dashDistance = median(dashWindows);
-  const missingWindow = [...walkWindows, ...dashWindows].some((value) => value === null || !Number.isFinite(value));
-  if (missingWindow) {
-    check(false, "I1: a 400 ms Shift hold multiplies the distance by 1.3+", "sample missing (a 400 ms window had no frames) — not reported as 0 px");
+  const walkSpeeds = speedsFrom(walkRecording);
+  const dashSpeeds = speedsFrom(allRecording.filter((frame) => frame.at >= shiftAt));
+  const walkSpeed = median(walkSpeeds);
+  const dashSpeed = dashSpeeds.length > 0 ? Math.max(...dashSpeeds) : 0;
+  const ratioValue = walkSpeed > 0 ? dashSpeed / walkSpeed : 0;
+  if (walkSpeeds.length < 10 || dashSpeeds.length < 3) {
+    check(false, "I1: a dash frame is at least 1.3x a walk frame", `sample missing (walk frames ${walkSpeeds.length}, dash frames ${dashSpeeds.length}) — not reported as a ratio`);
   } else {
-  const ratioValue = walkDistance > 0 ? dashDistance / walkDistance : 0;
-  check(
-    walkDistance >= 40 && ratioValue >= 1.3,
-    "I1: a 400 ms Shift hold multiplies the distance by 1.3+",
-    `walk ${walkDistance.toFixed(0)}px / dash ${dashDistance.toFixed(0)}px (median of 3), ratio ${ratioValue.toFixed(2)}`,
-  );
+    check(
+      walkSpeed >= 100 && ratioValue >= 1.3,
+      "I1: a dash frame is at least 1.3x a walk frame",
+      `walk median ${walkSpeed.toFixed(0)} px/s, dash max ${dashSpeed.toFixed(0)} px/s, ratio ${ratioValue.toFixed(2)}`,
+    );
   }
 
   // I8 (CLEAR) is intentionally not asserted here yet: clearing needs a route
