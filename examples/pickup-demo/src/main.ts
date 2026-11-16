@@ -58,6 +58,11 @@ const GAMEPAD_DEADZONE = 0.25;
 const ROUND_SECONDS = 60;
 const INITIAL_LIVES = 3;
 const INVULN_SECONDS = 1;
+/** How far a hit shoves the player away from the hazard (px, capped by walls). */
+const HIT_KNOCKBACK = 44;
+/** Blink rate while the player is invulnerable; the sprite alternates between these two alphas. */
+const HIT_BLINK_HZ = 10;
+const HIT_BLINK_ALPHA = 0.3;
 /** Hazards stay put for this long after the round starts (and after R), so the first hit is not a surprise. */
 const HAZARD_GRACE_SECONDS = 3;
 /**
@@ -762,6 +767,47 @@ async function main(): Promise<void> {
       return;
     }
     startInvulnerability();
+    knockPlayerAwayFromHazard(playerBox);
+  }
+
+  /**
+   * Pushes the player away from the hazard they touched so a hit has a visible
+   * consequence: without it the player keeps standing on the hazard and the only
+   * feedback is the life counter going down.
+   */
+  function knockPlayerAwayFromHazard(playerBox: Aabb): void {
+    const playerCenter = playerCenterFromAabb(playerBox);
+    let awayX = 0;
+    let awayY = 0;
+    for (const hazardEntity of hazardEntities) {
+      const hazardBox = getAabb(hazardEntity, world);
+      if (!overlaps(playerBox, hazardBox)) {
+        continue;
+      }
+      const hazardCenter = aabbCenter(hazardBox);
+      awayX += playerCenter.x - hazardCenter.x;
+      awayY += playerCenter.y - hazardCenter.y;
+    }
+
+    const length = Math.hypot(awayX, awayY);
+    if (length === 0) {
+      return;
+    }
+
+    const walls = wallAABBs();
+    for (const distance of [HIT_KNOCKBACK, HIT_KNOCKBACK / 2]) {
+      const nextCenter = {
+        x: playerCenter.x + (awayX / length) * distance,
+        y: playerCenter.y + (awayY / length) * distance,
+      };
+      const candidate = playerAabbAtCenter(nextCenter.x, nextCenter.y);
+      if (!collidesWithWalls(candidate, walls)) {
+        setAabb(playerEntity, world, candidate);
+        syncPlayerPositionFromAabb(playerDrawable.node, candidate, transform);
+        transform.set(playerDrawable.node, { scaleX: 1, scaleY: 1 });
+        return;
+      }
+    }
   }
 
   function wallAABBs(): Aabb[] {
@@ -1175,12 +1221,16 @@ async function main(): Promise<void> {
     const [a, b, c, d, e, f] = composeViewAndWorld(viewMatrix, worldMatrix);
     ctx.setTransform(a, b, c, d, e, f);
     const half = PLAYER_SIZE / 2;
+    // Blink while invulnerable so the hit reads as "you were hit", not "the counter moved".
+    const blinking =
+      isInvulnerable() && Math.floor(scheduleSeconds * HIT_BLINK_HZ * 2) % 2 === 0;
     draw.sprite({
       image: drawable.image,
       x: -half,
       y: -half,
       width: drawable.width,
       height: drawable.height,
+      alpha: blinking ? HIT_BLINK_ALPHA : 1,
     });
   }
 
