@@ -9,7 +9,8 @@
     "check:package-entry-points": "node scripts/check-package-entry-points.mjs",
     "smoke:pack-install": "node scripts/smoke-pack-install.mjs",
     "docs:render": "node scripts/render-docs.mjs",
-    "e2e:demo": "node scripts/e2e-demo.mjs"
+    "e2e:demo": "node scripts/e2e-demo.mjs",
+    "check:deployed": "node scripts/check-deployed-bundles.mjs"
   },
   "devDependencies": {
     "playwright-core": "^1.49.0",
