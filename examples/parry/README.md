@@ -69,6 +69,20 @@ the numbers and the history are all there is to read.
 A run with no input ends at **wave 7/20** with `Parried: 0/20`: the enemies come to you, so standing
 still is not a win.
 
+## The `window.__parryState` hook
+
+The HUD is painted into the canvas, so anything asserting from outside the page would have to guess at
+pixels. The demo mirrors the run into `window.__parryState`, refreshed every frame:
+
+| Field | Meaning |
+| --- | --- |
+| `phase` | `"title"`, `"play"` or `"result"` |
+| `parried`, `lives`, `wave` | the same numbers the HUD shows |
+| `contactMs` | ms until the next enemy reaches you, `null` when nothing is closing in (this is what `Contact in` prints) |
+| `windowMs` | the live parry window in ms (what `Parry window` prints) |
+
+End-to-end runs read this object instead of the canvas; the drawing the player sees is unchanged.
+
 ## The wave script
 
 Difficulty lives in one place, `src/waves.ts`. Each row is the *shape* of an enemy (angle, speed,
