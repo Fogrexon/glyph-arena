@@ -26,7 +26,7 @@
  * overrides the browser; `E2E_KEEP=1` leaves screenshots behind.
  */
 
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join, resolve, sep } from "node:path";
@@ -556,7 +556,13 @@ async function runDesktop(browser, baseUrl, errors) {
   const sampleRound = async () => {
     const mark = await restartRound(page);
     await page.waitForTimeout(300);
-    const recording = (await frames(page)).slice(mark).filter((frame) => frame.ready);
+    // Only the first 15 frames (~0.25 s) of the new round: a longer window can
+    // catch the next round if R is pressed again, and the player has not moved
+    // yet, so a stable camera is all this sample needs.
+    const recording = (await frames(page))
+      .slice(mark)
+      .filter((frame) => frame.ready)
+      .slice(0, 15);
     return { recording, sets: positionSet(recording) };
   };
   await restartRound(page);
