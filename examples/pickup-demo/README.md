@@ -72,6 +72,7 @@ Open the URL Vite prints (usually `http://localhost:5173`).
 - **P** — pause / unpause (`actions.pressed("pause")`, edge-triggered; keyboard only; ignored while cleared or failed)
 - **R** — restart the level (`actions.pressed("restart")`, edge-triggered; wins over **P** and zoom on the same frame; clears pause, cleared, and failed state; re-arms the 60s timer; resets facing to up)
 - **Gamepad** — left stick + d-pad on pad 0; deadzone `0.25` is demo-local; directions add arrow key codes to the tick set (no zoom/rotate/pause/restart from pad); facing follows movement like keyboard
+- **Touch** — on devices that report touch (`navigator.maxTouchPoints > 0`): **tap** starts the round (the demo adds `Space` to the tick set for that frame, so it rides the existing `start` binding), and an **on-screen d-pad** in the bottom-left corner drives the four arrow codes (eight-way: diagonal touches move diagonally). The pad is drawn only on touch devices, so desktop rendering is unchanged. Single touch only — moving while dashing with a second finger is out of scope.
 
 Audio resumes on the first key press or gamepad input (not on load).
 
