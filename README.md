@@ -2,7 +2,13 @@
 
 Small TypeScript building blocks for 2D browser games. Each package is an independent workspace member with **no runtime dependencies**, so a game composes only the pieces it needs.
 
-The packages are version `0.1.0` and are **not published to npm yet**. Use them from this monorepo (`workspace:*`).
+The workspace has 15 packages: the 14 modules below, plus `@fogrexon/glyph-arena`, which bundles them into a single ESM build. Nothing is on npm yet; inside this repository the modules are consumed through `workspace:*`.
+
+## Which name to import
+
+Only **`@fogrexon/glyph-arena`** is meant for consumers. It bundles the 14 modules and re-exports their value exports flat, so a game imports one name instead of fourteen ([API page](docs/api-glyph-arena.md)).
+
+The `@fogrexon/glyph-arena-*` names in the table below are workspace-internal: they are not published on their own, so importing them from outside this repository will not resolve.
 
 ## Packages
 
@@ -26,8 +32,7 @@ The packages are version `0.1.0` and are **not published to npm yet**. Use them 
 ## Putting it together
 
 ```ts
-import { createWorld } from "@fogrexon/glyph-arena-ecs";
-import { createLoop } from "@fogrexon/glyph-arena-loop";
+import { createWorld, createLoop } from "@fogrexon/glyph-arena";
 
 const world = createWorld();
 
@@ -79,7 +84,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the definition of done and the reposi
 
 ## Repository layout
 
-- `packages/` — the 14 packages, each with `src/`, `test/` and a `README.md`
+- `packages/` — the 14 modules plus the `@fogrexon/glyph-arena` umbrella, each with `src/`, `test/` and a `README.md`
 - `examples/` — `pickup-demo`, the demo above
 - `docs/` — `api-*.md`, one per package
 - `fixtures/public-api/` — type-only fixture that imports every package by name and checks the emitted declarations
