@@ -6,6 +6,17 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+### Fixed
+
+- `examples/parry`: **a run can now end.** An enemy left the field only by being parried, so one that slid
+  past the player - or one that hit them - stayed in `enemies` for good. `clear()` needs
+  `enemies.length === 0`, so a single miss made the result screen unreachable: the run sat at wave 20 with
+  nothing closing in and could be neither won nor lost (measured with `pnpm measure:parry-run`). Enemies now
+  leave when they are parried, when they hit the player, or when they leave the play area (40 px of
+  margin), and `window.__parryState` gains **`enemyCount`** so an E2E can watch the field drain. A full
+  20-wave run is 25 s of game (first contact 7.5 s, one arrival every 0.9 s, the last at 24.6 s)
+  (demo-only; no package API change; `index-*.js` changes)
+
 ### Added
 
 - Pickup demo at `examples/pickup-demo` now ships `favicon.ico` and `favicon.svg` linked from `index.html`, removing the `/favicon.ico` 404 on the public URL (demo-only; no package API change)
