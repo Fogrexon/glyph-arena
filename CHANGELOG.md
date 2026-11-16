@@ -41,6 +41,10 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 - `examples/pickup-demo/e2e/clear-run.json` - a verified 8/8 CLEAR route (258 world-space waypoints) for the CI E2E to replay; measured CLEAR 25.1 s with 1 life left (test fixture only)
 
+### Added
+
+- Pickup demo now reacts to a hit: the player is knocked 44 px away from the hazard (halved or skipped when a wall is in the way) and blinks at 10 Hz for the 1 s of invulnerability, so damage reads as an event instead of only a counter change (demo-only; no package API change; `index-*.js` changes)
+
 ### Changed
 
 - Pickup demo hazard lanes now run straight over gems the player has to reach (H1 over the north gem's column, H2 beside the east gem) instead of patrolling empty floor, so the danger is spatial rather than a timing coincidence; the central wall block moves 40 px east so the spawn no longer opens 6 px from a wall (demo-only; no package API change; `index-*.js` changes)

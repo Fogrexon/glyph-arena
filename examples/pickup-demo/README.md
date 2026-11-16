@@ -59,6 +59,13 @@ pnpm dev
 
 Open the URL Vite prints (usually `http://localhost:5173`).
 
+## Taking a hit
+
+A hazard costs a life **and** shoves the player 44 px away from it (`HIT_KNOCKBACK`, halved if the full
+shove would end inside a wall, skipped if even that is blocked). For the 1 s of invulnerability the
+player sprite blinks between alpha `1` and `0.3` at 10 Hz, so a hit reads as an event rather than the
+life counter quietly moving.
+
 ## Frame delta
 
 The simulation advances by at most `0.1 s` per frame (`MAX_FRAME_DELTA`). A backgrounded tab can hand the

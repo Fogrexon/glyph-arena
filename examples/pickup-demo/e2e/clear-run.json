@@ -1,5 +1,5 @@
 {
- "note": "A verified 8/8 CLEAR route on layout 0 (fresh page load, no restarts). World coordinates in the 1200x900 field, in pickup order. Follow them in order: steer toward the next point until the player centre is within 14 px, then advance. Positions can be read the way scripts/e2e-demo.mjs already reads them (drawImage + camera translation); no product hook is needed.",
+ "note": "A verified 8/8 CLEAR route on layout 0 (fresh page load, no restarts). World coordinates in the 1200x900 field, in pickup order. Follow them in order: steer toward the next point until the player centre is within 14 px, then advance. Positions can be read the way scripts/e2e-demo.mjs already reads them (drawImage + camera translation); no product hook is needed. Layout 0 only: if a change moves the gems or the hazard lanes, this route goes stale with it - update the waypoints in the same PR (the CI checks that replay it will go red otherwise).",
  "measured": {
   "result": "CLEAR",
   "score": "8/8",
