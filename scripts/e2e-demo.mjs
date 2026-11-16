@@ -321,43 +321,30 @@ async function hold(page, keyName, ms) {
  * *and* a round timer that has just been reset.
  */
 async function restartRound(page) {
-  const mark = await frameCount(page);
-  await hold(page, "KeyR", 220);
-  const started = Date.now();
-  while (Date.now() - started < 8000) {
-    const index = await page.evaluate((from) => {
-      const list = window.__e2e.frames;
-      for (let cursor = Math.max(from, 0); cursor < list.length; cursor += 1) {
-        const read = (frame) => {
-          let ready = false;
-          let left = null;
-          for (const text of frame.texts) {
-            if (text === "READY") ready = true;
-            if (text.startsWith("Time:")) left = Number(text.slice("Time:".length).trim());
-          }
-          return { ready, left };
-        };
-        const current = read(list[cursor]);
-        const previous = cursor > 0 ? read(list[cursor - 1]) : { ready: false, left: null };
-        // Unique reset signal: the round timer jumps *up* by more than a second.
-        // "READY and Time >= 59.5" also matches the previous round while it is
-        // still inside its own grace window, which is what let two rounds into
-        // one sample even with a 15-frame window.
-        const reset =
-          current.left !== null &&
-          previous.left !== null &&
-          current.left - previous.left > 1;
-        if (reset) return cursor;
+  // One place decides "did R take effect": wait for the game clock to jump,
+  // retry twice, and report the roundTime when it never did. Every caller
+  // (I2/I5/I1) then trusts this instead of guessing.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const before = await pickupState(page);
+    const beforeTime = before && before.roundTime !== null ? before.roundTime : null;
+    await hold(page, "KeyR", 220);
+    const started = Date.now();
+    while (Date.now() - started < 3000) {
+      const state = await pickupState(page);
+      if (
+        state &&
+        state.phase === "play" &&
+        beforeTime !== null &&
+        state.roundTime !== null &&
+        state.roundTime > beforeTime + 1
+      ) {
+        return state;
       }
-      return -1;
-    }, mark);
-    if (index >= 0) {
-      await page.waitForTimeout(160);
-      return index;
+      await page.waitForTimeout(40);
     }
-    await page.waitForTimeout(40);
   }
-  return mark;
+  const last = await pickupState(page);
+  return { failed: "restart-not-observed", roundTime: last ? last.roundTime : null };
 }
 
 const median = (values) => {
@@ -467,6 +454,35 @@ async function pickupState(page) {
   return page.evaluate(() => (typeof window.__pickupState === "object" ? window.__pickupState : null));
 }
 
+async function waitForSpawn(page, timeoutMs = 8000) {
+  // `restartRound` returns on the roundTime jump, which can land on a frame
+  // before the loop has published worldX. Wait for a play frame that has the
+  // coordinates, then require the spawn (600 +/- 1).
+  const started = Date.now();
+  const samples = [];
+  while (Date.now() - started < timeoutMs) {
+    const state = await pickupState(page);
+    if (state) {
+      samples.push({
+        phase: state.phase,
+        hasPlayer: state.hasPlayer ?? null,
+        worldX: state.worldX,
+        roundTime: state.roundTime,
+      });
+      if (samples.length > 5) samples.shift();
+      if (state.phase === "play" && state.worldX !== null && Math.abs(state.worldX - 600) <= 1) {
+        return state;
+      }
+    }
+    await page.waitForTimeout(40);
+  }
+  const last = samples[samples.length - 1] ?? null;
+  const reason = !last || last.worldX === null
+    ? "worldX null (the loop never published a position)"
+    : `worldX ${last.worldX} is not the spawn 600 +/- 1 (roundTime ${last.roundTime})`;
+  return { failed: true, reason, samples: samples.slice(-5) };
+}
+
 async function waitForPlay(page, timeoutMs = 8000) {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
@@ -574,82 +590,69 @@ async function runDesktop(browser, baseUrl, errors) {
   // code reports 0.0 px on Chromium 156 in the Pod and 314.0 px on the
   // runner's Chrome, so it needs a root cause first (PR #99 notes).
 
-  // ---- I2: R puts the player back at spawn --------------------------------
-  // The hazards are laid out by restart count (`layout = restarts % 3`), so two
-  // consecutive rounds intentionally differ. Compare rounds three restarts
-  // apart, i.e. the same layout: the field position of a hazard is the camera's,
-  // so an unchanged set means the player is back on the same spawn point.
-  const sampleRound = async () => {
-    const mark = await restartRound(page);
-    await page.waitForTimeout(300);
-    // Only the first 15 frames (~0.25 s) of the new round: a longer window can
-    // catch the next round if R is pressed again, and the player has not moved
-    // yet, so a stable camera is all this sample needs.
-    const recording = (await frames(page))
-      .slice(mark)
-      .filter((frame) => frame.ready)
-      .slice(0, 15);
-    return { recording, sets: positionSet(recording) };
+  // ---- I2: R returns the player to spawn ---------------------------------
+  // Measured on the game's own world coordinates and repeated ten times in a
+  // row: "a re-run made it green" is not evidence. The old version compared
+  // hazard sprites, which move when the layout cycles.
+  const spawnSample = async () => {
+    await hold(page, "ArrowDown", 300);
+    await restartRound(page);
+    const state = await waitForSpawn(page);
+    if (state.failed) {
+      check(false, "I2: sample taken", `sample missing — ${state.reason}; last 5 states ${JSON.stringify(state.samples)}`);
+      return null;
+    }
+    return state;
   };
-  await restartRound(page);
-  const spawnSample = await sampleRound();
-  await hold(page, "ArrowDown", 500);
-  await restartRound(page);
-  await restartRound(page);
-  const restoredSample = await sampleRound();
 
-  check(
-    spawnSample.recording.length > 5 &&
-      spawnSample.sets.size === 1 &&
-      restoredSample.recording.length > 5 &&
-      restoredSample.sets.size === 1,
-    "I2: each sample comes from a single round",
-    `first ${spawnSample.recording.length} frames / ${spawnSample.sets.size} set(s), second ${restoredSample.recording.length} / ${restoredSample.sets.size}`,
-  );
-  const pointOf = (set) => [...([...set][0] ?? "").split("|")[0].split(",")].map(Number);
-  const [ax, ay] = pointOf(spawnSample.sets);
-  const [bx, by] = pointOf(restoredSample.sets);
-  const drift = [ax, ay, bx, by].every((value) => Number.isFinite(value))
-    ? Math.hypot(bx - ax, by - ay)
-    : Number.POSITIVE_INFINITY;
-  check(
-    drift < 0.5,
-    "I2: R returns the player to spawn",
-    Number.isFinite(drift) ? `${drift.toFixed(1)} px (same layout)` : "no sample",
-  );
+  const base = await restartRound(page);
+  if (base.failed) {
+    check(false, "I2: R returns the player to spawn", `restart not observed (roundTime ${base.roundTime})`);
+  } else {
+    let samePlace = 0;
+    let worst = 0;
+    for (let round = 0; round < 10; round += 1) {
+      const state = await spawnSample();
+      if (!state) continue;
+      const drift = Math.hypot(state.worldX - base.worldX, state.worldY - base.worldY);
+      worst = Math.max(worst, drift);
+      if (drift < 0.5) samePlace += 1;
+    }
+    check(
+      samePlace === 10,
+      "I2: R returns the player to spawn, ten times in a row",
+      `${samePlace}/10 (largest drift ${worst.toFixed(1)} px from worldX/worldY)`,
+    );
+  }
 
   // ---- I5: the wall right of the spawn is at least 45 px away ------------
   await restartRound(page);
-  const startState = await waitForPlay(page);
-  await page.keyboard.down("ArrowRight");
-  let lastX = null;
-  let stable = 0;
-  let stoppedX = null;
-  const deadline = Date.now() + 5000;
-  while (Date.now() < deadline) {
-    const state = await pickupState(page);
-    const x = state ? state.worldX : null;
-    if (x !== null && lastX !== null && Math.abs(x - lastX) < 0.01) {
-      stable += 1;
-      if (stable >= 2) { stoppedX = x; break; }
-    } else { stable = 0; }
-    lastX = x;
-    await page.waitForTimeout(60);
-  }
-  await page.keyboard.up("ArrowRight");
-
-  if (!startState || stoppedX === null) {
-    check(false, "I5: the spawn opens at least 45 px to the right", `sample missing (${!startState ? "no phase=play" : "the player never stopped within 5 s"}; last worldX ${lastX}) — not reported as 0 px`);
+  const startState = await waitForSpawn(page);
+  if (startState.failed) {
+    check(false, "I5: the spawn opens at least 40 px of room (designed 45)", `sample missing — ${startState.reason}; last 5 states ${JSON.stringify(startState.samples)} — not reported as 0 px`);
   } else {
-    const wallRun = stoppedX - startState.worldX;
-    // The designed gap is exactly 45 px, so a 45 px floor sits on the measured
-    // value and turns every 0.1 px of rounding into a coin flip. Check 40 (a
-    // regression to the old 6 px still fails loudly) and report the measurement.
-    check(
-      wallRun >= 40,
-      "I5: the spawn opens at least 40 px of room (designed 45)",
-      `measured ${wallRun.toFixed(1)} px (worldX ${startState.worldX.toFixed(1)} → ${stoppedX.toFixed(1)})`,
-    );
+    await page.keyboard.down("ArrowRight");
+    let lastX = null;
+    let stable = 0;
+    let stoppedX = null;
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline) {
+      const state = await pickupState(page);
+      const x = state ? state.worldX : null;
+      if (x !== null && lastX !== null && Math.abs(x - lastX) < 0.01) {
+        stable += 1;
+        if (stable >= 2) { stoppedX = x; break; }
+      } else { stable = 0; }
+      lastX = x;
+      await page.waitForTimeout(60);
+    }
+    await page.keyboard.up("ArrowRight");
+    if (stoppedX === null) {
+      check(false, "I5: the spawn opens at least 40 px of room (designed 45)", `sample missing (the player never stopped within 5 s; last worldX ${lastX}) — not reported as 0 px`);
+    } else {
+      const wallRun = stoppedX - startState.worldX;
+      check(wallRun >= 40, "I5: the spawn opens at least 40 px of room (designed 45)", `measured ${wallRun.toFixed(1)} px (worldX ${startState.worldX.toFixed(1)} → ${stoppedX.toFixed(1)})`);
+    }
   }
 
   // ---- I1: a 400 ms Shift hold moves 1.3x further than walking ----------
@@ -686,7 +689,12 @@ async function runDesktop(browser, baseUrl, errors) {
   };
 
   await restartRound(page);
-  await waitForPlay(page);
+  let i1SpawnFailed = false;
+  const i1Reset = await waitForSpawn(page);
+  if (i1Reset.failed) {
+    check(false, "I1: a dash frame is at least 1.3x a walk frame", `sample missing — ${i1Reset.reason}; last 5 states ${JSON.stringify(i1Reset.samples)} — not reported as a ratio`);
+    i1SpawnFailed = true;
+  }
   await page.keyboard.down("ArrowUp");
   const walkSamples = [];
   for (let index = 0; index < 8; index += 1) {
@@ -710,7 +718,9 @@ async function runDesktop(browser, baseUrl, errors) {
   if (walkSamples.length < 5 || dashSamples.length < 3) {
     check(false, "I1: a dash frame is at least 1.3x a walk frame", `sample missing (walk ${walkSamples.length}, dash ${dashSamples.length}) — not reported as a ratio`);
   } else {
-    check(walkSpeed >= 100 && ratioValue >= 1.3, "I1: a dash frame is at least 1.3x a walk frame", `walk median ${walkSpeed.toFixed(0)} px/s, dash max ${dashSpeed.toFixed(0)} px/s, ratio ${ratioValue.toFixed(2)}`);
+    if (!i1SpawnFailed) {
+      check(walkSpeed >= 100 && ratioValue >= 1.3, "I1: a dash frame is at least 1.3x a walk frame", `walk median ${walkSpeed.toFixed(0)} px/s, dash max ${dashSpeed.toFixed(0)} px/s, ratio ${ratioValue.toFixed(2)}`);
+    }
   }
 
   // I8 (CLEAR) is intentionally not asserted here yet: clearing needs a route
