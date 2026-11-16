@@ -17,6 +17,21 @@ type Matrix6 = [number, number, number, number, number, number];
 
 type Phase = "title" | "play" | "result";
 
+/**
+ * Read-only mirror of the run in `window.__pickupState`, refreshed every frame.
+ *
+ * The HUD and the field are canvas pixels, so an E2E can only guess at them from colours and
+ * draw calls. This is the game's own numbers, for anything that has to assert on movement.
+ */
+type PickupState = {
+  phase: Phase;
+  ready: boolean;
+  worldX: number | null;
+  worldY: number | null;
+  speed: number;
+  roundTime: number;
+};
+
 type EntityKind = "player" | "gem" | "wall" | "hazard";
 
 type Drawable = {
@@ -1299,11 +1314,42 @@ async function main(): Promise<void> {
     ctx.globalAlpha = 1;
   }
 
+  let lastPublishedX: number | null = null;
+  let lastPublishedY: number | null = null;
+  let lastPublishedDelta = 0;
+
+  /** Publishes the run for anything that is not a human looking at the canvas. */
+  function publishPickupState(delta: number): void {
+    let worldX: number | null = null;
+    let worldY: number | null = null;
+    let speed = 0;
+    if (playerEntity !== undefined) {
+      const center = playerCenterFromAabb(getAabb(playerEntity, world));
+      worldX = center.x;
+      worldY = center.y;
+      if (lastPublishedX !== null && lastPublishedY !== null && lastPublishedDelta > 0) {
+        speed = Math.hypot(center.x - lastPublishedX, center.y - lastPublishedY) / lastPublishedDelta;
+      }
+      lastPublishedX = center.x;
+      lastPublishedY = center.y;
+      lastPublishedDelta = delta;
+    }
+    (window as typeof window & { __pickupState?: PickupState }).__pickupState = {
+      phase,
+      ready: isHazardGraceActive(),
+      worldX,
+      worldY,
+      speed,
+      roundTime: roundRemaining,
+    };
+  }
+
   const loop = createLoop({
     onFrame(time) {
       const pads = gamepad.snapshot();
       const pad = pads[0];
       const delta = Math.min(time.delta, MAX_FRAME_DELTA);
+      publishPickupState(delta);
 
       const snapshot = input.snapshot();
       const keys = new Set(snapshot.keys);
