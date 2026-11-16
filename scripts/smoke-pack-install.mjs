@@ -131,9 +131,9 @@ try {
       );
     }
 
-    // A declared licence must travel with the tarball. npm only picks up a
-    // LICENSE inside the package directory, so the repo-root file needs the
-    // package's `prepack` copy — this catches it not running.
+    // A declared licence must travel with the tarball. `pnpm pack` copies the
+    // workspace-root LICENSE in by itself (measured; no per-package copy or
+    // `prepack` step), so this catches the root file going missing.
     if (
       typeof pkg.manifest.license === "string" &&
       !listing.split("\n").includes("package/LICENSE")
