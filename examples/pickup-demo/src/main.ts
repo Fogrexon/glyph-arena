@@ -58,6 +58,8 @@ const GAMEPAD_DEADZONE = 0.25;
 const ROUND_SECONDS = 60;
 const INITIAL_LIVES = 3;
 const INVULN_SECONDS = 1;
+/** Hazards stay put for this long after the round starts (and after R), so the first hit is not a surprise. */
+const HAZARD_GRACE_SECONDS = 3;
 
 const COMPONENT_KIND = "kind";
 const COMPONENT_AABB = "aabb";
@@ -540,6 +542,8 @@ async function main(): Promise<void> {
   /** Schedule time until the move-speed dash burst ends (`scheduleSeconds < dashUntil`). */
   let dashUntil = 0;
   let invulnerabilityTimerHandle: number | null = null;
+  /** `scheduleSeconds` when the current round was armed; the hazard grace window is measured from here. */
+  let roundStartedAt = 0;
 
   function cancelRoundTimer(): void {
     if (roundTimerHandle !== null) {
@@ -552,6 +556,7 @@ async function main(): Promise<void> {
     failed = false;
     cancelRoundTimer();
     roundRemaining = ROUND_SECONDS;
+    roundStartedAt = scheduleSeconds;
     roundTimerHandle = timer.delay(ROUND_SECONDS, () => {
       roundTimerHandle = null;
       if (!cleared) {
@@ -573,6 +578,10 @@ async function main(): Promise<void> {
 
   function isInvulnerable(): boolean {
     return scheduleSeconds < invulnerableUntil;
+  }
+
+  function isHazardGraceActive(): boolean {
+    return scheduleSeconds < roundStartedAt + HAZARD_GRACE_SECONDS;
   }
 
   function clearInvulnerability(): void {
@@ -1225,7 +1234,7 @@ async function main(): Promise<void> {
             }
           }
 
-          if (!cleared && !failed) {
+          if (!cleared && !failed && !isHazardGraceActive()) {
             moveHazards(time.delta, walls);
             applyHazardDamage(playerBox);
           }
@@ -1351,6 +1360,10 @@ async function main(): Promise<void> {
           ctx.fillStyle = "#fbbf24";
           ctx.font = "20px system-ui, sans-serif";
           ctx.fillText("PAUSED", 16, statusY);
+        } else if (isHazardGraceActive()) {
+          ctx.fillStyle = "#9aa0a6";
+          ctx.font = "20px system-ui, sans-serif";
+          ctx.fillText("READY", 16, statusY);
         }
       } else if (phase === "result") {
         ctx.fillStyle = "#e8eaed";
