@@ -65,6 +65,10 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Added
 
+- `examples/parry`: the run is published every frame as **`window.__parryState`** (`{ phase, parried, lives, wave, contactMs, windowMs }`, read-only, drawing unchanged). The HUD is canvas pixels, so anything that is not a human eye - E2E, the acceptance run - was reduced to guessing from colours, and a hint line in the same amber as the countdown was mistaken for the countdown. Read it with `page.evaluate(() => window.__parryState)` (demo-only)
+
+### Added
+
 - `examples/parry`: the HUD now shows **`Contact in 1234ms`** - the time until the nearest approaching enemy touches the player, turning amber once that is inside the parry window. The window was already printed in ms while the thing you aim at was not, so a player (and every E2E) had to derive the moment from the wave table. `Contact in -` means nothing is closing in yet. The onboarding hint moves down one line to make room (demo-only)
 
 ### Fixed
