@@ -311,9 +311,12 @@ async function hold(page, keyName, ms) {
 }
 
 async function restartRound(page) {
+  // Wait for READY, not "Lives: 3": the previous round already shows 3 lives,
+  // so that needle returns before R is processed and the caller reads a frame
+  // from the round it is trying to replace.
   const mark = await frameCount(page);
   await hold(page, "KeyR", 220);
-  const ok = await waitForTextAfter(page, mark, "Lives: 3", 8000);
+  const ok = await waitForTextAfter(page, mark, "READY", 8000);
   await page.waitForTimeout(160);
   return ok;
 }
