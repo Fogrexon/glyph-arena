@@ -595,20 +595,20 @@ async function runDesktop(browser, baseUrl, errors) {
   check(wallRun >= 40, "I5: the spawn opens at least 45 px to the right", `${wallRun.toFixed(1)} px`);
 
   // ---- I1: a 400 ms Shift hold moves 1.3x further than walking ----------
-  // Two runs from the same spawn, same direction, same duration: the only
-  // difference is whether Shift is held, so wall contact and frame alignment
-  // are shared and the spec's "no fixed ratio" rule holds (we assert the floor).
-  const travel = async (withDash) => {
-    await restartRound(page);
-    await page.waitForTimeout(200);
-    const startedAt = await page.evaluate(() => performance.now());
-    await page.keyboard.down("ArrowUp");
+  // The burst lasts 0.15 s (~9 frames), so a single 400 ms window can lose one
+  // frame of it to quantisation and read 1.28 instead of 1.37. Measure several
+  // windows inside one round and compare the medians: the threshold stays the
+  // spec's 1.3 and there is no retry — the spread is removed, not the bar.
+  await restartRound(page);
+  await page.waitForTimeout(150);
+  await page.keyboard.down("ArrowUp");
+
+  const window400 = async (withDash) => {
+    const from = await page.evaluate(() => performance.now());
     if (withDash) await page.keyboard.down("ShiftLeft");
-    await page.waitForTimeout(520);
-    await page.keyboard.up("ArrowUp");
+    await page.waitForTimeout(430);
     if (withDash) await page.keyboard.up("ShiftLeft");
-    await page.waitForTimeout(120);
-    const recorded = (await frames(page)).filter((frame) => frame.ready && frame.at >= startedAt - 20);
+    const recorded = (await frames(page)).filter((frame) => frame.ready && frame.at >= from);
     const first = recorded[0];
     const last = recorded.find((frame) => frame.at >= (first?.at ?? 0) + 400) ?? recorded.at(-1);
     if (!first || !last) return 0;
@@ -617,27 +617,20 @@ async function runDesktop(browser, baseUrl, errors) {
       Math.abs(last.hazards[0].y - first.hazards[0].y)
     );
   };
-  // One sample can lose a single frame of the burst to quantisation (the burst
-  // is only ~4 frames at 60 fps), which reads as 1.28 instead of 1.37 on a busy
-  // runner. Take the better of two attempts — the floor stays the spec's 1.3.
-  let walkDistance = await travel(false);
-  let dashDistance = await travel(true);
-  let ratio = walkDistance > 0 ? dashDistance / walkDistance : 0;
-  if (ratio < 1.3) {
-    const secondWalk = await travel(false);
-    const secondDash = await travel(true);
-    const secondRatio = secondWalk > 0 ? secondDash / secondWalk : 0;
-    if (secondRatio > ratio) {
-      walkDistance = secondWalk;
-      dashDistance = secondDash;
-      ratio = secondRatio;
-    }
-  }
-  const ratioValue = ratio;
+
+  const walkWindows = [];
+  for (let index = 0; index < 3; index += 1) walkWindows.push(await window400(false));
+  const dashWindows = [];
+  for (let index = 0; index < 3; index += 1) dashWindows.push(await window400(true));
+  await page.keyboard.up("ArrowUp");
+
+  const walkDistance = median(walkWindows);
+  const dashDistance = median(dashWindows);
+  const ratioValue = walkDistance > 0 ? dashDistance / walkDistance : 0;
   check(
-    walkDistance >= 40 && ratio >= 1.3,
+    walkDistance >= 40 && ratioValue >= 1.3,
     "I1: a 400 ms Shift hold multiplies the distance by 1.3+",
-    `walk ${walkDistance.toFixed(0)}px / dash ${dashDistance.toFixed(0)}px, ratio ${ratioValue.toFixed(2)}`,
+    `walk ${walkDistance.toFixed(0)}px / dash ${dashDistance.toFixed(0)}px (median of 3), ratio ${ratioValue.toFixed(2)}`,
   );
 
   // I8 (CLEAR) is intentionally not asserted here yet: clearing needs a route
