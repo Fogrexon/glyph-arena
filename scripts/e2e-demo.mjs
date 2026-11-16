@@ -939,19 +939,16 @@ async function runParry(browser, errors) {
       return at;
     };
 
-    await page.goto(`http://127.0.0.1:${PARRY_PORT}/?i10=1`, { waitUntil: "load" });
-    await page.waitForTimeout(600);
-    await hold(page, "Space", 160);
-    const firstPress = await pressFromState();
-    await page.waitForTimeout(350);
-    const afterFirst = await page.evaluate(() => window.__parryState);
+    // No reload: I9 has just played this page. A reload would test the start path instead of the
+    // thing this check is for - whether the clock keeps running after a parry.
+    const beforeSecond = await page.evaluate(() => window.__parryState);
     const secondPress = await pressFromState();
     await page.waitForTimeout(350);
     const afterSecond = await page.evaluate(() => window.__parryState);
     check(
-      afterFirst.parried >= 1 && afterSecond.parried >= 2,
+      Boolean(beforeSecond) && beforeSecond.parried >= 1 && afterSecond.parried > beforeSecond.parried,
       "I10: a second parry lands in the same run",
-      `parried ${afterFirst.parried} -> ${afterSecond.parried}, wave ${firstPress.wave} -> ${secondPress.wave}`,
+      `parried ${beforeSecond?.parried} -> ${afterSecond.parried}, wave ${beforeSecond?.wave} -> ${secondPress.wave}`,
     );
   } finally {
     await context.close();
