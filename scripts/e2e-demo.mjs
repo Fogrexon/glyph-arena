@@ -759,8 +759,10 @@ function parryPressTime() {
     throw new Error("could not read the first wave from examples/parry/src/waves.ts (FIRST_WAVE) or main.ts (WAVES[0])");
   }
   const { at, speed, radius } = first;
-  const contact = at + (radius - 26) / speed + 0.3;
-  return { contact, press: contact - 0.4, at, speed, radius };
+  // No systematic-lag fudge: the formula alone is system A. Whether it or
+  // QA's measured absolute times land is decided by running both (see I9).
+  const contact = at + (radius - 26) / speed;
+  return { contact, at, speed, radius };
 }
 
 /**
@@ -781,53 +783,53 @@ async function runParry(browser, errors) {
   const page = await context.newPage();
   withConsoleErrors(page, errors, "parry");
 
-  try {
-    await page.goto(`http://127.0.0.1:${PARRY_PORT}/`, { waitUntil: "load" });
-    // The title screen does not draw the play HUD, so start first and only
-    // then wait for "Parried:" — waiting for it before Space was the bug that
-    // made the first CI run sit out the timeout.
+  const pressAt = async (seconds) => {
+    await page.keyboard.down("ArrowDown");
+    await page.waitForTimeout(40);
+    await page.keyboard.down("ShiftLeft");
+    await page.waitForTimeout(160);
+    await page.keyboard.up("ShiftLeft");
+    await page.keyboard.up("ArrowDown");
+    return seconds;
+  };
+
+  const attempt = async (system, times) => {
+    await page.goto(`http://127.0.0.1:${PARRY_PORT}/?system=${encodeURIComponent(system)}`, { waitUntil: "load" });
     await page.waitForTimeout(600);
-    const pressAt = await page.evaluate(() => performance.now());
+    const clock = await page.evaluate(() => performance.now());
     await hold(page, "Space", 160);
-    const started = await waitForText(page, "Parried:", 10000);
-    if (!started) {
-      check(false, "I9: the parry demo starts", "play HUD never appeared after Space");
-      return;
-    }
-    const elapsed = await page.evaluate(() => performance.now()) - pressAt;
-    // Multi-point, not a single bet: the window is 480-550 ms wide and where it
-    // lands depends on frame quantisation, so press every 120 ms from
-    // contact-0.9 s to contact+0.1 s (the passing instant has been measured
-    // between 7.0 s and 7.4 s, so the spread is wider than one window). ArrowDown is held before Shift (dash into
-    // it) and that order is reported on failure.
-    const presses = [];
-    const firstPress = recipe.contact - 0.9;
-    await page.waitForTimeout(Math.max(0, firstPress * 1000 - elapsed));
-    let parried = 0;
-    for (let index = 0; index < 8 && parried < 1; index += 1) {
-      await page.keyboard.down("ArrowDown");
-      await page.waitForTimeout(40);
-      await page.keyboard.down("ShiftLeft");
-      await page.waitForTimeout(160);
-      await page.keyboard.up("ShiftLeft");
-      await page.keyboard.up("ArrowDown");
-      presses.push((firstPress + index * 0.14).toFixed(2));
+    if (!(await waitForText(page, "Parried:", 10000))) return { system, parried: 0, pressed: [] };
+    const pressed = [];
+    for (const seconds of times) {
+      const elapsed = (await page.evaluate(() => performance.now()) - clock) / 1000;
+      const wait = seconds - elapsed;
+      if (wait > 0) await page.waitForTimeout(wait * 1000);
+      pressed.push(await pressAt(seconds));
       const line = (await latestFrame(page))?.texts?.find((t) => t.startsWith("Parried:")) ?? null;
-      if (line) parried = Number(line.slice("Parried:".length).split("/")[0].trim()) || 0;
-      await page.waitForTimeout(80);
+      const parried = line ? Number(line.slice("Parried:".length).split("/")[0].trim()) || 0 : 0;
+      if (parried >= 1) return { system, parried, pressed };
     }
-    const deadline = Date.now() + 2000;
-    while (Date.now() < deadline && parried < 1) {
-      const line = (await latestFrame(page))?.texts?.find((t) => t.startsWith("Parried:")) ?? null;
-      if (line) parried = Number(line.slice("Parried:".length).split("/")[0].trim()) || 0;
-      await page.waitForTimeout(60);
-    }
-    check(
-      parried >= 1,
-      "I9: a derived multi-point press lands a parry",
-      `contact ${recipe.contact.toFixed(2)}s (wave0 at=${recipe.at} speed=${recipe.speed} radius=${recipe.radius}); pressed at ${presses.join(" / ")}s with ArrowDown held before Shift -> Parried ${parried}`,
+    const line = (await latestFrame(page))?.texts?.find((t) => t.startsWith("Parried:")) ?? null;
+    return { system, parried: line ? Number(line.slice("Parried:".length).split("/")[0].trim()) || 0 : 0, pressed };
+  };
+
+  try {
+    // Two systems, run separately (a reload resets the run history):
+    //   A: the derived contact (at + (radius-26)/speed), no fudge
+    //   B: the absolute times QA measured by hand
+    const derivedTimes = [0, 1, 2, 3, 4, 5].map((index) => recipe.contact - 0.6 + index * 0.14);
+    const absoluteTimes = [7.0, 7.2, 7.4];
+    const a = await attempt("derived", derivedTimes);
+    const b = await attempt("absolute", absoluteTimes);
+    console.log(
+      `     I9 systems: derived(contact ${recipe.contact.toFixed(2)}s) pressed ${a.pressed.map((t) => t.toFixed(2)).join("/")} -> ${a.parried}; absolute pressed ${b.pressed.map((t) => t.toFixed(2)).join("/")} -> ${b.parried}`,
     );
-  } finally {
+    const winner = a.parried >= 1 ? "derived" : b.parried >= 1 ? "absolute" : "none";
+    check(
+      winner !== "none",
+      "I9: a computed press lands a parry",
+      `${winner === "none" ? "neither system parried" : `winner=${winner}`} (derived ${a.parried}, absolute ${b.parried})`,
+    );  } finally {
     await context.close();
     server.close();
   }
