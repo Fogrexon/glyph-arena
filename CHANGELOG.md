@@ -16,6 +16,10 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
   unchanged: the demo imports the modules directly, so `index-*.js` is not affected.
 - `docs/index.html` on GitHub Pages now renders the repository `README.md` as the docs front page, with the 14 API pages kept as a list underneath; `README.md` itself is unchanged and edits to it now trigger the Pages deploy (demo-only; no package API change)
 
+### Added
+
+- Pickup demo is playable on touch devices: a tap starts the round (it feeds `Space` through the existing `start` binding) and an on-screen d-pad in the bottom-left corner drives the arrow codes. The touch UI is only drawn when `navigator.maxTouchPoints > 0`, so desktop rendering and input are unchanged (demo-only; no package API change; `index-*.js` changes)
+
 ### Changed
 
 - Pickup demo hazards now patrol lanes that cross the floor instead of running three short edge lanes: H0 sweeps the spawn row, H1 runs the spawn column, H2 sweeps the bottom gem row (all still 80 px/s, fixed spawns, no RNG). Standing still now costs a life, so a round involves dodging rather than a safe 26-second errand (demo-only; no package API change; `index-*.js` changes)

@@ -60,6 +60,11 @@ const INITIAL_LIVES = 3;
 const INVULN_SECONDS = 1;
 /** Hazards stay put for this long after the round starts (and after R), so the first hit is not a surprise. */
 const HAZARD_GRACE_SECONDS = 3;
+/** On-screen d-pad for touch devices: offset from the bottom-left corner and its radius (CSS px). */
+const TOUCH_PAD_MARGIN = 104;
+const TOUCH_PAD_RADIUS = 64;
+/** A touch inside this radius per axis counts as "no direction". */
+const TOUCH_PAD_DEADZONE = 14;
 
 const COMPONENT_KIND = "kind";
 const COMPONENT_AABB = "aabb";
@@ -70,6 +75,9 @@ if (!(canvasEl instanceof HTMLCanvasElement)) {
 }
 
 const canvas: HTMLCanvasElement = canvasEl;
+
+/** Touch UI only exists where the device reports touch, so desktop rendering is unchanged. */
+const touchEnabled = typeof navigator !== "undefined" && navigator.maxTouchPoints > 0;
 
 const context = canvas.getContext("2d");
 if (context === null) {
@@ -233,6 +241,38 @@ function gamepadDirections(pad: GamepadState): {
 function padHasInput(pad: GamepadState): boolean {
   const directions = gamepadDirections(pad);
   return directions.left || directions.right || directions.up || directions.down;
+}
+
+type TouchDirections = {
+  left: boolean;
+  right: boolean;
+  up: boolean;
+  down: boolean;
+};
+
+/** Maps a touch point onto the on-screen d-pad (bottom-left of the canvas). */
+function touchPadDirections(x: number, y: number, width: number, height: number): TouchDirections {
+  const centerX = TOUCH_PAD_MARGIN;
+  const centerY = height - TOUCH_PAD_MARGIN;
+  const dx = x - centerX;
+  const dy = y - centerY;
+
+  if (Math.hypot(dx, dy) < TOUCH_PAD_DEADZONE) {
+    return { left: false, right: false, up: false, down: false };
+  }
+
+  const withinPad = Math.hypot(dx, dy) <= TOUCH_PAD_RADIUS * 2.5;
+  if (!withinPad) {
+    return { left: false, right: false, up: false, down: false };
+  }
+
+  // Eight-way: each axis is independent, so a diagonal touch moves diagonally like the arrows do.
+  return {
+    left: dx < -TOUCH_PAD_DEADZONE,
+    right: dx > TOUCH_PAD_DEADZONE,
+    up: dy < -TOUCH_PAD_DEADZONE,
+    down: dy > TOUCH_PAD_DEADZONE,
+  };
 }
 
 async function main(): Promise<void> {
@@ -1085,12 +1125,66 @@ async function main(): Promise<void> {
     }
   }
 
+  function drawTouchPad(): void {
+    if (!touchEnabled) {
+      return;
+    }
+
+    const centerX = TOUCH_PAD_MARGIN;
+    const centerY = canvas.height - TOUCH_PAD_MARGIN;
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 0.2;
+    ctx.fillStyle = "#e8eaed";
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, TOUCH_PAD_RADIUS, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#9aa0a6";
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.6;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(centerX - 26, centerY);
+    ctx.lineTo(centerX + 26, centerY);
+    ctx.moveTo(centerX, centerY - 26);
+    ctx.lineTo(centerX, centerY + 26);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
   const loop = createLoop({
     onFrame(time) {
       const pads = gamepad.snapshot();
       const pad = pads[0];
 
-      const keys = new Set(input.snapshot().keys);
+      const snapshot = input.snapshot();
+      const keys = new Set(snapshot.keys);
+      const touchPoint = touchEnabled ? snapshot.pointers[0] : undefined;
+      if (touchPoint !== undefined) {
+        if (phase === "title") {
+          // The start action is bound to Space; a tap rides the same binding instead of adding a new one.
+          keys.add("Space");
+        } else {
+          const touchDirections = touchPadDirections(
+            touchPoint.x,
+            touchPoint.y,
+            canvas.width,
+            canvas.height,
+          );
+          if (touchDirections.left) {
+            keys.add("ArrowLeft");
+          }
+          if (touchDirections.right) {
+            keys.add("ArrowRight");
+          }
+          if (touchDirections.up) {
+            keys.add("ArrowUp");
+          }
+          if (touchDirections.down) {
+            keys.add("ArrowDown");
+          }
+        }
+      }
       if (phase === "play" && pad !== undefined) {
         const directions = gamepadDirections(pad);
         if (directions.left) {
@@ -1121,7 +1215,7 @@ async function main(): Promise<void> {
         ctx.fillText("Pickup", 16, 48);
         ctx.font = "18px system-ui, sans-serif";
         ctx.fillStyle = "#9aa0a6";
-        ctx.fillText("Space / Enter — start", 16, 80);
+        ctx.fillText(touchEnabled ? "Tap — start" : "Space / Enter — start", 16, 80);
         return;
       }
 
@@ -1381,6 +1475,8 @@ async function main(): Promise<void> {
           ctx.fillText("FAIL — R restart", 16, 98);
         }
       }
+
+      drawTouchPad();
     },
   });
 
