@@ -328,14 +328,26 @@ async function restartRound(page) {
     const index = await page.evaluate((from) => {
       const list = window.__e2e.frames;
       for (let cursor = Math.max(from, 0); cursor < list.length; cursor += 1) {
-        const texts = list[cursor].texts;
-        let ready = false;
-        let left = null;
-        for (const text of texts) {
-          if (text === "READY") ready = true;
-          if (text.startsWith("Time:")) left = Number(text.slice("Time:".length).trim());
-        }
-        if (ready && left !== null && left >= 59.5) return cursor;
+        const read = (frame) => {
+          let ready = false;
+          let left = null;
+          for (const text of frame.texts) {
+            if (text === "READY") ready = true;
+            if (text.startsWith("Time:")) left = Number(text.slice("Time:".length).trim());
+          }
+          return { ready, left };
+        };
+        const current = read(list[cursor]);
+        const previous = cursor > 0 ? read(list[cursor - 1]) : { ready: false, left: null };
+        // Unique reset signal: the round timer jumps *up* by more than a second.
+        // "READY and Time >= 59.5" also matches the previous round while it is
+        // still inside its own grace window, which is what let two rounds into
+        // one sample even with a 15-frame window.
+        const reset =
+          current.left !== null &&
+          previous.left !== null &&
+          current.left - previous.left > 1;
+        if (reset) return cursor;
       }
       return -1;
     }, mark);
