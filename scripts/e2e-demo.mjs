@@ -738,16 +738,27 @@ async function runTouch(browser, baseUrl, errors) {
  * plus the +0.30 s systematic lag measured between theory and a real run.
  */
 function parryPressTime() {
-  const source = readFileSync(join(ROOT, "examples/parry/src/main.ts"), "utf8");
-  const table = /const WAVES[^=]*=\s*\[([\s\S]*?)\n\];/.exec(source)?.[1] ?? "";
-  const first = /\{([^}]*)\}/.exec(table)?.[1] ?? "";
-  const value = (key) => Number(new RegExp(`${key}\\s*:\\s*([0-9.]+)`).exec(first)?.[1]);
-  const at = value("at");
-  const speed = value("speed");
-  const radius = value("radius");
-  if (![at, speed, radius].every((n) => Number.isFinite(n))) {
-    throw new Error(`could not read WAVES[0] from examples/parry/src/main.ts (at=${at} speed=${speed} radius=${radius})`);
+  // The wave table moved to `waves.ts` and its `at` is now derived from target
+  // contact times, so read the literal `FIRST_WAVE` (the taught enemy) and keep
+  // the old `WAVES[0]` literal as a fallback.
+  const tryRead = (path, pattern) => {
+    if (!existsSync(path)) return null;
+    const body = pattern.exec(readFileSync(path, "utf8"))?.[1] ?? "";
+    const value = (key) => Number(new RegExp(`${key}\\s*:\\s*([0-9.]+)`).exec(body)?.[1]);
+    const at = value("at");
+    const speed = value("speed");
+    const radius = value("radius");
+    return [at, speed, radius].every((n) => Number.isFinite(n)) ? { at, speed, radius } : null;
+  };
+
+  const first =
+    tryRead(join(ROOT, "examples/parry/src/waves.ts"), /export const FIRST_WAVE\s*=\s*\{([^}]*)\}/) ??
+    tryRead(join(ROOT, "examples/parry/src/main.ts"), /const WAVES[^=]*=\s*\[([\s\S]*?)\n\];/);
+
+  if (first === null) {
+    throw new Error("could not read the first wave from examples/parry/src/waves.ts (FIRST_WAVE) or main.ts (WAVES[0])");
   }
+  const { at, speed, radius } = first;
   const contact = at + (radius - 26) / speed + 0.3;
   return { contact, press: contact - 0.4, at, speed, radius };
 }
