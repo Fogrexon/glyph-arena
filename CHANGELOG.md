@@ -61,6 +61,10 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 - `examples/parry`: the title subtitle wraps instead of being clipped at 390 px, `Median error` shows an em dash when a run parried nothing (the field no longer disappears), and the demo ships its own `favicon.svg` so the console stays clean (demo-only)
 
+### Fixed
+
+- `examples/parry`: the parry window now sits **outside the contact radius**, so a parry is possible at all. It used to be 200 ms of time-to-contact, which at wave 1 is a 14 px gap while the player and enemy boxes touch at 26 px - the enemy hit you before the parry could register. It is now 550 ms (38 px) narrowing to 200 ms (31 px) by the last wave, and the forward box grows 46 -> 56 px (demo-only)
+
 ### Changed
 
 - Pickup demo hazard lanes now run straight over gems the player has to reach (H1 over the north gem's column, H2 beside the east gem) instead of patrolling empty floor, so the danger is spatial rather than a timing coincidence; the central wall block moves 40 px east so the spawn no longer opens 6 px from a wall (demo-only; no package API change; `index-*.js` changes)
