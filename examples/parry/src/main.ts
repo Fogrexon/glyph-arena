@@ -203,6 +203,12 @@ async function main(): Promise<void> {
   let waveIndex = 0;
   let lastErrorMs: number | null = null;
   const errorSamples: number[] = [];
+  /**
+   * The last few runs, newest last. Kept in memory on purpose: nothing is written
+   * to storage, so a page reload starts a fresh history.
+   */
+  const runHistory: Array<{ parried: number; absoluteMs: number; wave: number; result: string }> = [];
+  const RUN_HISTORY_LIMIT = 5;
   let resultText = "";
   let dashUntil = 0;
   let facingX = 0;
@@ -345,13 +351,24 @@ async function main(): Promise<void> {
     }
   }
 
+  function recordRun(result: string): void {
+    const absoluteMs =
+      errorSamples.length === 0 ? 0 : Math.round(median(errorSamples.map((value) => Math.abs(value))));
+    runHistory.push({ parried, absoluteMs, wave: Math.min(waveIndex, WAVES.length), result });
+    if (runHistory.length > RUN_HISTORY_LIMIT) {
+      runHistory.shift();
+    }
+  }
+
   function fail(): void {
     resultText = "FAIL";
+    recordRun("FAIL");
     phase = "result";
   }
 
   function clear(): void {
     resultText = "CLEAR";
+    recordRun("CLEAR");
     phase = "result";
   }
 
@@ -493,15 +510,38 @@ async function main(): Promise<void> {
     } else if (phase === "result") {
       ctx.fillStyle = "#e8eaed";
       ctx.font = "20px system-ui, sans-serif";
+      const latest = runHistory[runHistory.length - 1];
       ctx.fillText(`Parried: ${parried}/${WAVES.length}`, 16, 32);
       ctx.font = "16px system-ui, sans-serif";
-      ctx.fillText(`Lives: ${lives}`, 16, 56);
-      if (errorSamples.length > 0) {
-        ctx.fillText(`Median: ${Math.round(median(errorSamples))}ms early`, 16, 78);
-      }
+      ctx.fillText(`Reached wave: ${latest === undefined ? 0 : latest.wave}/${WAVES.length}`, 16, 56);
+      ctx.fillText(`Median error: ${latest === undefined ? 0 : latest.absoluteMs}ms`, 16, 78);
       ctx.fillStyle = resultText === "CLEAR" ? "#fbbf24" : "#e63946";
       ctx.font = "20px system-ui, sans-serif";
       ctx.fillText(`${resultText} \u2014 R restart`, 16, 106);
+
+      // The last runs, newest first, so five runs can be compared at a glance.
+      ctx.font = "14px system-ui, sans-serif";
+      ctx.fillStyle = "#9aa0a6";
+      ctx.fillText("Last runs (newest first):", 16, 140);
+      for (let index = runHistory.length - 1; index >= 0; index -= 1) {
+        const run = runHistory[index];
+        const row = runHistory.length - index;
+        ctx.fillText(
+          `${row}. ${run.result} - parried ${run.parried}, ${run.absoluteMs}ms, wave ${run.wave}`,
+          16,
+          160 + (runHistory.length - 1 - index) * 18,
+        );
+      }
+      if (runHistory.length >= 2) {
+        const parriedMedian = median(runHistory.map((run) => run.parried));
+        const msMedian = median(runHistory.map((run) => run.absoluteMs));
+        ctx.fillStyle = "#e8eaed";
+        ctx.fillText(
+          `${runHistory.length}-run median: parried ${parriedMedian}, ${Math.round(msMedian)}ms`,
+          16,
+          160 + runHistory.length * 18 + 6,
+        );
+      }
     }
   }
 
