@@ -551,49 +551,37 @@ async function runDesktop(browser, baseUrl, errors) {
   // code reports 0.0 px on Chromium 156 in the Pod and 314.0 px on the
   // runner's Chrome, so it needs a root cause first (PR #99 notes).
 
-  // ---- I2: R puts the player back at spawn --------------------------------
-  // The hazards are laid out by restart count (`layout = restarts % 3`), so two
-  // consecutive rounds intentionally differ. Compare rounds three restarts
-  // apart, i.e. the same layout: the field position of a hazard is the camera's,
-  // so an unchanged set means the player is back on the same spawn point.
-  const sampleRound = async () => {
-    const mark = await restartRound(page);
-    await page.waitForTimeout(300);
-    // Only the first 15 frames (~0.25 s) of the new round: a longer window can
-    // catch the next round if R is pressed again, and the player has not moved
-    // yet, so a stable camera is all this sample needs.
-    const recording = (await frames(page))
-      .slice(mark)
-      .filter((frame) => frame.ready)
-      .slice(0, 15);
-    return { recording, sets: positionSet(recording) };
+  // ---- I2: R returns the player to spawn ---------------------------------
+  // Measured on the game's own world coordinates and repeated ten times in a
+  // row: "a re-run made it green" is not evidence. The old version compared
+  // hazard sprites, which move when the layout cycles.
+  const spawnSample = async () => {
+    await hold(page, "ArrowDown", 300);
+    const state = await restartRound(page);
+    if (!state) return null;
+    await page.waitForTimeout(120);
+    return pickupState(page);
   };
-  await restartRound(page);
-  const spawnSample = await sampleRound();
-  await hold(page, "ArrowDown", 500);
-  await restartRound(page);
-  await restartRound(page);
-  const restoredSample = await sampleRound();
 
-  check(
-    spawnSample.recording.length > 5 &&
-      spawnSample.sets.size === 1 &&
-      restoredSample.recording.length > 5 &&
-      restoredSample.sets.size === 1,
-    "I2: each sample comes from a single round",
-    `first ${spawnSample.recording.length} frames / ${spawnSample.sets.size} set(s), second ${restoredSample.recording.length} / ${restoredSample.sets.size}`,
-  );
-  const pointOf = (set) => [...([...set][0] ?? "").split("|")[0].split(",")].map(Number);
-  const [ax, ay] = pointOf(spawnSample.sets);
-  const [bx, by] = pointOf(restoredSample.sets);
-  const drift = [ax, ay, bx, by].every((value) => Number.isFinite(value))
-    ? Math.hypot(bx - ax, by - ay)
-    : Number.POSITIVE_INFINITY;
-  check(
-    drift < 0.5,
-    "I2: R returns the player to spawn",
-    Number.isFinite(drift) ? `${drift.toFixed(1)} px (same layout)` : "no sample",
-  );
+  const base = await restartRound(page);
+  if (!base) {
+    check(false, "I2: R returns the player to spawn", "sample missing (no phase=play after R)");
+  } else {
+    let samePlace = 0;
+    let worst = 0;
+    for (let round = 0; round < 10; round += 1) {
+      const state = await spawnSample();
+      if (!state) continue;
+      const drift = Math.hypot(state.worldX - base.worldX, state.worldY - base.worldY);
+      worst = Math.max(worst, drift);
+      if (drift < 0.5) samePlace += 1;
+    }
+    check(
+      samePlace === 10,
+      "I2: R returns the player to spawn, ten times in a row",
+      `${samePlace}/10 (largest drift ${worst.toFixed(1)} px from worldX/worldY)`,
+    );
+  }
 
   // ---- I5: the wall right of the spawn is at least 45 px away ------------
   const resetState = await restartRound(page);
