@@ -65,6 +65,10 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Added
 
+- `examples/pickup-demo`: the run is published every frame as **`window.__pickupState`** (`{ phase, ready, worldX, worldY, speed, roundTime }` - the player's world position and measured speed, not a draw call). The E2E read movement out of `hazards[0].x`, which is a hazard that stops against walls, and out of screen coordinates, which the camera pins in place; both made a real measurement look like a pass or a zero. Drawing unchanged (demo-only)
+
+### Added
+
 - `examples/parry`: the run is published every frame as **`window.__parryState`** (`{ phase, parried, lives, wave, contactMs, windowMs }`, read-only, drawing unchanged). The HUD is canvas pixels, so anything that is not a human eye - E2E, the acceptance run - was reduced to guessing from colours, and a hint line in the same amber as the countdown was mistaken for the countdown. Read it with `page.evaluate(() => window.__parryState)` (demo-only)
 
 ### Added
