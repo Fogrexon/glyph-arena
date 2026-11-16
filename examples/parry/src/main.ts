@@ -36,6 +36,8 @@ type ParryState = {
   /** Player -> nearest closing enemy, unit vector, so a dash can be aimed instead of guessed. */
   contactDirX: number | null;
   contactDirY: number | null;
+  /** Every enemy that will actually reach the player, soonest first: `contactDir` is the first. */
+  threats: Array<{ ms: number; dirX: number; dirY: number }>;
   windowMs: number;
   /** How long a dash lasts, so "press a little early" is arithmetic instead of a magic number. */
   dashMs: number;
@@ -572,7 +574,8 @@ async function main(): Promise<void> {
    */
   /** Publishes the run for anything that is not a human looking at the canvas. */
   function publishParryState(): void {
-    const contact = phase === "play" ? nextContact() : null;
+    const closing = phase === "play" ? closingEnemies() : [];
+    const contact = closing[0] ?? null;
     (window as typeof window & { __parryState?: ParryState }).__parryState = {
       phase,
       parried,
@@ -582,14 +585,27 @@ async function main(): Promise<void> {
       pressMs: contact === null ? null : Math.round(contact.pressSeconds * 1000),
       contactDirX: contact === null ? null : Math.round(contact.dirX * 1000) / 1000,
       contactDirY: contact === null ? null : Math.round(contact.dirY * 1000) / 1000,
+      threats: closing.map((threat) => ({
+        ms: Math.round(threat.pressSeconds * 1000),
+        dirX: Math.round(threat.dirX * 1000) / 1000,
+        dirY: Math.round(threat.dirY * 1000) / 1000,
+      })),
       windowMs: Math.round(parryWindow() * 1000),
       dashMs: Math.round(DASH_DURATION * 1000),
     };
   }
 
-  function nextContact(): { seconds: number; pressSeconds: number; dirX: number; dirY: number } | null {
+  type Threat = { seconds: number; pressSeconds: number; dirX: number; dirY: number };
+
+  /**
+   * Every enemy that is actually closing in, soonest first.
+   *
+   * The first entry is what the HUD counts down and what `contactDir` points at; the whole list is
+   * published so a harness can turn to the next one instead of only ever seeing the nearest.
+   */
+  function closingEnemies(): Threat[] {
     const playerCenter = centerOf(getAabb(playerEntity));
-    let best: { seconds: number; pressSeconds: number; dirX: number; dirY: number } | null = null;
+    const threats: Threat[] = [];
     for (const enemy of enemies) {
       const velocity = world.get(enemy.entity, COMPONENT_VELOCITY) as Velocity | undefined;
       if (velocity === undefined) {
@@ -608,26 +624,28 @@ async function main(): Promise<void> {
       if (seconds <= 0) {
         continue;
       }
-      // How far the player sits from the line the enemy travels. An enemy that would slide past is
-      // not a contact, and pointing the player (or an E2E) at it is pointing them at a miss.
+      // How far the player sits from the line the enemy travels. One that would slide past is not a
+      // contact, and pointing the player (or an E2E) at it is pointing them at a miss.
       const perpendicular = Math.abs(dx * velocity.vy - dy * velocity.vx) / speed;
       if (perpendicular > CONTACT_DISTANCE) {
         continue;
       }
-      if (best !== null && seconds >= best.seconds) {
-        continue;
-      }
       const distance = Math.hypot(dx, dy) || 1;
-      // The number the parry itself compares with the window: straight-line distance over speed.
-      best = {
+      threats.push({
         seconds,
         pressSeconds: distance / speed,
         // Player -> enemy, so dashing along it goes *into* the incoming box.
         dirX: -dx / distance,
         dirY: -dy / distance,
-      };
+      });
     }
-    return best;
+    threats.sort((left, right) => left.seconds - right.seconds);
+    return threats;
+  }
+
+  function nextContact(): Threat | null {
+    const threats = closingEnemies();
+    return threats[0] ?? null;
   }
 
   function nextContactSeconds(): number | null {
