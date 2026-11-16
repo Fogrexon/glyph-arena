@@ -531,7 +531,7 @@ async function main(): Promise<void> {
       );
       ctx.fillStyle = resultText === "CLEAR" ? "#fbbf24" : "#e63946";
       ctx.font = "20px system-ui, sans-serif";
-      ctx.fillText(`${resultText} \u2014 R restart`, 16, 106);
+      ctx.fillText(`${resultText} \u2014 ${touchEnabled ? "Tap to retry" : "R restart"}`, 16, 106);
 
       // "Was that better?" answered before the player has to read the list.
       const previous = runHistory[runHistory.length - 2];
@@ -581,10 +581,15 @@ async function main(): Promise<void> {
     resetRun();
   }
 
+  // Pointer ids seen on the previous frame, so a tap is an edge and not a held finger.
+  let seenPointerIds: ReadonlySet<number> = new Set<number>();
+
   const loop = createLoop({
     onFrame(time) {
       const delta = Math.min(time.delta, MAX_FRAME_DELTA);
       const snapshot = input.snapshot();
+      const freshTap = snapshot.pointers.some((point) => !seenPointerIds.has(point.id));
+      seenPointerIds = new Set(snapshot.pointers.map((point) => point.id));
       const keys = new Set(snapshot.keys);
       const pads = gamepad.snapshot();
       const pad = pads[0];
@@ -636,7 +641,8 @@ async function main(): Promise<void> {
         return;
       }
 
-      if (query.pressed("restart")) {
+      // A phone has no R key: a fresh tap on the result screen restarts, through this same path.
+      if (query.pressed("restart") || (phase === "result" && freshTap)) {
         resetRun();
         phase = "play";
       }
@@ -760,7 +766,9 @@ async function main(): Promise<void> {
       const jitterY = shakeOffset === 0 ? 0 : Math.cos(scheduleSeconds * 73) * shakeOffset;
       drawScene(jitterX + punchX, jitterY + punchY);
       drawHud();
-      drawTouchPad();
+      if (phase === "play") {
+        drawTouchPad();
+      }
     },
   });
 
