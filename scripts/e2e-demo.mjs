@@ -604,6 +604,7 @@ async function runDesktop(browser, baseUrl, errors) {
     Number.isFinite(drift) ? `${drift.toFixed(1)} px (same layout)` : "no sample",
   );
 
+
   // ---- I5: the wall right of the spawn is at least 45 px away ------------
   await restartRound(page);
   await page.waitForTimeout(250);
@@ -663,6 +664,34 @@ async function runDesktop(browser, baseUrl, errors) {
 
   // I8 (CLEAR) is intentionally not asserted here yet: clearing needs a route
   // around the walls, and a heuristic bot dies before 8/8. See the PR notes.
+
+  // Stability as a number, not a promise: repeat the same measurement nine
+  // more times inside this run and require every one to hold. "A re-run made
+  // it green" is not evidence; ten in a row is.
+  let stable = 1;
+  for (let round = 1; round < 10; round += 1) {
+    const first = await sampleRound();
+    await hold(page, "ArrowDown", 300);
+    await restartRound(page);
+    await restartRound(page);
+    await restartRound(page);
+    const second = await sampleRound();
+    const [ax2, ay2] = pointOf(first.sets);
+    const [bx2, by2] = pointOf(second.sets);
+    if (
+      first.sets.size === 1 &&
+      second.sets.size === 1 &&
+      Number.isFinite(ax2) &&
+      Math.hypot(bx2 - ax2, by2 - ay2) < 0.5
+    ) {
+      stable += 1;
+    }
+  }
+  check(
+    stable === 10,
+    "I2: the same measurement holds ten times in a row",
+    `${stable}/10`,
+  );
 
   if (process.env.E2E_KEEP) {
     await page.screenshot({ path: join(ROOT, "e2e-desktop.png") });
