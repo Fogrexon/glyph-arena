@@ -34,6 +34,10 @@ const ENEMY_SIZE = 24;
 const MOVE_SPEED = 210;
 const DASH_DURATION = 0.16;
 const DASH_SPEED = 430;
+
+/** Touch controls: the move pad bottom-left, the dash button bottom-right, same size. */
+const TOUCH_CONTROL_INSET = 104;
+const TOUCH_CONTROL_RADIUS = 64;
 const PARRY_REACH = 40;
 const PARRY_BOX = 56;
 const INVULN_SECONDS = 1;
@@ -404,17 +408,20 @@ async function main(): Promise<void> {
 
   function touchDirections(): { left: boolean; right: boolean; up: boolean; down: boolean } {
     const snapshot = input.snapshot();
-    const point = snapshot.pointers[0];
-    if (!touchEnabled || point === undefined) {
+    if (!touchEnabled) {
       return { left: false, right: false, up: false, down: false };
     }
-    const centerX = 104;
-    const centerY = canvas.height - 104;
+    const centerX = TOUCH_CONTROL_INSET;
+    const centerY = canvas.height - TOUCH_CONTROL_INSET;
+    // The pointer on the pad, not "the first pointer": the other thumb may be on DASH.
+    const point = snapshot.pointers.find(
+      (candidate) => Math.hypot(candidate.x - centerX, candidate.y - centerY) <= 160,
+    );
+    if (point === undefined) {
+      return { left: false, right: false, up: false, down: false };
+    }
     const dx = point.x - centerX;
     const dy = point.y - centerY;
-    if (Math.hypot(dx, dy) > 160) {
-      return { left: false, right: false, up: false, down: false };
-    }
     return { left: dx < -14, right: dx > 14, up: dy < -14, down: dy > 14 };
   }
 
@@ -422,8 +429,8 @@ async function main(): Promise<void> {
     if (!touchEnabled) {
       return;
     }
-    const centerX = 104;
-    const centerY = canvas.height - 104;
+    const centerX = TOUCH_CONTROL_INSET;
+    const centerY = canvas.height - TOUCH_CONTROL_INSET;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 0.2;
     ctx.fillStyle = "#e8eaed";
@@ -440,6 +447,28 @@ async function main(): Promise<void> {
     ctx.moveTo(centerX, centerY - 26);
     ctx.lineTo(centerX, centerY + 26);
     ctx.stroke();
+
+    // The dash button: a phone has no Shift, and parrying is the whole game.
+    const dashX = canvas.width - TOUCH_CONTROL_INSET;
+    const dashY = canvas.height - TOUCH_CONTROL_INSET;
+    ctx.globalAlpha = 0.2;
+    ctx.fillStyle = "#fbbf24";
+    ctx.beginPath();
+    ctx.arc(dashX, dashY, TOUCH_CONTROL_RADIUS, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 0.6;
+    ctx.strokeStyle = "#fbbf24";
+    ctx.beginPath();
+    ctx.arc(dashX, dashY, TOUCH_CONTROL_RADIUS, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = "#fbbf24";
+    ctx.font = "16px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("DASH", dashX, dashY);
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
     ctx.globalAlpha = 1;
   }
 
@@ -508,7 +537,11 @@ async function main(): Promise<void> {
       if (parried === 0 && waveIndex === 1 && enemies.length > 0) {
         ctx.fillStyle = "#fbbf24";
         ctx.font = "18px system-ui, sans-serif";
-        ctx.fillText("Dash into it \u2014 Shift or Space", 16, 152);
+        ctx.fillText(
+          touchEnabled ? "Dash into it \u2014 tap DASH" : "Dash into it \u2014 Shift or Space",
+          16,
+          152,
+        );
       }
       if (lastErrorMs !== null) {
         ctx.fillStyle = "#fbbf24";
@@ -606,6 +639,14 @@ async function main(): Promise<void> {
         if (touch.right) keys.add("ArrowRight");
         if (touch.up) keys.add("ArrowUp");
         if (touch.down) keys.add("ArrowDown");
+        // The button is a Shift, injected where the keys come from, so the dash gate stays in one place.
+        const dashX = canvas.width - TOUCH_CONTROL_INSET;
+        const dashY = canvas.height - TOUCH_CONTROL_INSET;
+        if (
+          snapshot.pointers.some((point) => Math.hypot(point.x - dashX, point.y - dashY) <= TOUCH_CONTROL_RADIUS)
+        ) {
+          keys.add("ShiftLeft");
+        }
       }
       const query = actions.tick(keys);
 
@@ -631,7 +672,7 @@ async function main(): Promise<void> {
         ctx.font = "14px system-ui, sans-serif";
         ctx.fillStyle = "#9aa0a6";
         ctx.fillText(
-          touchEnabled ? "Drag the pad to move \u2014 dash with a second tap" : "Arrows / gamepad move \u00b7 Shift or Space dash \u00b7 R restart",
+          touchEnabled ? "Drag the pad to move \u00b7 tap DASH to dash" : "Arrows / gamepad move \u00b7 Shift or Space dash \u00b7 R restart",
           16,
           controlsY,
         );
