@@ -216,4 +216,94 @@ describe("createLoop", () => {
     loop.stop();
     assert.equal(loop.isRunning, false);
   });
+
+  // ---- delta cap (L1-L4): a backgrounded tab must not advance a whole round -
+  it("L1: clamps only the oversized frames, not every frame", () => {
+    const harness = createTestHarness();
+    const frames: Array<{ elapsed: number; delta: number }> = [];
+
+    const loop = createLoop({
+      onFrame: (time) => frames.push({ elapsed: time.elapsed, delta: time.delta }),
+      clock: harness.clock,
+      raf: harness.raf,
+      cancelRaf: harness.cancelRaf,
+    });
+
+    loop.start();
+    harness.flush();
+    harness.advance(16);
+    harness.flush();
+    harness.advance(16);
+    harness.flush();
+
+    assert.equal(frames[1].delta, 0.016);
+    assert.equal(frames[2].delta, 0.016);
+    loop.stop();
+  });
+
+  it("L2: a 5000 ms stall reports delta 0.1 and the real elapsed", () => {
+    const harness = createTestHarness();
+    const frames: Array<{ elapsed: number; delta: number }> = [];
+
+    const loop = createLoop({
+      onFrame: (time) => frames.push({ elapsed: time.elapsed, delta: time.delta }),
+      clock: harness.clock,
+      raf: harness.raf,
+      cancelRaf: harness.cancelRaf,
+    });
+
+    loop.start();
+    harness.flush();
+    harness.advance(5000);
+    harness.flush();
+
+    assert.equal(frames[1].delta, 0.1);
+    assert.equal(frames[1].elapsed, 5);
+    loop.stop();
+  });
+
+  it("L3: ten 500 ms frames never exceed 0.1", () => {
+    const harness = createTestHarness();
+    const deltas: number[] = [];
+
+    const loop = createLoop({
+      onFrame: (time) => deltas.push(time.delta),
+      clock: harness.clock,
+      raf: harness.raf,
+      cancelRaf: harness.cancelRaf,
+    });
+
+    loop.start();
+    harness.flush();
+    for (let index = 0; index < 10; index += 1) {
+      harness.advance(500);
+      harness.flush();
+    }
+
+    assert.equal(deltas.length, 11);
+    for (const delta of deltas) {
+      assert.ok(delta <= 0.1, `delta ${delta} exceeded 0.1`);
+    }
+    loop.stop();
+  });
+
+  it("L4: a backwards clock never yields a negative delta", () => {
+    const harness = createTestHarness();
+    const deltas: number[] = [];
+
+    const loop = createLoop({
+      onFrame: (time) => deltas.push(time.delta),
+      clock: harness.clock,
+      raf: harness.raf,
+      cancelRaf: harness.cancelRaf,
+    });
+
+    loop.start();
+    harness.flush();
+    harness.advance(-250);
+    harness.flush();
+
+    assert.equal(deltas[1], 0);
+    loop.stop();
+  });
 });
