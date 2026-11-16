@@ -17,7 +17,7 @@ jobs:
       - name: Apply queued patches
         run: |
           applied=0
-          for P in .github/best-*.patch; do
+          for P in .github/best*.patch; do
             [ -f "$P" ] || continue
             if git apply --check "$P"; then
               git apply "$P"
