@@ -772,17 +772,19 @@ async function runParry(browser, errors) {
 
   try {
     await page.goto(`http://127.0.0.1:${PARRY_PORT}/`, { waitUntil: "load" });
-    const started = await waitForText(page, "Parried:", 15000);
+    // The title screen does not draw the play HUD, so start first and only
+    // then wait for "Parried:" — waiting for it before Space was the bug that
+    // made the first CI run sit out the timeout.
+    await page.waitForTimeout(600);
+    const pressAt = await page.evaluate(() => performance.now());
+    await hold(page, "Space", 160);
+    const started = await waitForText(page, "Parried:", 10000);
     if (!started) {
-      check(false, "I9: the parry demo starts", "title never showed the play HUD");
+      check(false, "I9: the parry demo starts", "play HUD never appeared after Space");
       return;
     }
-    const startAt = await page.evaluate(() => performance.now());
-    // Space with a hold: the demo samples keys once per frame.
-    await hold(page, "Space", 160);
-    const playStart = await page.evaluate(() => performance.now());
-    const waitMs = Math.max(0, recipe.press - (playStart - startAt) / 1000);
-    await page.waitForTimeout(waitMs * 1000);
+    const elapsed = await page.evaluate(() => performance.now()) - pressAt;
+    await page.waitForTimeout(Math.max(0, recipe.press * 1000 - elapsed));
     await page.keyboard.down("ArrowDown");
     await page.waitForTimeout(60);
     await page.keyboard.down("ShiftLeft");
