@@ -2,3 +2,4 @@ node_modules/
 dist/
 *.tsbuildinfo
 examples/pickup-demo/public/docs/
+examples/parry/public/parry.wav

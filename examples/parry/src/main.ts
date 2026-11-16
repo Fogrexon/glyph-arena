@@ -41,6 +41,11 @@ type ParryState = {
   windowMs: number;
   /** How long a dash lasts, so "press a little early" is arithmetic instead of a magic number. */
   dashMs: number;
+  /**
+   * Enemies still on the field. Cleared, hit and off-screen enemies all leave it, so a run that
+   * misses a wave still reaches zero and the clear condition can fire.
+   */
+  enemyCount: number;
 };
 
 type Matrix6 = [number, number, number, number, number, number];
@@ -70,6 +75,8 @@ const INVULN_SECONDS = 1;
 const HIT_KNOCKBACK = 40;
 const HITSTOP_SECONDS = 0.06;
 const MAX_FRAME_DELTA = 0.1;
+/** An enemy this far outside the play area has left the run for good. */
+const OFFSCREEN_MARGIN = 40;
 const INITIAL_LIVES = 3;
 
 /**
@@ -592,6 +599,7 @@ async function main(): Promise<void> {
       })),
       windowMs: Math.round(parryWindow() * 1000),
       dashMs: Math.round(DASH_DURATION * 1000),
+      enemyCount: enemies.length,
     };
   }
 
@@ -869,11 +877,29 @@ async function main(): Promise<void> {
         setAabb(playerEntity, playerAabbAtCenter(clampedX, clampedY));
         transform.set(playerDrawable.node, { rotation: Math.atan2(facingX, -facingY) });
 
-        // Enemies move along the vector they were given at spawn.
-        for (const enemy of enemies) {
+        // Enemies move along the vector they were given at spawn, and leave the run once they are
+        // past the arena. Without this an enemy that missed the player stays in `enemies` forever:
+        // nothing else removes it, so `clear()` (which needs `enemies.length === 0`) never fires and
+        // the run can neither be won nor lost.
+        for (let index = enemies.length - 1; index >= 0; index -= 1) {
+          const enemy = enemies[index];
+          if (enemy === undefined) {
+            continue;
+          }
           const box = getAabb(enemy.entity);
           const velocity = (world.get(enemy.entity, COMPONENT_VELOCITY) as Velocity | undefined) ?? { vx: 0, vy: 0 };
-          setAabb(enemy.entity, { ...box, x: box.x + velocity.vx * delta, y: box.y + velocity.vy * delta });
+          const next = { ...box, x: box.x + velocity.vx * delta, y: box.y + velocity.vy * delta };
+          const center = centerOf(next);
+          if (
+            center.x < -OFFSCREEN_MARGIN ||
+            center.x > WORLD_WIDTH + OFFSCREEN_MARGIN ||
+            center.y < -OFFSCREEN_MARGIN ||
+            center.y > WORLD_HEIGHT + OFFSCREEN_MARGIN
+          ) {
+            removeEnemy(index);
+            continue;
+          }
+          setAabb(enemy.entity, next);
         }
 
         // Parry check: only while dashing, only inside the forward box, only for enemies still ahead.
@@ -907,12 +933,19 @@ async function main(): Promise<void> {
           }
         }
 
-        // Contact: an enemy that reaches the player and was not parried costs a life.
+        // Contact: an enemy that reaches the player and was not parried costs a life. It has spent
+        // itself, so it leaves the field as well -- the same rule as a parry or flying off, because
+        // an enemy that stays would block the clear condition the same way a missed one used to.
         if (!isInvulnerable()) {
           const box = getAabb(playerEntity);
-          for (const enemy of enemies) {
+          for (let index = enemies.length - 1; index >= 0; index -= 1) {
+            const enemy = enemies[index];
+            if (enemy === undefined) {
+              continue;
+            }
             if (overlaps(box, getAabb(enemy.entity))) {
               damagePlayer();
+              removeEnemy(index);
               break;
             }
           }
