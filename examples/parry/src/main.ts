@@ -33,16 +33,22 @@ const MOVE_SPEED = 210;
 const DASH_DURATION = 0.16;
 const DASH_SPEED = 430;
 const PARRY_REACH = 40;
-const PARRY_BOX = 46;
+const PARRY_BOX = 56;
 const INVULN_SECONDS = 1;
 const HIT_KNOCKBACK = 40;
 const HITSTOP_SECONDS = 0.06;
 const MAX_FRAME_DELTA = 0.1;
 const INITIAL_LIVES = 3;
 
-/** Parry acceptance shrinks as the run goes on: 200 ms at first, 120 ms by the end. */
-const PARRY_WINDOW_START = 0.2;
-const PARRY_WINDOW_END = 0.12;
+/**
+ * Parry acceptance, as time-to-contact. It has to stay wider than the contact
+ * radius (player 28 + enemy 24 means the boxes touch at a 26 px gap), otherwise
+ * the enemy hits you before a parry can ever register: at the slowest wave
+ * 0.55 s x 70 px/s = 38 px, and at the fastest 0.20 s x 156 px/s = 31 px.
+ * The window still narrows over the run (550 ms -> 200 ms).
+ */
+const PARRY_WINDOW_START = 0.55;
+const PARRY_WINDOW_END = 0.2;
 
 const COMPONENT_KIND = "kind";
 const COMPONENT_AABB = "aabb";
