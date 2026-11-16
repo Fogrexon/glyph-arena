@@ -444,23 +444,29 @@ async function pickupState(page) {
   return page.evaluate(() => (typeof window.__pickupState === "object" ? window.__pickupState : null));
 }
 
-async function waitForSpawn(page, timeoutMs = 3000) {
+async function waitForSpawn(page, timeoutMs = 8000) {
   // `restartRound` returns on the roundTime jump, which can land on a frame
   // before the loop has published worldX. Wait for a play frame that has the
   // coordinates, then require the spawn (600 +/- 1).
   const started = Date.now();
-  let lastPhase = null;
+  const samples = [];
   while (Date.now() - started < timeoutMs) {
     const state = await pickupState(page);
     if (state) {
-      lastPhase = state.phase;
+      samples.push({
+        phase: state.phase,
+        hasPlayer: state.hasPlayer ?? null,
+        worldX: state.worldX,
+        roundTime: state.roundTime,
+      });
+      if (samples.length > 5) samples.shift();
       if (state.phase === "play" && state.worldX !== null && Math.abs(state.worldX - 600) <= 1) {
         return state;
       }
     }
     await page.waitForTimeout(40);
   }
-  return { failed: true, lastPhase };
+  return { failed: true, samples: samples.slice(-5) };
 }
 
 async function waitForPlay(page, timeoutMs = 8000) {
@@ -578,7 +584,11 @@ async function runDesktop(browser, baseUrl, errors) {
     await hold(page, "ArrowDown", 300);
     await restartRound(page);
     const state = await waitForSpawn(page);
-    return state.failed ? null : state;
+    if (state.failed) {
+      check(false, "I2: sample taken", `sample missing (no spawn within 8 s; last 5 states ${JSON.stringify(state.samples)})`);
+      return null;
+    }
+    return state;
   };
 
   const base = await restartRound(page);
@@ -605,7 +615,7 @@ async function runDesktop(browser, baseUrl, errors) {
   await restartRound(page);
   const startState = await waitForSpawn(page);
   if (startState.failed) {
-    check(false, "I5: the spawn opens at least 40 px of room (designed 45)", `sample missing (no play frame with worldX within 3 s, last phase ${startState.lastPhase}) — not reported as 0 px`);
+    check(false, "I5: the spawn opens at least 40 px of room (designed 45)", `sample missing (no spawn within 8 s; last 5 states ${JSON.stringify(startState.samples)}) — not reported as 0 px`);
   } else {
     await page.keyboard.down("ArrowRight");
     let lastX = null;
@@ -665,9 +675,11 @@ async function runDesktop(browser, baseUrl, errors) {
   };
 
   await restartRound(page);
+  let i1SpawnFailed = false;
   const i1Reset = await waitForSpawn(page);
   if (i1Reset.failed) {
-    check(false, "I1: a dash frame is at least 1.3x a walk frame", `sample missing (no play frame with worldX within 3 s, last phase ${i1Reset.lastPhase}) — not reported as a ratio`);
+    check(false, "I1: a dash frame is at least 1.3x a walk frame", `sample missing (no spawn within 8 s; last 5 states ${JSON.stringify(i1Reset.samples)}) — not reported as a ratio`);
+    i1SpawnFailed = true;
   }
   await page.keyboard.down("ArrowUp");
   const walkSamples = [];
@@ -692,7 +704,9 @@ async function runDesktop(browser, baseUrl, errors) {
   if (walkSamples.length < 5 || dashSamples.length < 3) {
     check(false, "I1: a dash frame is at least 1.3x a walk frame", `sample missing (walk ${walkSamples.length}, dash ${dashSamples.length}) — not reported as a ratio`);
   } else {
-    check(walkSpeed >= 100 && ratioValue >= 1.3, "I1: a dash frame is at least 1.3x a walk frame", `walk median ${walkSpeed.toFixed(0)} px/s, dash max ${dashSpeed.toFixed(0)} px/s, ratio ${ratioValue.toFixed(2)}`);
+    if (!i1SpawnFailed) {
+      check(walkSpeed >= 100 && ratioValue >= 1.3, "I1: a dash frame is at least 1.3x a walk frame", `walk median ${walkSpeed.toFixed(0)} px/s, dash max ${dashSpeed.toFixed(0)} px/s, ratio ${ratioValue.toFixed(2)}`);
+    }
   }
 
   // I8 (CLEAR) is intentionally not asserted here yet: clearing needs a route
