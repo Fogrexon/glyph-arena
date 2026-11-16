@@ -10,10 +10,10 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 - Pickup demo at `examples/pickup-demo` now ships `favicon.ico` and `favicon.svg` linked from `index.html`, removing the `/favicon.ico` 404 on the public URL (demo-only; no package API change)
 - `docs/*.md` are now published as static HTML on GitHub Pages under `/docs/` (index plus 14 API pages, each with a 14-item sidebar and H2 outline; rendered at build time by `scripts/render-docs.mjs`, and unsupported Markdown fails the build with `file:line`) (demo-only; no package API change)
-- `@fogrexon/glyph-arena` 0.1.0 — new single-package distribution: the 14 modules are bundled into one
-  ESM/CJS build with self-contained type declarations and `sideEffects: false` (flat re-export; the 14
-  modules stay workspace-internal and are not published). Demo bundle unchanged: the demo imports the
-  modules directly, so `index-*.js` is not affected.
+- `@fogrexon/glyph-arena` 0.1.2 — new single-package distribution: the 14 modules are bundled into one
+  ESM build with self-contained type declarations and `sideEffects: false` (flat re-export; ESM only,
+  like the modules; the 14 modules stay workspace-internal and are not published). Demo bundle
+  unchanged: the demo imports the modules directly, so `index-*.js` is not affected.
 - `docs/index.html` on GitHub Pages now renders the repository `README.md` as the docs front page, with the 14 API pages kept as a list underneath; `README.md` itself is unchanged and edits to it now trigger the Pages deploy (demo-only; no package API change)
 
 ### Fixed

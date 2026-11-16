@@ -6,7 +6,7 @@ in one package.
 Glyph Arena is built as 14 small modules with no runtime dependencies (ECS,
 frame loop, timer, tween, input, gamepad, camera, transforms, drawing, assets,
 audio, actions, collision, scene graph). Those modules stay workspace-internal;
-this package bundles all of them into a single ESM/CJS build with self-contained
+this package bundles all of them into a single ESM build with self-contained
 type declarations, so a game depends on one name instead of fourteen.
 
 ## Install
@@ -48,8 +48,11 @@ exports of one name are ambiguous for the type declaration build.
 ## Which entry points exist
 
 - `import` resolves to `dist/index.js` (ESM)
-- `require` resolves to `dist/index.cjs` (CommonJS)
 - types resolve to `dist/index.d.ts`
+
+ESM only, like the 14 modules: a CommonJS build would need a separate
+`dist/index.d.cts`, and one `types` shared by `import` and `require` is the
+masquerading trap for `NodeNext` consumers.
 
 `sideEffects` is `false`: nothing in the runtime runs at import time, every
 module is a factory, so unused modules are dropped by the consumer's bundler.
@@ -60,6 +63,6 @@ module is a factory, so unused modules are dropped by the consumer's bundler.
 pnpm --filter @fogrexon/glyph-arena build
 ```
 
-The build runs vite's library mode (both formats), then `tsc -p tsconfig.build.json`
+The build runs vite's library mode (ESM), then `tsc -p tsconfig.build.json`
 for the declaration tree, then `scripts/write-entry-dts.mjs` writes the
 `dist/index.d.ts` entry that re-exports it.
