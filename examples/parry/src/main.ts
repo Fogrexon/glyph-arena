@@ -58,7 +58,7 @@ type Velocity = { vx: number; vy: number };
 
 /** Fixed wave script: no RNG, so a given run index is always the same run. */
 const WAVES: Array<{ at: number; angle: number; speed: number; radius: number }> = [
-  { at: 1.2, angle: 90, speed: 70, radius: 360 },
+  { at: 1.8, angle: 90, speed: 55, radius: 340 },
   { at: 3.0, angle: 270, speed: 78, radius: 360 },
   { at: 4.6, angle: 0, speed: 84, radius: 360 },
   { at: 6.2, angle: 180, speed: 90, radius: 360 },
@@ -527,6 +527,11 @@ async function main(): Promise<void> {
       ctx.font = "16px system-ui, sans-serif";
       ctx.fillText(`Lives: ${lives}`, 16, 56);
       ctx.fillText(`Wave: ${Math.min(waveIndex, WAVES.length)}/${WAVES.length}`, 16, 78);
+      if (parried === 0 && waveIndex === 1 && enemies.length > 0) {
+        ctx.fillStyle = "#fbbf24";
+        ctx.font = "18px system-ui, sans-serif";
+        ctx.fillText("Dash into it \u2014 Shift or Space", 16, 152);
+      }
       if (lastErrorMs !== null) {
         ctx.fillStyle = "#fbbf24";
         ctx.fillText(`Last parry: ${lastErrorMs}ms early`, 16, 102);

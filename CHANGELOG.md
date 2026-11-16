@@ -67,6 +67,8 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Changed
 
+- `examples/parry`: the first enemy is slower and later (55 px/s from 1.8 s) and the HUD shows "Dash into it" until the first parry lands, so a first run has a moment to learn the one verb before the pressure starts (demo-only)
+
 - Pickup demo hazard lanes now run straight over gems the player has to reach (H1 over the north gem's column, H2 beside the east gem) instead of patrolling empty floor, so the danger is spatial rather than a timing coincidence; the central wall block moves 40 px east so the spawn no longer opens 6 px from a wall (demo-only; no package API change; `index-*.js` changes)
 
 ### Fixed
