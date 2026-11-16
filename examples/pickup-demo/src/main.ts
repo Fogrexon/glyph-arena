@@ -406,32 +406,104 @@ async function main(): Promise<void> {
    * pickup - it just makes the approach a timed one. Every lane crosses open
    * floor, so standing still is punished.
    */
-  const hazardSpawns: Array<{ x: number; y: number }> = [
-    { x: 300, y: 434 },
-    { x: 530, y: 96 },
-    { x: 820, y: 96 },
+  /**
+   * Three fixed layouts, cycled by the restart count (no RNG, so a given round
+   * index always plays the same field). Layout 0 is the original field; the
+   * others move both the gems and the lanes so a second round is not remembered
+   * from the first, while every lane still runs over a gem the player wants.
+   */
+  const LAYOUTS: Array<{
+    items: ReadonlyArray<{ x: number; y: number }>;
+    hazards: ReadonlyArray<{ x: number; y: number }>;
+    velocities: ReadonlyArray<{ vx: number; vy: number }>;
+  }> = [
+    {
+      items: [
+        { x: 140, y: 140 },
+        { x: 520, y: 220 },
+        { x: 900, y: 180 },
+        { x: 340, y: 420 },
+        { x: 780, y: 520 },
+        { x: 200, y: 720 },
+        { x: 980, y: 700 },
+        { x: 560, y: 760 },
+      ],
+      hazards: [
+        { x: 300, y: 434 },
+        { x: 530, y: 96 },
+        { x: 820, y: 96 },
+      ],
+      velocities: [
+        { vx: HAZARD_SPEED, vy: 0 },
+        { vx: 0, vy: HAZARD_SPEED },
+        { vx: 0, vy: HAZARD_SPEED },
+      ],
+    },
+    {
+      items: [
+        { x: 160, y: 300 },
+        { x: 560, y: 140 },
+        { x: 940, y: 240 },
+        { x: 320, y: 620 },
+        { x: 880, y: 560 },
+        { x: 240, y: 800 },
+        { x: 700, y: 760 },
+        { x: 480, y: 440 },
+      ],
+      hazards: [
+        { x: 300, y: 440 },
+        { x: 930, y: 96 },
+        { x: 470, y: 96 },
+      ],
+      velocities: [
+        { vx: HAZARD_SPEED, vy: 0 },
+        { vx: 0, vy: HAZARD_SPEED },
+        { vx: 0, vy: HAZARD_SPEED },
+      ],
+    },
+    {
+      items: [
+        { x: 120, y: 200 },
+        { x: 480, y: 120 },
+        { x: 820, y: 220 },
+        { x: 1080, y: 420 },
+        { x: 360, y: 600 },
+        { x: 180, y: 800 },
+        { x: 640, y: 820 },
+        { x: 1000, y: 620 },
+      ],
+      hazards: [
+        { x: 110, y: 190 },
+        { x: 584, y: 96 },
+        { x: 360, y: 610 },
+      ],
+      velocities: [
+        { vx: 0, vy: HAZARD_SPEED },
+        { vx: 0, vy: HAZARD_SPEED },
+        { vx: HAZARD_SPEED, vy: 0 },
+      ],
+    },
   ];
 
-  /** Initial hazard velocities in spawn order: H0, H1, H2 (px/s, axis-aligned, 80 px/s each). */
-  const hazardInitialVelocities: Array<{ vx: number; vy: number }> = [
-    { vx: HAZARD_SPEED, vy: 0 },
-    { vx: 0, vy: HAZARD_SPEED },
-    { vx: 0, vy: HAZARD_SPEED },
-  ];
 
   const hazardVelocities = new Map<Entity, { vx: number; vy: number }>();
 
-  const itemSpawns: Array<{ x: number; y: number }> = [
-    { x: 140, y: 140 },
-    { x: 520, y: 220 },
-    { x: 900, y: 180 },
-    { x: 340, y: 420 },
-    { x: 780, y: 520 },
-    { x: 200, y: 720 },
-    { x: 980, y: 700 },
-    { x: 560, y: 760 },
-  ];
-  const GEM_TOTAL = itemSpawns.length;
+  let layoutIndex = 0;
+  let itemSpawns: Array<{ x: number; y: number }> = LAYOUTS[0].items.map((item) => ({ ...item }));
+  let hazardSpawnList: Array<{ x: number; y: number }> = LAYOUTS[0].hazards.map((hazard) => ({ ...hazard }));
+  let hazardVelocityList: Array<{ vx: number; vy: number }> = LAYOUTS[0].velocities.map((velocity) => ({
+    ...velocity,
+  }));
+  const GEM_TOTAL = LAYOUTS[0].items.length;
+
+  /** Applies a layout by index (wrapped) and remembers which one is live. */
+  function applyLayout(index: number): void {
+    layoutIndex = index % LAYOUTS.length;
+    const layout = LAYOUTS[layoutIndex];
+    itemSpawns = layout.items.map((item) => ({ ...item }));
+    hazardSpawnList = layout.hazards.map((hazard) => ({ ...hazard }));
+    hazardVelocityList = layout.velocities.map((velocity) => ({ ...velocity }));
+  }
 
   function startGemIdlePulse(entity: Entity): void {
     gemIdleTargetScale.set(entity, GEM_IDLE_SCALE_MIN);
@@ -496,8 +568,8 @@ async function main(): Promise<void> {
       spawnGem(spawn);
     }
 
-    for (let hazardIndex = 0; hazardIndex < hazardSpawns.length; hazardIndex += 1) {
-      const spawn = hazardSpawns[hazardIndex];
+    for (let hazardIndex = 0; hazardIndex < hazardSpawnList.length; hazardIndex += 1) {
+      const spawn = hazardSpawnList[hazardIndex];
       const drawable = spawnEntity(
         "hazard",
         nodeAabb(spawn.x, spawn.y, HAZARD_SIZE, HAZARD_SIZE),
@@ -508,7 +580,7 @@ async function main(): Promise<void> {
       );
       hazardEntities.push(drawable.entity);
       hazardDrawables.push(drawable);
-      const initialVelocity = hazardInitialVelocities[hazardIndex];
+      const initialVelocity = hazardVelocityList[hazardIndex];
       if (initialVelocity === undefined) {
         throw new Error("Missing hazard initial velocity");
       }
@@ -1013,6 +1085,7 @@ async function main(): Promise<void> {
 
     forest.destroy(fieldNode);
 
+    applyLayout(layoutIndex + 1);
     fieldNode = forest.create();
     forest.setParent(fieldNode, playRoot!);
     createFieldContent();
@@ -1072,6 +1145,7 @@ async function main(): Promise<void> {
     baseZoom = 1;
     baseRotation = 0;
     camera.set({ zoom: 1, rotation: 0 });
+    applyLayout(0);
     createPlaySubtree();
     armRoundTimer();
     phase = "play";

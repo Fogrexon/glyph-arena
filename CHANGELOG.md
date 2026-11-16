@@ -29,6 +29,10 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 - Pickup demo shows the round's clear time and the fastest clear since the page was loaded on the result screen (`Clear: X.Xs`, `Best: X.Xs`, and `CLEAR — NEW BEST` when it beats the previous one). Round-scoped on purpose: nothing is written to storage (demo-only; no package API change; `index-*.js` changes)
 
+### Added
+
+- Pickup demo cycles through **three fixed layouts** (gems and hazard lanes) by restart count, so a second round is not the first one memorised. No RNG: the sequence is fixed and `layout = restarts % 3` (demo-only; no package API change; `index-*.js` changes)
+
 ### Changed
 
 - Pickup demo hazard lanes now run straight over gems the player has to reach (H1 over the north gem's column, H2 beside the east gem) instead of patrolling empty floor, so the danger is spatial rather than a timing coincidence; the central wall block moves 40 px east so the spawn no longer opens 6 px from a wall (demo-only; no package API change; `index-*.js` changes)
