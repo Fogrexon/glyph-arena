@@ -48,6 +48,16 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Fixed
 
+- **the deploy records what it deployed, and turns red when it did not.** `docs/bundles.json` used
+  to be written by hand after a deploy, by whoever remembered — and it drifted every time. Today
+  `main` was green while Pages served a bundle two deploys old, because the deploy is outside the CI
+  gates. The deploy workflow now has a `record` job that waits until the site serves one **stable**
+  bundle per page (two agreeing samples 20 s apart, because the CDN lags a deploy), then runs
+  `check:deployed --write --pr`: it opens a one-file PR, waits for `verify`, and merges it with the
+  Actions token. It cannot push to `main` (protection: PR required, `verify` required, admins
+  included) and does not try. The last step re-reads the site and fails if it still disagrees, so a
+  deploy that leaves the record behind is a red run, not a footnote.
+
 - **`I14` asserted the bot's skill, not the game.** The parry end-to-end run played until wave 21 to
   prove "the run does not stop at twenty waves". That is a property of `waveShapeAt()` — a pure
   function with no RNG, already covered for indices 20..199 by `examples/parry/test/waves.test.ts` —

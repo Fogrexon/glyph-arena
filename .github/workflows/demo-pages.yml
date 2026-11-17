@@ -92,3 +92,52 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # The record used to be written by hand, after the deploy, by whoever remembered — and drifted
+  # every time: `main` stayed green while the site served a bundle nobody had recorded. The deploy
+  # is outside the CI gates, so it gets its own check, and the record gets an owner: this job.
+  #
+  # It cannot push to `main` (protection: PR required, `verify` required, admins included), and it
+  # does not need to — `check:deployed --write --pr` opens a one-file PR, waits for `verify`, and
+  # merges it with the same token. Two agreeing samples are required first, because Pages' CDN can
+  # still be serving the previous release right after a deploy.
+  record:
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    concurrency:
+      group: record-bundles
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: wait until the site serves one stable bundle per page
+        run: |
+          for attempt in $(seq 1 10); do
+            first=$(node scripts/check-deployed-bundles.mjs --write --dry-run 2>/dev/null | sed -n 's/^--dry-run: would write .*: //p')
+            sleep 20
+            second=$(node scripts/check-deployed-bundles.mjs --write --dry-run 2>/dev/null | sed -n 's/^--dry-run: would write .*: //p')
+            if [ -n "$first" ] && [ "$first" = "$second" ]; then
+              echo "settled on $second"
+              exit 0
+            fi
+            echo "attempt $attempt: '$first' then '$second' — the site is still moving"
+          done
+          echo "::error::the site never served a stable set of bundles; the record was not written"
+          exit 1
+
+      - name: write the record and take it to main through a PR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/check-deployed-bundles.mjs --write --pr
+
+      - name: the site and the record agree
+        run: node scripts/check-deployed-bundles.mjs
