@@ -9,7 +9,8 @@ import { createActions } from "@fogrexon/glyph-arena-actions";
 import { createInput } from "@fogrexon/glyph-arena-input";
 import { createLoop } from "@fogrexon/glyph-arena-loop";
 
-import { TILE, currentLevel, goalLineX, hazardWithin, isHazardTile, isSolidTile, levelColumns, levelCount, levelRows, loadLevel, patrolRange, spawnPoint } from "./level";
+import { TILE, chaseSpawnLane, currentLevel, goalLineX, hazardWithin, isHazardTile, isSolidTile, levelColumns, levelCount, levelRows, loadLevel, patrolRange, spawnPoint } from "./level";
+import { CHASE, keepsChasing, startsChasing } from "./enemy";
 import { GRAVITY, createBody, jumpHeight, stepBody, type Body } from "./physics";
 
 type Phase = "title" | "play" | "dead" | "goal";
@@ -91,6 +92,8 @@ const PALETTE = {
   outline: "#0d1626",
   scarf: "#ffb703",
   enemy: "#c05a8e",
+  /** The pursuer, once it is actually chasing. */
+  accent: "#ff9f43",
   hud: "rgba(232, 234, 237, 0.85)",
 };
 
@@ -199,7 +202,7 @@ function loadLevelAt(index: number): void {
   goal = { x: goalLineX(), y: 0 };
   worldWidth = levelColumns() * TILE;
   worldHeight = levelRows() * TILE;
-  enemy = makeEnemy();
+  enemies = makeEnemies();
   body = createBody(spawn.x + 6, spawn.y - 28, 20, 28);
   safe = { x: body.x, y: body.y };
   cameraX = 0;
@@ -207,6 +210,10 @@ function loadLevelAt(index: number): void {
 }
 
 function respawn(atSafe: boolean): void {
+  // Enemies go back to their start. Without this a pursuer stands on the safe spot and kills you
+  // the frame you come back: the same trap as a respawn inside a spike, one layer up. It also
+  // keeps "try that jump again" honest — the thing that killed you is where you first met it.
+  enemies = makeEnemies();
   const x = atSafe ? safe.x : spawn.x + 6;
   const y = atSafe ? safe.y : spawn.y - 28;
   body = createBody(x, y, 20, 28);
@@ -366,52 +373,152 @@ function drawLevel(): void {
   ctx.fill();
 }
 
-/** A patrolling walker: touching it is death, so the level has a second verb. */
-type Enemy = { x: number; y: number; w: number; h: number; minX: number; maxX: number; dir: number; speed: number };
+/**
+ * An enemy: touching it is death. `mode` is published, because "a thing patrols" and "a thing is
+ * coming for you" have to be distinguishable from outside without watching the pixels — that is
+ * the difference R10g checks for.
+ */
+type Enemy = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  minX: number;
+  maxX: number;
+  dir: number;
+  /** px/s right now: the patrol speed, or the pursuit speed while chasing. */
+  speed: number;
+  mode: "patrol" | "chase";
+  /** Only level 3's pursuer may switch modes; a walker stays a walker. */
+  chases: boolean;
+  /** Seconds this enemy has been outside the view while chasing. */
+  offScreenSeconds: number;
+};
 
-/** The walker only exists where a level places one; level 2's new verb is height, not pursuit. */
-function makeEnemy(): Enemy | null {
-  // The lane comes from `level.ts`, so the distance between the pit and the walker is one number
-  // the test can read too. A walker placed here would put that number back in two places.
+const PATROL_SPEED = 55;
+
+/**
+ * Level 3's pursuer: one tile wide, the size of the walker, starting where `chaseSpawnLane()`
+ * says so the level test can guarantee the ground under it. It cannot jump, cannot fall off a
+ * ledge and cannot climb, so the only way it kills you is by being where you stopped.
+ */
+function makeEnemies(): Enemy[] {
+  const enemies: Enemy[] = [];
   const patrol = patrolRange();
-  if (patrol === null) return null;
-  const w = 24;
-  // `dir: -1` starts at the far end of the lane, walking back at the runner: that is the whole
-  // difference between "a thing patrols over there" and "something is coming for you".
-  const x = patrol.dir === 1 ? patrol.minX : patrol.maxX - w;
-  return {
-    x,
-    y: 10 * TILE + 2,
-    w,
-    h: 26,
-    minX: patrol.minX,
-    maxX: patrol.maxX,
-    dir: patrol.dir,
-    speed: 55,
-  };
+  if (patrol !== null) {
+    const w = 24;
+    enemies.push({
+      x: patrol.dir === 1 ? patrol.minX : patrol.maxX - w,
+      y: 10 * TILE + 2,
+      w,
+      h: 26,
+      minX: patrol.minX,
+      maxX: patrol.maxX,
+      dir: patrol.dir,
+      speed: PATROL_SPEED,
+      mode: "patrol",
+      chases: false,
+      offScreenSeconds: 0,
+    });
+  }
+  const chaseLane = chaseSpawnLane();
+  if (chaseLane !== null) {
+    const w = 24;
+    enemies.push({
+      x: Math.round((chaseLane.startX + chaseLane.endX) / 2) - w / 2,
+      y: 10 * TILE + 2,
+      w,
+      h: 26,
+      minX: chaseLane.startX,
+      maxX: chaseLane.endX - w,
+      dir: -1,
+      speed: CHASE.speedPxPerSecond,
+      mode: "patrol",
+      chases: true,
+      offScreenSeconds: 0,
+    });
+  }
+  return enemies;
 }
 
-let enemy: Enemy | null = makeEnemy();
+let enemies: Enemy[] = makeEnemies();
 
-function stepEnemy(dt: number): void {
-  if (enemy === null) return;
-  enemy.x += enemy.dir * enemy.speed * dt;
-  if (enemy.x < enemy.minX) {
-    enemy.x = enemy.minX;
-    enemy.dir = 1;
-  } else if (enemy.x > enemy.maxX) {
-    enemy.x = enemy.maxX;
-    enemy.dir = -1;
+/**
+ * How far the ground one pixel ahead of an enemy's feet is from its own feet: `0` flat,
+ * `+TILE` a lip, `-TILE` a drop, `Infinity` a hole. This is the number `keepsChasing()` reads.
+ */
+function surfaceRowAt(column: number, fromRow: number): number {
+  // The body floats a few px above its floor, so "the row under its feet" is not `bottom / TILE`:
+  // scan down a couple of rows for the first solid tile instead of trusting the arithmetic.
+  for (let row = fromRow; row <= fromRow + 2; row += 1) {
+    if (isSolidTile(column, row)) return row;
+  }
+  return Number.POSITIVE_INFINITY;
+}
+
+function stepAhead(enemy: Enemy): number {
+  const aheadX = enemy.dir > 0 ? enemy.x + enemy.w + 1 : enemy.x - 1;
+  const aheadColumn = Math.floor(aheadX / TILE);
+  const centreColumn = Math.floor((enemy.x + enemy.w / 2) / TILE);
+  const fromRow = Math.floor((enemy.y + enemy.h) / TILE);
+  const here = surfaceRowAt(centreColumn, fromRow);
+  const ahead = surfaceRowAt(aheadColumn, fromRow);
+  if (!Number.isFinite(here) || !Number.isFinite(ahead)) {
+    return Number.POSITIVE_INFINITY; // a hole: no floor to compare against
+  }
+  // Rows grow downwards, so a floor one row lower is a drop (negative) and one row higher is a lip.
+  return (here - ahead) * TILE;
+}
+
+function stepEnemies(dt: number): void {
+  const runnerCentre = body.x + body.w / 2;
+  for (const enemy of enemies) {
+    if (enemy.chases) {
+      const distance = runnerCentre - (enemy.x + enemy.w / 2);
+      if (enemy.mode === "patrol") {
+        if (startsChasing({ distancePx: distance, stepPx: stepAhead(enemy), elapsedSeconds: simSeconds })) {
+          enemy.mode = "chase";
+          enemy.offScreenSeconds = 0;
+        }
+      }
+      if (enemy.mode === "chase") {
+        // Off-screen is a fact about the view, not about distance: running out of sight does not
+        // shake it, standing out of sight does.
+        const onScreen = enemy.x + enemy.w > cameraX && enemy.x < cameraX + viewWidth();
+        enemy.offScreenSeconds = onScreen ? 0 : enemy.offScreenSeconds + dt;
+        if (!keepsChasing(stepAhead(enemy)) || enemy.offScreenSeconds >= CHASE.loseSightSeconds) {
+          enemy.mode = "patrol";
+          enemy.offScreenSeconds = 0;
+          enemy.dir = enemy.dir > 0 ? -1 : 1; // turn back toward its own lane
+        }
+      }
+    }
+    if (enemy.mode === "chase") {
+      enemy.dir = runnerCentre < enemy.x + enemy.w / 2 ? -1 : 1;
+      enemy.speed = CHASE.speedPxPerSecond;
+      enemy.x += enemy.dir * enemy.speed * dt;
+    } else {
+      enemy.speed = PATROL_SPEED;
+      enemy.x += enemy.dir * enemy.speed * dt;
+      if (enemy.x < enemy.minX) {
+        enemy.x = enemy.minX;
+        enemy.dir = 1;
+      } else if (enemy.x > enemy.maxX) {
+        enemy.x = enemy.maxX;
+        enemy.dir = -1;
+      }
+    }
   }
 }
 
-function drawEnemy(): void {
-  if (enemy === null) return;
+function drawEnemy(enemy: Enemy): void {
   const s = scale();
   const offsetY = (LOGICAL_HEIGHT - worldHeight) * 0.5;
   const x = (enemy.x - cameraX) * s;
   const y = (enemy.y + offsetY) * s;
-  ctx.fillStyle = PALETTE.enemy;
+  // A pursuer reads hotter than a walker: same silhouette, different colour, so a player can tell
+  // "that one is coming" from across the level without reading the state.
+  ctx.fillStyle = enemy.mode === "chase" ? PALETTE.accent : PALETTE.enemy;
   ctx.beginPath();
   ctx.roundRect(x, y, enemy.w * s, enemy.h * s, 6 * s);
   ctx.fill();
@@ -514,7 +621,7 @@ function draw(): void {
   drawSky();
   drawParallax();
   drawLevel();
-  drawEnemy();
+  for (const enemy of enemies) drawEnemy(enemy);
   drawPlayer();
   const s = scale();
   if (phase === "title") {
@@ -619,22 +726,17 @@ function publish(): void {
     jumpHeight: jumpHeight(),
     gravity: GRAVITY,
     safe: { x: safe.x, y: safe.y },
-    enemies:
-      enemy === null
-        ? []
-        : [
-            {
-              x: enemy.x,
-              y: enemy.y,
-              w: enemy.w,
-              h: enemy.h,
-              dir: enemy.dir,
-              mode: "patrol",
-              speed: enemy.speed,
-              minX: enemy.minX,
-              maxX: enemy.maxX,
-            },
-          ],
+    enemies: enemies.map((enemy) => ({
+      x: enemy.x,
+      y: enemy.y,
+      w: enemy.w,
+      h: enemy.h,
+      dir: enemy.dir,
+      mode: enemy.mode,
+      speed: enemy.speed,
+      minX: enemy.minX,
+      maxX: enemy.maxX,
+    })),
   };
 }
 
@@ -754,7 +856,7 @@ const loop = createLoop({
         dt,
         solidAt,
       );
-      stepEnemy(dt);
+      stepEnemies(dt);
       // "Grounded" is not the same as "safe", and "safe" is not the same as "far enough".
       //
       // Asking only `!hazardAt(body)` stops standing *on* a spike from becoming the respawn point,
@@ -776,12 +878,13 @@ const loop = createLoop({
         play("jump");
       }
 
-      const hitEnemy =
-        enemy !== null &&
-        body.x < enemy.x + enemy.w &&
-        body.x + body.w > enemy.x &&
-        body.y < enemy.y + enemy.h &&
-        body.y + body.h > enemy.y;
+      const hitEnemy = enemies.some(
+        (enemy) =>
+          body.x < enemy.x + enemy.w &&
+          body.x + body.w > enemy.x &&
+          body.y < enemy.y + enemy.h &&
+          body.y + body.h > enemy.y,
+      );
       // The cause is recorded, not just the fact: "died 3 times" says nothing about the level,
       // "died twice at x 1280 in the pit" says where to put the next platform.
       if (hazardAt(body)) {
