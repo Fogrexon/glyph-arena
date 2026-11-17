@@ -55,10 +55,10 @@ const LEVEL_TWO: ReadonlyArray<string> = [
 /**
  * Level 3: the ground stops being a corridor. Two places ask you to *stop running* — spikes
  * directly above the step you land on, and spikes on the far side of the pit — so a player who
- * only holds right dies on the level's own geometry rather than on a faster enemy. The one long
- * flat stretch (columns 4-11, 256 px) is the entry where a walker coming the other way is first
- * seen; it is also the straight R10b measures pursuit over, so the measurement does not need a
- * different level.
+ * only holds right dies on the level's own geometry rather than on a faster enemy. The straight
+ * R10b measures pursuit over is columns 3-8 (`chaseSightLane()`), and columns 12-14 are kept flat
+ * on purpose: that is where the pursuit enemy is placed, and a level that put a step there would
+ * be measuring a jump instead.
  *
  * The walker here starts at the far end of its lane facing back at you: "something is coming"
  * is the level's third verb, and it is the same walker as level 1 — no new behaviour yet.
@@ -73,8 +73,8 @@ const LEVEL_THREE: ReadonlyArray<string> = [
   "..............................................................................",
   "..............................................................................",
   "..............................................................................",
-  "....................^^....................................................|...",
-  "..@........^^.#############...................^^....................##########",
+  "......................^^..................................................|...",
+  "..@.......^^....##########....................^^....................##########",
   "########################################...###############...#################",
   "########################################...###############...#################",
 ];
@@ -155,7 +155,7 @@ const PATROLS: ReadonlyArray<{ minX: number; maxX: number; dir: 1 | -1 } | null>
   { minX: 40 * TILE, maxX: 47 * TILE, dir: 1 },
   null,
   // Level 3's walker walks *toward* the runner: it starts at the far end of the lane, facing back.
-  { minX: 30 * TILE, maxX: 37 * TILE, dir: -1 },
+  { minX: 32 * TILE, maxX: 37 * TILE, dir: -1 },
 ];
 
 /** The current level's walker lane (or null when the level has none). */
@@ -180,6 +180,22 @@ const CHASE_SIGHT_LANES: ReadonlyArray<{ startX: number; endX: number } | null> 
 /** The current level's pursuit-measurement straight, or null when it has none. */
 export function chaseSightLane(): { startX: number; endX: number } | null {
   return CHASE_SIGHT_LANES[current] ?? null;
+}
+
+/**
+ * Where the pursuit enemy is placed on level 3: columns 12-14, kept flat on purpose. The spec
+ * fixes these columns, so the test reads them from here instead of trusting that nobody puts a
+ * step in the way — and the enemy's own spawn point comes from the same numbers.
+ */
+const CHASE_SPAWN_LANES: ReadonlyArray<{ startX: number; endX: number } | null> = [
+  null,
+  null,
+  { startX: 12 * TILE, endX: 15 * TILE },
+];
+
+/** The current level's flat ground for a pursuit enemy to start on, or null when it has none. */
+export function chaseSpawnLane(): { startX: number; endX: number } | null {
+  return CHASE_SPAWN_LANES[current] ?? null;
 }
 
 /** Where the run starts, in world pixels (feet, not centre). */
