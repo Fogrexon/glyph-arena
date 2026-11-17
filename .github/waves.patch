@@ -1,0 +1,160 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 5d4b96f..5038782 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -8,6 +8,15 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
+ 
+ ### Added
+ 
++- `examples/parry`: the wave table is generated now (`waveAt(index)` / `waveShapeAt(index)`) instead of being
++  a fixed 20-row script. The first twenty waves are byte-for-byte the script players learn on; past it the
++  same twenty angles turn one step further every lap (so lap two is not lap one memorised) and the speed
++  keeps climbing to `MAX_SPEED` 220. Deterministic on purpose - no RNG - so a score can be compared between
++  runs. No player-visible change yet; this is the seam an endless run needs (demo-only; no package API
++  change; `index-*.js` changes)
++
++### Added
++
+ - `examples/parry`: the result screen now shows the session's **best** - most parries, most lives left,
+   and the fastest clear - and turns amber when the run that just ended moved one of the three. Each
+   record stands on its own, so a slow clear can still hold the parry record and a failed run can still
+diff --git a/examples/parry/src/waves.ts b/examples/parry/src/waves.ts
+index 1670713..2eddb48 100644
+--- a/examples/parry/src/waves.ts
++++ b/examples/parry/src/waves.ts
+@@ -52,16 +52,63 @@ const SHAPES: ReadonlyArray<{ angle: number; speed: number; radius: number }> =
+   { angle: 255, speed: 156, radius: 420 },
+ ];
+ 
++/** The angle, speed and radius of wave `index` -- no `at` yet. */
++export type WaveShape = { angle: number; speed: number; radius: number };
++
++/** Past this the player cannot read one arrival before the next, so the ramp stops. */
++export const MAX_SPEED = 220;
++
++/** The last scripted speed; the generated waves keep climbing from here. */
++const LAST_SCRIPTED_SPEED = 156;
++
++/** How far the angle turns on each lap past the script, so a second lap is not the first. */
++const LAP_TURN = 17;
++
++/**
++ * The shape of wave `index`, for a run that does not stop at twenty.
++ *
++ * The first twenty are the script, unchanged: that is the opening players learn
++ * on. Past it the rule continues without inventing anything -- the same twenty
++ * angles, turned one step further every lap so lap two cannot be memorised as
++ * lap one, and a speed that keeps climbing until `MAX_SPEED`.
++ *
++ * Deterministic on purpose (no RNG): wave 40 is the same wave 40 in every run,
++ * so a score can be compared between runs at all.
++ */
++export function waveShapeAt(index: number): WaveShape {
++  const scripted = SHAPES[index];
++  if (scripted !== undefined) {
++    return scripted;
++  }
++  const lap = Math.floor(index / SHAPES.length);
++  const base = SHAPES[index % SHAPES.length] as WaveShape;
++  const beyond = index - SHAPES.length;
++  return {
++    angle: (base.angle + LAP_TURN * lap) % 360,
++    speed: Math.min(LAST_SCRIPTED_SPEED + (beyond + 1) * 2, MAX_SPEED),
++    radius: Math.min(base.radius + lap * 10, 520),
++  };
++}
++
+ /** When this wave reaches the player, in seconds from the start of the run. */
+ export function contactTimeOf(wave: Wave): number {
+   return wave.at + (wave.radius - CONTACT_DISTANCE) / wave.speed;
+ }
+ 
+-/** Wave `index` reaches the player at `FIRST_CONTACT + index * CONTACT_SPACING`. */
+-export const WAVES: Wave[] = SHAPES.map((shape, index) => {
++/**
++ * Wave `index` as the loop spawns it: the shape above, timed so it reaches the
++ * player at `FIRST_CONTACT + index * CONTACT_SPACING`.
++ *
++ * Index is unbounded; the run picks how far it goes.
++ */
++export function waveAt(index: number): Wave {
++  const shape = waveShapeAt(index);
+   if (index === 0) {
+     return { ...shape, at: FIRST_WAVE.at };
+   }
+   const contact = FIRST_CONTACT + index * CONTACT_SPACING;
+   return { ...shape, at: contact - (shape.radius - CONTACT_DISTANCE) / shape.speed };
+-});
++}
++
++/** The scripted twenty, derived from the same `waveAt` the endless run will use. */
++export const WAVES: Wave[] = SHAPES.map((_shape, index) => waveAt(index));
+diff --git a/examples/parry/test/waves.test.ts b/examples/parry/test/waves.test.ts
+index a624201..aa0ca7b 100644
+--- a/examples/parry/test/waves.test.ts
++++ b/examples/parry/test/waves.test.ts
+@@ -1,16 +1,10 @@
+ import assert from "node:assert/strict";
+ import { test } from "node:test";
+ 
+-import { CONTACT_SPACING, FIRST_WAVE, WAVES, contactTimeOf, type Wave } from "../src/waves.ts";
++import { CONTACT_SPACING, FIRST_WAVE, MAX_SPEED, WAVES, contactTimeOf, waveAt, waveShapeAt } from "../src/waves.ts";
+ 
+ const contacts = WAVES.map(contactTimeOf);
+ 
+-function waveAt(index: number): Wave {
+-  const wave = WAVES[index];
+-  assert.ok(wave !== undefined, `wave ${index} is missing`);
+-  return wave;
+-}
+-
+ function seconds(value: number): string {
+   return `${value.toFixed(3)}s`;
+ }
+@@ -53,3 +47,46 @@ test("spawn times rise too, so no row is held back by a later time above it", ()
+     );
+   }
+ });
++
++test("the scripted twenty are what the generator returns, wave for wave", () => {
++  for (const [index, wave] of WAVES.entries()) {
++    assert.deepEqual(waveShapeAt(index), { angle: wave.angle, speed: wave.speed, radius: wave.radius });
++    assert.deepEqual(waveAt(index), wave);
++  }
++});
++
++test("past twenty the run keeps going and the arrivals keep their gap", () => {
++  let previous = contactTimeOf(waveAt(WAVES.length - 1));
++  for (let index = WAVES.length; index < 200; index += 1) {
++    const contact = contactTimeOf(waveAt(index));
++    assert.ok(contact - previous >= CONTACT_SPACING - 1e-9, `wave ${index + 1} arrives too early`);
++    previous = contact;
++  }
++});
++
++test("the speed climbs to a cap and stops there", () => {
++  let previous = waveShapeAt(WAVES.length).speed;
++  assert.ok(previous > waveShapeAt(WAVES.length - 1).speed, "the ramp has to start");
++  for (let index = WAVES.length + 1; index < 400; index += 1) {
++    const speed = waveShapeAt(index).speed;
++    assert.ok(speed >= previous, `wave ${index + 1} is slower than the one before it`);
++    previous = speed;
++  }
++  assert.equal(waveShapeAt(400).speed, MAX_SPEED);
++});
++
++test("a later lap is not the first lap memorised", () => {
++  for (let index = 0; index < WAVES.length; index += 1) {
++    assert.notEqual(
++      waveShapeAt(index).angle,
++      waveShapeAt(index + WAVES.length).angle,
++      `wave ${index + 21} repeats wave ${index + 1} exactly`,
++    );
++  }
++});
++
++test("the same index is the same wave in every run", () => {
++  for (const index of [0, 19, 20, 57, 130]) {
++    assert.deepEqual(waveAt(index), waveAt(index));
++  }
++});
