@@ -335,8 +335,11 @@ async function main(): Promise<void> {
     const speed = Math.min(wave.speed * speedRampAt(scheduleSeconds), MAX_ENEMY_SPEED);
     const count = concurrentAt(scheduleSeconds);
     const spread = 360 / count;
+    // The first enemy comes from where the player is looking, so the opening teaches "dash into it"
+    // before it asks the player to turn. Every later wave keeps the scripted angle.
+    const firstAngle = index === 0 ? (Math.atan2(facingY, facingX) * 180) / Math.PI : null;
     for (let slot = 0; slot < count; slot += 1) {
-      spawnEnemy(wave.angle + slot * spread, wave.radius, speed);
+      spawnEnemy(firstAngle === null ? wave.angle + slot * spread : firstAngle, wave.radius, speed);
     }
   }
 
