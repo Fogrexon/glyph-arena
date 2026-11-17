@@ -33,6 +33,7 @@ export * from "../../glyph-arena-loop/src/index.js";
 export * from "../../glyph-arena-scene/src/index.js";
 export * from "../../glyph-arena-tilemap/src/index.js";
 export * from "../../glyph-arena-timer/src/index.js";
+export * from "../../glyph-arena-touch/src/index.js";
 export * from "../../glyph-arena-transform/src/index.js";
 export * from "../../glyph-arena-tween/src/index.js";
 
