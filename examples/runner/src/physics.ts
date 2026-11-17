@@ -35,6 +35,8 @@ export const CONFIG: BodyConfig = {
   airAccel: 1700,
   groundFriction: 2400,
   airFriction: 400,
+  // How much of the rise a released jump keeps. This is feel, so it lives here, not in the package.
+  jumpCutFactor: 0.35,
 };
 
 // The spec and the acceptance tests quote these names, so they stay one hop from the config.
