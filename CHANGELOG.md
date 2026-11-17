@@ -48,15 +48,18 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Fixed
 
-- **the deploy records what it deployed, and turns red when it did not.** `docs/bundles.json` used
-  to be written by hand after a deploy, by whoever remembered — and it drifted every time. Today
-  `main` was green while Pages served a bundle two deploys old, because the deploy is outside the CI
-  gates. The deploy workflow now has a `record` job that waits until the site serves one **stable**
-  bundle per page (two agreeing samples 20 s apart, because the CDN lags a deploy), then runs
-  `check:deployed --write --pr`: it opens a one-file PR, waits for `verify`, and merges it with the
-  Actions token. It cannot push to `main` (protection: PR required, `verify` required, admins
-  included) and does not try. The last step re-reads the site and fails if it still disagrees, so a
-  deploy that leaves the record behind is a red run, not a footnote.
+- **the deploy no longer keeps a record — it compares the real thing with the real thing.**
+  `docs/bundles.json` was a *proxy* for "the deploy landed", and a proxy drifts: today `main` was
+  green while Pages served a bundle two deploys old (the deploy is outside the CI gates). The file
+  is gone, with `scripts/check-deployed-bundles.mjs`, `scripts/lib/record-pr.mjs` and its test.
+  Instead the deploy workflow runs `assemble-site.mjs` — where each demo is published comes from its
+  own `package.json` (`glyphArenaPage`), not from three hand-written `cp` lines — and after
+  publishing, a `verify-deployed` job compares **the `index-*.js` named by each page in the build
+  artifact** with **the `index-*.js` the live page names**, retrying for three minutes while Pages'
+  CDN catches up. A mismatch is a red run; it commits nothing, so it cannot loop and never needs to
+  write to `main` (which requires a PR, `verify`, admins included). The page list is read from the
+  built tree, so an added example is checked the day it is added — the fifth hand-kept list today,
+  retired instead of fixed.
 
 - **`I14` asserted the bot's skill, not the game.** The parry end-to-end run played until wave 21 to
   prove "the run does not stop at twenty waves". That is a property of `waveShapeAt()` — a pure

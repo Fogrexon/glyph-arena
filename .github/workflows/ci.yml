@@ -52,10 +52,9 @@ jobs:
       # contacted; S4 in the script proves the check actually reads types.
       - run: pnpm smoke:pack-install
 
-      # The record-PR flow (`pnpm check:deployed --write --pr`) against a fake
-      # GitHub: the branch exists before the file is sent, a PR carrying more
-      # files than we sent is never merged, and a "merged" that leaves main
-      # where it was counts as a failure. No network, no token.
+      # The deploy check's pure parts: which bundle a built page names, what a
+      # page's URL is, and that a served bundle older than the built one is a
+      # failure. The network half runs in the deploy workflow, against Pages.
       - run: pnpm test:scripts
 
       - run: pnpm -r test
