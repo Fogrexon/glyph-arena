@@ -6,7 +6,13 @@ Glyph Arena is built as small modules with no runtime dependencies (ECS, frame l
 
 ## Availability
 
-Version `0.2.0`. **Not published to npm yet** — the first publish is pending. The `@fogrexon/glyph-arena-*` modules are workspace-internal and are not published separately, so nothing outside this repository can install them by name.
+Version `0.2.0` is on npm:
+
+```bash
+npm install @fogrexon/glyph-arena
+```
+
+The `@fogrexon/glyph-arena-*` modules are workspace-internal and are not published separately, so nothing outside this repository can install them by name — import `@fogrexon/glyph-arena` instead.
 
 ## Usage
 
