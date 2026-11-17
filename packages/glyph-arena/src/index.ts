@@ -1,7 +1,7 @@
 /**
  * `@fogrexon/glyph-arena` — the whole runtime in one package.
  *
- * This is the package intended for npm. It bundles the 14 workspace modules
+ * This is the package intended for npm. It bundles the workspace modules
  * (which stay internal to this repo) and re-exports their public API flat, so a
  * consumer writes one import instead of one per module:
  *
