@@ -1,33 +1,20 @@
 # Glyph Arena
 
-Small TypeScript building blocks for 2D browser games. Each package is an independent workspace member with **no runtime dependencies**, so a game composes only the pieces it needs.
+Small TypeScript building blocks for 2D browser games. **New here? [Build a game in 30 minutes](docs/tutorial.md)** goes from an empty folder to something you can play, with no assets. Each package is an independent workspace member with **no runtime dependencies**, so a game composes only the pieces it needs.
 
-The workspace has 15 packages: the 14 modules below, plus `@fogrexon/glyph-arena`, which bundles them into a single ESM build. Nothing is on npm yet; inside this repository the modules are consumed through `workspace:*`.
+Each module below is a separate workspace member; `@fogrexon/glyph-arena` bundles all of them into a single ESM build. Inside this repository the modules are consumed through `workspace:*`.
 
 ## Which name to import
 
-Only **`@fogrexon/glyph-arena`** is meant for consumers. It bundles the 14 modules and re-exports their value exports flat, so a game imports one name instead of fourteen ([API page](docs/api-glyph-arena.md)).
+Only **`@fogrexon/glyph-arena`** is meant for consumers. It bundles every module and re-exports their value exports flat, so a game imports one name instead of one per module ([API page](docs/api-glyph-arena.md)).
 
-The `@fogrexon/glyph-arena-*` names in the table below are workspace-internal: they are not published on their own, so importing them from outside this repository will not resolve.
+The `@fogrexon/glyph-arena-*` names are workspace-internal: they are not published on their own, so importing them from outside this repository will not resolve.
 
 ## Packages
 
-| Package | What it does | API |
-| --- | --- | --- |
-| `@fogrexon/glyph-arena-actions` | Action bindings from keyboard codes | [api](docs/api-actions.md) |
-| `@fogrexon/glyph-arena-assets` | URL asset loading with in-memory cache | [api](docs/api-assets.md) |
-| `@fogrexon/glyph-arena-audio` | Web Audio playback helper | [api](docs/api-audio.md) |
-| `@fogrexon/glyph-arena-camera` | 2D camera state and world-to-screen view matrix | [api](docs/api-camera.md) |
-| `@fogrexon/glyph-arena-collide` | Axis-aligned bounding box overlap test | [api](docs/api-collide.md) |
-| `@fogrexon/glyph-arena-draw` | Minimal 2D canvas drawing helpers | [api](docs/api-draw.md) |
-| `@fogrexon/glyph-arena-ecs` | Minimal entity-component storage | [api](docs/api-ecs.md) |
-| `@fogrexon/glyph-arena-gamepad` | Gamepad state snapshot reader | [api](docs/api-gamepad.md) |
-| `@fogrexon/glyph-arena-input` | Keyboard and pointer input snapshot from an `EventTarget` | [api](docs/api-input.md) |
-| `@fogrexon/glyph-arena-loop` | Injectable frame loop | [api](docs/api-loop.md) |
-| `@fogrexon/glyph-arena-scene` | Hierarchical scene graph nodes | [api](docs/api-scene.md) |
-| `@fogrexon/glyph-arena-timer` | Tick-driven timer scheduling | [api](docs/api-timer.md) |
-| `@fogrexon/glyph-arena-transform` | Per-node local 2D transforms and world matrix composition | [api](docs/api-transform.md) |
-| `@fogrexon/glyph-arena-tween` | Tick-driven scalar tweening | [api](docs/api-tween.md) |
+The modules, what each one does, and a link to its page are on the
+[docs front page](https://fogrexon.github.io/glyph-arena/docs/) — that table is generated from
+`packages/` when the docs are built, so it cannot go stale.
 
 ## Putting it together
 
@@ -84,7 +71,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the definition of done and the reposi
 
 ## Repository layout
 
-- `packages/` — the 14 modules plus the `@fogrexon/glyph-arena` umbrella, each with `src/`, `test/` and a `README.md`
+- `packages/` — the modules plus the `@fogrexon/glyph-arena` umbrella, each with `src/`, `test/` and a `README.md`
 - `examples/` — `pickup-demo`, the demo above
 - `docs/` — `api-*.md`, one per package
 - `fixtures/public-api/` — type-only fixture that imports every package by name and checks the emitted declarations

@@ -2,7 +2,7 @@
 
 The whole Glyph Arena 2D game runtime in one package.
 
-Glyph Arena is built as small modules with no runtime dependencies (ECS, frame loop, timer, tween, input, gamepad, camera, body, transforms, drawing, assets, audio, actions, collision, scene graph). Those modules stay internal to this repository; this package bundles all of them into a single ESM build with self-contained type declarations, so a game depends on one name instead of one per module.
+Glyph Arena is built as small modules with no runtime dependencies (ECS, frame loop, timer, tween, input, gamepad, camera, body, tile maps, transforms, drawing, assets, audio, actions, collision, scene graph). Those modules stay internal to this repository; this package bundles all of them into a single ESM build with self-contained type declarations, so a game depends on one name instead of one per module.
 
 ## Availability
 
@@ -20,22 +20,8 @@ Names are imported exactly as the per-module pages in this documentation describ
 
 ## Exports
 
-| Export | Module |
-| --- | --- |
-| `createActions` | actions |
-| `createAssets` | assets |
-| `createAudio` | audio |
-| `createCamera` | camera |
-| `overlaps` | collide |
-| `createDraw` | draw |
-| `createWorld` | ecs |
-| `createGamepad` | gamepad |
-| `createInput` | input |
-| `createLoop` | loop |
-| `createForest` | scene |
-| `createTimer` | timer |
-| `createTransform` | transform |
-| `createTween` | tween |
+Generated from `packages/` when the docs are built — do not edit this table by hand. Type-only names
+are in the emitted declarations rather than in this table.
 
 ## Entry points
 
