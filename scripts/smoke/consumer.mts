@@ -19,6 +19,7 @@ import { createGamepad } from "@fogrexon/glyph-arena-gamepad";
 import { createInput } from "@fogrexon/glyph-arena-input";
 import { createLoop } from "@fogrexon/glyph-arena-loop";
 import { createForest } from "@fogrexon/glyph-arena-scene";
+import { createTileMap } from "@fogrexon/glyph-arena-tilemap";
 import { createTimer } from "@fogrexon/glyph-arena-timer";
 import { createTransform } from "@fogrexon/glyph-arena-transform";
 import { createTween } from "@fogrexon/glyph-arena-tween";
@@ -35,6 +36,7 @@ import type { GamepadReader } from "@fogrexon/glyph-arena-gamepad";
 import type { Input } from "@fogrexon/glyph-arena-input";
 import type { Loop } from "@fogrexon/glyph-arena-loop";
 import type { Forest } from "@fogrexon/glyph-arena-scene";
+import type { TileMap, TileMapConfig } from "@fogrexon/glyph-arena-tilemap";
 import type { Timer } from "@fogrexon/glyph-arena-timer";
 import type { Transform } from "@fogrexon/glyph-arena-transform";
 import type { Tween } from "@fogrexon/glyph-arena-tween";
@@ -55,6 +57,7 @@ export const factories = {
   input: createInput,
   loop: createLoop,
   scene: createForest,
+  tilemap: createTileMap,
   timer: createTimer,
   transform: createTransform,
   tween: createTween,
@@ -74,6 +77,8 @@ export type Types = {
   input: Input;
   loop: Loop;
   scene: Forest;
+  tilemap: TileMap;
+  tilemapConfig: TileMapConfig;
   timer: Timer;
   transform: Transform;
   tween: Tween;
