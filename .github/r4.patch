@@ -1,0 +1,15 @@
+diff --git a/examples/runner/vite.config.ts b/examples/runner/vite.config.ts
+new file mode 100644
+index 0000000..640e7f0
+--- /dev/null
++++ b/examples/runner/vite.config.ts
+@@ -0,0 +1,9 @@
++import { defineConfig } from "vite";
++
++/**
++ * The published demo lives at /glyph-arena/runner/. Anything else (dev, the
++ * verification pod) is "/".
++ */
++export default defineConfig({
++  base: process.env.RUNNER_BASE ?? "/",
++});

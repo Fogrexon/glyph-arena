@@ -1,0 +1,16 @@
+diff --git a/examples/runner/tsconfig.json b/examples/runner/tsconfig.json
+new file mode 100644
+index 0000000..5b1d5f0
+--- /dev/null
++++ b/examples/runner/tsconfig.json
+@@ -0,0 +1,10 @@
++{
++  "extends": "../../tsconfig.base.json",
++  "compilerOptions": {
++    "lib": ["ES2022", "DOM", "DOM.Iterable"],
++    "module": "ESNext",
++    "moduleResolution": "bundler",
++    "noEmit": true
++  },
++  "include": ["src"]
++}

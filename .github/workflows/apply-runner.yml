@@ -1,0 +1,37 @@
+name: apply-runner
+
+# One-shot: this container has no git credential, so the slice rides in as patches.
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/runner-slice'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply queued patches
+        run: |
+          applied=0
+          for P in .github/r*.patch; do
+            [ -f "$P" ] || continue
+            if git apply --check "$P"; then
+              git apply "$P"
+              applied=1
+              echo "applied $P"
+            else
+              echo "skipped $P"
+            fi
+          done
+          if [ "$applied" = "0" ]; then
+            echo "nothing to apply"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(runner): scaffold the platformer slice"
+          git push
