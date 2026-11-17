@@ -49,6 +49,19 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
   the e2e measures it from the level grid and the unit test measures it directly, and a second
   copy would be a second thing that can go green on its own.
 
+### Changed
+
+- **the twelve packages stopped forbidding words.** Each one had a test asserting its source never
+  contained a list of vocabulary — `follow`, `bounds`, `shake`, `layers`, `pivot`, `point`, and 33
+  more across the twelve. That is why `follow` could not be added to the camera, and it is half the
+  reason `packages/` went a whole day without a change: the list was checking vocabulary instead of
+  the thing that actually goes wrong, *a public name appearing without anyone deciding it should*.
+  Each package now asserts its **exported names** against a literal list: a new `export function`,
+  `export type`, or `export { … }` name turns the package red until the author adds it, while a word
+  used inside a function is not a name and cannot. A new export added to `camera` turned it red in
+  the check I ran before shipping this (`+ 'Follow'`), so the guard still bites. The rule that a
+  package has no runtime dependency on a sibling is unchanged and still asserted.
+
 ### Added
 
 - **`@fogrexon/glyph-arena-body` — the physics every sample was writing by hand.** Gravity, a run

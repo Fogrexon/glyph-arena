@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
+
+import { exportedNames } from "../../../scripts/lib/public-surface.mjs";
 import { createTransform } from "../src/index.js";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -376,16 +378,19 @@ describe("createTransform", () => {
     assert.equal(second.e, 1);
   });
 
-  it("does not import sibling glyph-arena packages", () => {
+  it("exports only the names on its public list, and imports no sibling package", () => {
     const source = readFileSync(join(packageRoot, "src", "index.ts"), "utf8");
 
+    // The surface, not the vocabulary: a new public name has to be added here on purpose,
+    // and a word used inside a function is not a name. This is what used to be a list of
+    // forbidden words, which turned `follow` into a reason a package could not grow.
+    assert.deepEqual(exportedNames(source), [
+      "LocalTransform",
+      "Matrix2D",
+      "Transform",
+      "createTransform",
+    ]);
+
     assert.doesNotMatch(source, /@fogrexon\/glyph-arena-/);
-    assert.doesNotMatch(source, /\bcamera\b/i);
-    assert.doesNotMatch(source, /\binverse\b/i);
-    assert.doesNotMatch(source, /\bpivot\b/i);
-    assert.doesNotMatch(source, /\bskew\b/i);
-    assert.doesNotMatch(source, /\bpoint\b/i);
-    assert.doesNotMatch(source, /\btween\b/i);
-    assert.doesNotMatch(source, /\b3d\b/i);
   });
 });

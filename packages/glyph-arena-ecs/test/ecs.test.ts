@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
+
+import { exportedNames } from "../../../scripts/lib/public-surface.mjs";
 import { createWorld } from "../src/index.js";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -200,11 +202,17 @@ describe("createWorld", () => {
     assert.equal(world.has(entity, "x"), false);
   });
 
-  it("does not import sibling packages", () => {
-    const source = readFileSync(
-      join(packageRoot, "src", "index.ts"),
-      "utf8",
-    );
+  it("exports only the names on its public list, and imports no sibling package", () => {
+    const source = readFileSync(join(packageRoot, "src", "index.ts"), "utf8");
+
+    // The surface, not the vocabulary: a new public name has to be added here on purpose,
+    // and a word used inside a function is not a name. This is what used to be a list of
+    // forbidden words, which turned `follow` into a reason a package could not grow.
+    assert.deepEqual(exportedNames(source), [
+      "Entity",
+      "World",
+      "createWorld",
+    ]);
 
     assert.doesNotMatch(source, /@fogrexon\/glyph-arena-loop/);
     assert.doesNotMatch(source, /@fogrexon\/glyph-arena-input/);
