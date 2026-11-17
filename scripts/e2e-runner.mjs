@@ -403,6 +403,12 @@ async function startPlaying(page) {
 
 /** Watch the jump while it happens: the frame after the press carries the speed. */
 async function jumpProfile(page, { holdMs }) {
+  // The baseline is the ground you left, read BEFORE the press. The first sample after
+  // `keyboard.down` is already one frame into the jump — 12.7 px at 60 fps — and measuring the
+  // peak up from there made this check fail by exactly one frame of latency: QA measured 104.8 px
+  // in 9 of 10 runs and 93.1 px in the tenth, against a floor of 95. The floor sat one frame away
+  // from the truth, so the baseline was the defect, not the jump.
+  const ground = await state(page);
   await page.keyboard.down("Space");
   const samples = [];
   const started = Date.now();
@@ -420,8 +426,8 @@ async function jumpProfile(page, { holdMs }) {
   const ys = samples.map((sample) => sample.y);
   return {
     minVy: vy.length > 0 ? Math.min(...vy) : Number.NaN,
-    // World y grows downward, so the peak is the smallest y.
-    peak: ys.length > 0 ? ys[0] - Math.min(...ys) : Number.NaN,
+    // World y grows downward, so the peak is the smallest y, measured from the ground you left.
+    peak: ground !== null && ys.length > 0 ? ground.y - Math.min(...ys) : Number.NaN,
     samples: samples.length,
   };
 }
@@ -582,32 +588,44 @@ async function runDesktop(browser, baseUrl, errors) {
           ? `grounded and still after ${startSettled.samples.length} sample(s)`
           : "never grounded within 1.5 s — the spawn or the landing is wrong",
       );
+      // The ground is judged on every drawn frame, not on a poll. The old check sampled every
+      // 40 ms and demanded 95% grounded: 24 samples leave room for exactly one bad sample, so a
+      // single airborne frame failed it (CI: 88% of 24), and QA could not reproduce that on an
+      // idle machine (10 of 10 runs were 100%). A ratio of samples is a weaker claim than "no
+      // frame while running was airborne", and the frame log is what the game actually does.
+      await page.evaluate(() => {
+        const w = window;
+        w.__groundFrames = [];
+        w.__groundStop = false;
+        const tick = () => {
+          const s = w.__runnerState;
+          if (s) w.__groundFrames.push({ grounded: s.grounded === true, deaths: s.deaths });
+          if (!w.__groundStop) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      });
       const before = await state(page);
-      const held = [];
-      const watch = (async () => {
-        const started = Date.now();
-        while (Date.now() - started < 1000) {
-          held.push(await state(page));
-          await page.waitForTimeout(40);
-        }
-      })();
       await page.keyboard.down("ArrowRight");
-      await watch;
+      await page.waitForTimeout(1000);
       await page.keyboard.up("ArrowRight");
       const after = await state(page);
-      const known = held.filter(Boolean);
-      const groundedRatio = known.length === 0 ? 0 : known.filter((s) => s.grounded).length / known.length;
+      const frames = await page.evaluate(() => {
+        window.__groundStop = true;
+        return window.__groundFrames;
+      });
+      const airborne = frames.filter((frame) => !frame.grounded);
       const dx = after.x - before.x;
       const cameraAdvance = after.cameraX - before.cameraX;
       check(
-        known.length > 10 && known.every((s) => s.deaths === 0),
+        frames.length >= 10 && frames.every((frame) => frame.deaths === 0),
         "R2: a second of running kills nobody",
-        known.length === 0 ? "sample missing (no state during the second) — not reported as 0 deaths" : `deaths 0 across ${known.length} samples`,
+        frames.length === 0 ? "no frames recorded (the page never drew) — not reported as 0 deaths" : `deaths 0 across ${frames.length} frames`,
       );
       check(
-        groundedRatio >= 0.95,
-        "R2: the ground holds under you while you run",
-        `grounded in ${(groundedRatio * 100).toFixed(0)}% of ${known.length} samples`,
+        frames.length >= 10 && airborne.length === 0,
+        "R2: the ground holds under you while you run (every frame, not a sample)",
+        `${airborne.length} airborne frame(s) of ${frames.length}` +
+          (airborne.length === 0 ? "" : ` — first at frame ${frames.indexOf(airborne[0])}`),
       );
       check(dx >= 120, "R2: the player actually moves", `dx ${dx.toFixed(0)}px in 1.00s`);
       check(
