@@ -27,10 +27,51 @@
         height: 100%;
         touch-action: none;
       }
+      /* The gallery's four pages, always one tap apart. Sits in the bottom
+         20px, below every touch control (those inset themselves at least 24px
+         from the edge) and away from the HUD, which is drawn top-left. */
+      .gallery-nav {
+        position: fixed;
+        inset: auto 0 0 0;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 12px;
+        padding: 0 10px;
+        font: 500 11px/1 ui-sans-serif, system-ui, sans-serif;
+        background: rgba(15, 17, 21, 0.78);
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        z-index: 10;
+        pointer-events: none;
+      }
+
+      .gallery-nav a {
+        color: rgba(226, 232, 240, 0.7);
+        text-decoration: none;
+        pointer-events: auto;
+        padding: 0 2px;
+      }
+
+      .gallery-nav a:hover,
+      .gallery-nav a:focus-visible {
+        color: #f8fafc;
+        text-decoration: underline;
+      }
+
+      .gallery-nav a[aria-current="page"] {
+        color: #f8fafc;
+      }
     </style>
   </head>
   <body>
     <canvas id="game"></canvas>
+    <nav class="gallery-nav" aria-label="Glyph Arena demos">
+      <a href="./" aria-current="page">Pickup</a>
+      <a href="./parry/">Parry</a>
+      <a href="./runner/">Runner</a>
+      <a href="./docs/">API Docs</a>
+    </nav>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
