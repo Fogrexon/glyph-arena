@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { TILE, goalPoint, isHazardTile, isSolidTile, spawnPoint } from "../src/level.ts";
+import { TILE, goalLineX, isHazardTile, isSolidTile, levelColumns, levelCount, levelRows, loadLevel, spawnPoint } from "../src/level.ts";
 import { createBody, stepBody } from "../src/physics.ts";
 
 const solid = (left: number, top: number, right: number, bottom: number): boolean => {
@@ -23,37 +23,53 @@ const hazard = (body: { x: number; y: number; w: number; h: number }): boolean =
 };
 
 /**
- * A player who runs right and jumps when the floor two tiles ahead is missing. If this cannot
- * finish the slice, the level is not playable and no amount of drawing will fix it.
+ * A player who runs right and jumps when the floor ahead is missing, when a spike is ahead, or
+ * when the ground steps up. If this cannot finish a level, the level is not playable and no
+ * amount of drawing will fix it — and since it plays every level in order, "level 2 exists" is
+ * only true if the bot can actually get there and clear it.
  */
-test("a simple bot can run the slice to the goal", () => {
-  const spawn = spawnPoint();
-  const goal = goalPoint();
-  assert.ok(goal !== null, "no goal");
-  const body = createBody(spawn.x + 6, spawn.y - 28, 20, 28);
-  const dt = 1 / 60;
-  let jumpHeldFrames = 0;
-  let reached = false;
+test("a simple bot clears every level, in order, to the goal", () => {
+  for (let index = 0; index < levelCount(); index += 1) {
+    loadLevel(index);
+    const spawn = spawnPoint();
+    const goalX = goalLineX();
+    const bottomRow = levelRows() * TILE + 240;
+    const body = createBody(spawn.x + 6, spawn.y - 28, 20, 28);
+    const dt = 1 / 60;
+    let jumpHeldFrames = 0;
+    let reached = false;
 
-  for (let frame = 0; frame < 60 * 25; frame += 1) {
-    const aheadColumn = Math.floor((body.x + body.w + 80) / TILE);
-    const footRow = Math.floor((body.y + body.h + 2) / TILE);
-    const floorAhead = isSolidTile(aheadColumn, footRow) || isSolidTile(aheadColumn, footRow + 1);
-    const hazardAhead = isHazardTile(aheadColumn, footRow) || isHazardTile(aheadColumn, footRow - 1);
-    const wantJump = body.grounded && (!floorAhead || hazardAhead);
-    if (wantJump) {
-      jumpHeldFrames = 18;
+    for (let frame = 0; frame < 60 * 25; frame += 1) {
+      const aheadColumn = Math.floor((body.x + body.w + 80) / TILE);
+      // A spike is jumped when it is *about* to be under you, not 80 px early: an early jump
+      // lands on the far side of a long spike bed. A pit or a step still needs the long look.
+      const hazardColumn = Math.floor((body.x + body.w + 40) / TILE);
+      const footRow = Math.floor((body.y + body.h + 2) / TILE);
+      const floorAhead = isSolidTile(aheadColumn, footRow) || isSolidTile(aheadColumn, footRow + 1);
+      const hazardAhead = isHazardTile(hazardColumn, footRow) || isHazardTile(hazardColumn, footRow - 1);
+      // The tile the body occupies ahead of it: that is the step it has to climb.
+      const wallAhead = isSolidTile(aheadColumn, footRow - 1);
+      const wantJump = body.grounded && (!floorAhead || hazardAhead || wallAhead);
+      if (wantJump) {
+        jumpHeldFrames = 18;
+      }
+      const jumpHeld = jumpHeldFrames > 0;
+      jumpHeldFrames = Math.max(0, jumpHeldFrames - 1);
+      stepBody(body, { left: false, right: true, jumpPressed: wantJump, jumpHeld }, dt, solid);
+      if (hazard(body)) break;
+      if (body.y > bottomRow) break;
+      if (body.x + body.w > goalX) {
+        reached = true;
+        break;
+      }
     }
-    const jumpHeld = jumpHeldFrames > 0;
-    jumpHeldFrames = Math.max(0, jumpHeldFrames - 1);
-    stepBody(body, { left: false, right: true, jumpPressed: wantJump, jumpHeld }, dt, solid);
-    if (hazard(body)) break;
-    if (body.y > 13 * TILE + 240) break;
-    if (body.x + body.w > goal.x) {
-      reached = true;
-      break;
-    }
+
+    assert.ok(
+      reached,
+      `level ${index + 1}: the bot stopped at x=${body.x.toFixed(0)} (goal line x=${goalX}, level is ${levelColumns() * TILE} px)`,
+    );
+    // The next level must be loadable at all: a level count of 2 with a broken second level
+    // would have failed the loop above, not here.
+    assert.ok(index < levelCount());
   }
-
-  assert.ok(reached, `the bot stopped at x=${body.x.toFixed(0)} (goal x=${goal.x})`);
 });

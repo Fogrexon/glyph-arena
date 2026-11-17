@@ -375,6 +375,8 @@ async function runDesktop(browser, baseUrl, errors) {
       grounded: "boolean",
       deaths: "number",
       deathLog: "object",
+      level: "number",
+      levelCount: "number",
       respawnInMs: "number",
       cameraX: "number",
       goalX: "number",
@@ -392,6 +394,11 @@ async function runDesktop(browser, baseUrl, errors) {
         shape.worldWidth > 0 && shape.goalX > 0 && shape.goalX <= shape.worldWidth && shape.cameraX >= 0,
         "R0: the level is sane",
         `cameraX ${shape.cameraX}, goalX ${shape.goalX}, worldWidth ${shape.worldWidth}`,
+      );
+      check(
+        shape.levelCount === 2 && shape.level === 1,
+        "R0: the run starts on level 1 of 2 (a clear runs straight into the next level)",
+        `level ${shape.level} / ${shape.levelCount}`,
       );
       const viewportWidth = await page.evaluate(() => window.innerWidth);
       check(
