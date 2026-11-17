@@ -364,14 +364,17 @@ function makeEnemy(): Enemy | null {
   const patrol = patrolRange();
   if (patrol === null) return null;
   const w = 24;
+  // `dir: -1` starts at the far end of the lane, walking back at the runner: that is the whole
+  // difference between "a thing patrols over there" and "something is coming for you".
+  const x = patrol.dir === 1 ? patrol.minX : patrol.maxX - w;
   return {
-    x: Math.round((patrol.minX + patrol.maxX) / 2) - w / 2,
+    x,
     y: 10 * TILE + 2,
     w,
     h: 26,
     minX: patrol.minX,
     maxX: patrol.maxX,
-    dir: 1,
+    dir: patrol.dir,
     speed: 55,
   };
 }
