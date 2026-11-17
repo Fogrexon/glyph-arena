@@ -15,7 +15,7 @@
  *
  * Deliberate non-goals:
  *
- * - J1–J4 (760 / 2600 / 0.09 / 0.09) are unit-test territory: they are
+ * - J1–J4 (760 / 2600 / 0.09 / 0.12) are unit-test territory: they are
  *   per-frame numbers and a browser adds jitter to every one of them. Here we
  *   assert only that the shipped constants still *equal* the spec, which is the
  *   thing that drifts silently, and then confirm the wiring in the airspeed.
@@ -51,8 +51,16 @@ const DIST = process.env.RUNNER_DIST
   : join(ROOT, "examples", "runner", "dist");
 const PORT = Number(process.env.RUNNER_PORT ?? 4319);
 
-/** The spec's numbers (設計, 20 s slice). Asserted, never relaxed here. */
-const SPEC = { jumpSpeed: 760, gravity: 2600, coyote: 0.09, buffer: 0.09 };
+/**
+ * The spec's numbers (設計, 20 s slice). Asserted, never relaxed here.
+ *
+ * The buffer is 0.12 and the coyote 0.09 on purpose: a buffer has to outlast
+ * the coyote window or "pressed just before landing" is eaten by the gap
+ * between the two, which is the single most common "it did not jump" report.
+ * If either number moves, the spec moves first and this line follows — never
+ * the other way round.
+ */
+const SPEC = { jumpSpeed: 760, gravity: 2600, coyote: 0.09, buffer: 0.12 };
 
 const MIME = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -316,7 +324,7 @@ async function runDesktop(browser, baseUrl, errors) {
     } else {
       check(
         drift.length === 0,
-        "R1: shipped constants match the spec (760 / 2600 / 0.09 / 0.09)",
+        "R1: shipped constants match the spec (760 / 2600 / 0.09 / 0.12)",
         drift.length === 0
           ? "all four"
           : drift.map(([name, actual, expected]) => `${name} ${actual} != ${expected}`).join("; ") +
@@ -545,7 +553,7 @@ async function main() {
   if (!existsSync(join(DIST, "index.html"))) {
     const labels = [
       "R0: __runnerState carries the agreed fields",
-      "R1: shipped constants match the spec (760 / 2600 / 0.09 / 0.09)",
+      "R1: shipped constants match the spec (760 / 2600 / 0.09 / 0.12)",
       "R2 (①): a second of running kills nobody, the ground holds, the camera follows",
       "R3: the jump rises 111 px and a tap cuts it short",
       "R4 (②): death and the respawn rule",
