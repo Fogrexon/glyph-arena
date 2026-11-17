@@ -32,7 +32,7 @@ export const ATTACK = {
   heightPx: 26,
   damage: 1,
   /** Enemy push on a hit, px/s. */
-  knockbackPxPerSecond: 260,
+  knockbackPxPerSecond: 140,
   /** Both bodies stop for this long on contact. Two frames at 30 fps, four at 60. */
   hitstopMs: 70,
 } as const;
