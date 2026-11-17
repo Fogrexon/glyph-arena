@@ -6,6 +6,7 @@ on:
     paths:
       - "examples/pickup-demo/**"
       - "examples/parry/**"
+      - "examples/runner/**"
       - "docs/**"
       - "README.md"
       - "scripts/render-docs.mjs"
@@ -77,10 +78,16 @@ jobs:
         env:
           PARRY_BASE: "/glyph-arena/parry/"
 
+      # The runner slice is published at /glyph-arena/runner/.
+      - run: pnpm --filter @fogrexon/glyph-arena-runner-demo build
+        env:
+          RUNNER_BASE: "/glyph-arena/runner/"
+
       - run: |
-          mkdir -p site/parry
+          mkdir -p site/parry site/runner
           cp -r examples/pickup-demo/dist/. site/
           cp -r examples/parry/dist/. site/parry/
+          cp -r examples/runner/dist/. site/runner/
 
       - uses: actions/upload-pages-artifact@v3
         with:
