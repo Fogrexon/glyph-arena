@@ -45,6 +45,13 @@ type RunnerState = {
   levelCount: number;
   /** Milliseconds of play in this run, so J1-J4 can be measured against it. */
   simMs: number;
+  /**
+   * Where a death sends you back to. Published because the only rule that matters about it —
+   * "a respawn is never inside something that kills you" — cannot be checked from outside
+   * unless the value the rule uses is visible. QA had to infer it from `x` and found a 4.2 px
+   * overlap that no one could see.
+   */
+  safe: { x: number; y: number };
   /** Jump physics, published so a harness can pin the feel without reading the source. */
   jumpHeight: number;
   gravity: number;
@@ -603,6 +610,7 @@ function publish(): void {
     simMs: Math.round(simSeconds * 1000),
     jumpHeight: jumpHeight(),
     gravity: GRAVITY,
+    safe: { x: safe.x, y: safe.y },
     enemies:
       enemy === null
         ? []
@@ -739,7 +747,11 @@ const loop = createLoop({
         solidAt,
       );
       stepEnemy(dt);
-      if (body.grounded && body.vy === 0) {
+      // "Grounded" is not the same as "safe". Standing on a spike tile is grounded and lethal,
+      // and because this ran before the hazard check below, the spot you died on became the spot
+      // you respawned to — on level 2 that meant dying again on the next frame, for ever, while
+      // holding right. A safe place has to be one that cannot kill you.
+      if (body.grounded && body.vy === 0 && !hazardAt(body)) {
         safe = { x: body.x, y: body.y };
       }
       if (!wasGrounded && body.grounded) {
