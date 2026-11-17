@@ -52,16 +52,63 @@ const SHAPES: ReadonlyArray<{ angle: number; speed: number; radius: number }> = 
   { angle: 255, speed: 156, radius: 420 },
 ];
 
+/** The angle, speed and radius of wave `index` -- no `at` yet. */
+export type WaveShape = { angle: number; speed: number; radius: number };
+
+/** Past this the player cannot read one arrival before the next, so the ramp stops. */
+export const MAX_SPEED = 220;
+
+/** The last scripted speed; the generated waves keep climbing from here. */
+const LAST_SCRIPTED_SPEED = 156;
+
+/** How far the angle turns on each lap past the script, so a second lap is not the first. */
+const LAP_TURN = 17;
+
+/**
+ * The shape of wave `index`, for a run that does not stop at twenty.
+ *
+ * The first twenty are the script, unchanged: that is the opening players learn
+ * on. Past it the rule continues without inventing anything -- the same twenty
+ * angles, turned one step further every lap so lap two cannot be memorised as
+ * lap one, and a speed that keeps climbing until `MAX_SPEED`.
+ *
+ * Deterministic on purpose (no RNG): wave 40 is the same wave 40 in every run,
+ * so a score can be compared between runs at all.
+ */
+export function waveShapeAt(index: number): WaveShape {
+  const scripted = SHAPES[index];
+  if (scripted !== undefined) {
+    return scripted;
+  }
+  const lap = Math.floor(index / SHAPES.length);
+  const base = SHAPES[index % SHAPES.length] as WaveShape;
+  const beyond = index - SHAPES.length;
+  return {
+    angle: (base.angle + LAP_TURN * lap) % 360,
+    speed: Math.min(LAST_SCRIPTED_SPEED + (beyond + 1) * 2, MAX_SPEED),
+    radius: Math.min(base.radius + lap * 10, 520),
+  };
+}
+
 /** When this wave reaches the player, in seconds from the start of the run. */
 export function contactTimeOf(wave: Wave): number {
   return wave.at + (wave.radius - CONTACT_DISTANCE) / wave.speed;
 }
 
-/** Wave `index` reaches the player at `FIRST_CONTACT + index * CONTACT_SPACING`. */
-export const WAVES: Wave[] = SHAPES.map((shape, index) => {
+/**
+ * Wave `index` as the loop spawns it: the shape above, timed so it reaches the
+ * player at `FIRST_CONTACT + index * CONTACT_SPACING`.
+ *
+ * Index is unbounded; the run picks how far it goes.
+ */
+export function waveAt(index: number): Wave {
+  const shape = waveShapeAt(index);
   if (index === 0) {
     return { ...shape, at: FIRST_WAVE.at };
   }
   const contact = FIRST_CONTACT + index * CONTACT_SPACING;
   return { ...shape, at: contact - (shape.radius - CONTACT_DISTANCE) / shape.speed };
-});
+}
+
+/** The scripted twenty, derived from the same `waveAt` the endless run will use. */
+export const WAVES: Wave[] = SHAPES.map((_shape, index) => waveAt(index));
