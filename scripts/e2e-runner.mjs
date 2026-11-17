@@ -250,6 +250,98 @@ async function pressAndRelease(page, keyName, ms) {
   await page.keyboard.up(keyName);
 }
 
+/**
+ * The levels, read from `level.ts` rather than typed into this file: the ASCII is the level, so
+ * a test that hard-codes a column is a test that goes green when the level moves and the game
+ * does not. `LEVEL_*` appear in the file in the same order as the `LEVELS` list they feed.
+ */
+function readLevels() {
+  const text = source("level.ts") ?? "";
+  const tile = Number(/export const TILE\s*=\s*(\d+)/.exec(text)?.[1] ?? Number.NaN);
+  const grids = [...text.matchAll(/const (LEVEL_[A-Z_]+)\s*:[^=]*=\s*\[([\s\S]*?)\];/g)].map((match) => ({
+    name: match[1],
+    rows: [...match[2].matchAll(/"([^"]*)"/g)].map((row) => row[1]),
+  }));
+  return { tile, grids };
+}
+
+const BODY = { w: 20, h: 28 }; // createBody(x, y, 20, 28) in main.ts
+
+const tileAt = (grid, column, row) => grid.rows[row]?.[column] ?? ".";
+
+/** Mirrors `hazardAt()` in main.ts: every tile the body rectangle touches. */
+function hazardAtTile(grid, tile, x, y) {
+  for (let row = Math.floor(y / tile); row <= Math.floor((y + BODY.h - 0.001) / tile); row += 1) {
+    for (let column = Math.floor(x / tile); column <= Math.floor((x + BODY.w - 0.001) / tile); column += 1) {
+      if (tileAt(grid, column, row) === "^") return true;
+    }
+  }
+  return false;
+}
+
+/** Is there a hole in the floor within `look` px of the body's right edge? */
+function pitAhead(grid, tile, edgeX, look) {
+  const solid = (column) => {
+    if (column >= (grid.rows[0]?.length ?? 0)) return true; // past the end is not a hole
+    const bottom = tileAt(grid, column, grid.rows.length - 1);
+    const above = tileAt(grid, column, grid.rows.length - 2);
+    return "#=".includes(bottom) || "#=".includes(above);
+  };
+  for (let column = Math.floor(edgeX / tile); column <= Math.floor((edgeX + look) / tile); column += 1) {
+    if (!solid(column)) return true;
+  }
+  return false;
+}
+
+/**
+ * Hold right and get out of the way of the level: jump holes, jump the one-tile step the body
+ * cannot walk up, and jump a walker that is about to be walked into. It is a vehicle for the
+ * assertions, not one of them — so it may die on the way; what it must not do is stop.
+ */
+async function walkRight(page, done, { levels, timeoutMs = 25000, jumpFor = true } = {}) {
+  const { tile, grids } = levels;
+  const gridFor = (level) => grids[level - 1] ?? grids[0];
+  const samples = [];
+  const started = Date.now();
+  let blocked = 0;
+  await page.keyboard.down("ArrowRight");
+  try {
+    while (Date.now() - started < timeoutMs) {
+      const current = await state(page);
+      if (!current) {
+        await page.waitForTimeout(40);
+        continue;
+      }
+      samples.push(current);
+      if (done(current)) return { hit: true, samples };
+      if (current.phase === "dead") {
+        blocked = 0;
+        await page.waitForTimeout(120);
+        continue;
+      }
+      if (current.phase !== "play") {
+        await page.waitForTimeout(40);
+        continue;
+      }
+      if (jumpFor && current.grounded) {
+        const grid = gridFor(current.level);
+        const edge = current.x + BODY.w;
+        const enemy = (current.enemies ?? []).find((e) => e.x > edge && e.x - edge < 120);
+        blocked = Math.abs(current.vx) < 5 ? blocked + 1 : 0;
+        if (pitAhead(grid, tile, edge, 90) || blocked >= 3 || enemy) {
+          blocked = 0;
+          await pressAndRelease(page, "Space", 460); // the 97 px pit needs the full hold
+          continue;
+        }
+      }
+      await page.waitForTimeout(45);
+    }
+    return { hit: false, samples };
+  } finally {
+    await page.keyboard.up("ArrowRight").catch(() => {});
+  }
+}
+
 /** Poll the contract until `predicate` holds, keeping every sample. */
 async function until(page, predicate, { timeoutMs = 8000, poll = 30 } = {}) {
   const started = Date.now();
@@ -635,6 +727,58 @@ async function runDesktop(browser, baseUrl, errors) {
       "R8: no string the canvas draws carries a raw escape",
       escapedDrawn.slice(0, 3).join(" | ") || "title, HUD and death screen all clean",
     );
+
+    // ---- R11: a respawn is never inside what killed you ------------------
+    // QA's P1: on level 2 the spike sits at standing height, the "grounded" spot at the moment
+    // of contact became the respawn point, and holding right meant dying again every frame
+    // (deaths 1 -> 5 in three seconds). Both halves of the rule are checked here: where the
+    // contract says you will respawn, and whether standing still there kills you.
+    const levels = readLevels();
+    if (levels.grids.length < 2 || !Number.isFinite(levels.tile)) {
+      pend("R11: a respawn is never inside a hazard", `cannot read the level grid from level.ts (${levels.grids.length} levels, tile ${levels.tile})`);
+    } else {
+      await page.goto(`${baseUrl}/`, { waitUntil: "load" });
+      const started = await startPlaying(page);
+      const entered = started ? await walkRight(page, (s) => s.level === 2, { levels, timeoutMs: 30000 }) : { hit: false, samples: [] };
+      check(
+        entered.hit,
+        "R11: the harness reaches level 2",
+        entered.hit
+          ? `${entered.samples.length} samples, level ${entered.samples.at(-1)?.level}`
+          : `never left level 1 in 30s (deaths ${entered.samples.at(-1)?.deaths}, x ${entered.samples.at(-1)?.x?.toFixed(0)})`,
+      );
+      if (entered.hit) {
+        // Deliberately stop jumping: the spikes on level 2 are the point.
+        const hitSpike = await walkRight(page, (s) => s.deaths > 0, { levels, timeoutMs: 12000, jumpFor: true });
+        const dead = hitSpike.samples.find((s) => s.deaths > 0);
+        const cause = dead?.deathLog?.at(-1)?.cause;
+        check(hitSpike.hit && cause === "spike", "R11: level 2's spikes kill", `deaths ${dead?.deaths}, cause ${cause}`);
+
+        const landed = await until(page, (s) => s.phase === "play" && s.deaths > 0 && s.grounded, { timeoutMs: 3000, poll: 20 });
+        const settled = landed.samples.at(-1);
+        const grid = levels.grids[(settled?.level ?? 2) - 1];
+        const safe = settled?.safe;
+        check(
+          safe !== undefined && !hazardAtTile(grid, levels.tile, safe.x, safe.y),
+          "R11: the contract's respawn point is not inside a hazard",
+          safe === undefined
+            ? "no `safe` in __runnerState"
+            : `safe (${safe.x.toFixed(1)}, ${safe.y.toFixed(1)}) on level ${settled?.level} — ` +
+              (hazardAtTile(grid, levels.tile, safe.x, safe.y) ? "inside a spike tile" : "clear"),
+        );
+
+        // Nothing pressed for three seconds, exactly as QA reproduced it.
+        const beforeIdle = settled?.deaths ?? Number.NaN;
+        await page.waitForTimeout(3000);
+        const afterIdle = (await state(page))?.deaths ?? Number.NaN;
+        check(
+          Number.isFinite(beforeIdle) && afterIdle === beforeIdle,
+          "R11: standing still after a respawn does not kill you again",
+          `deaths ${beforeIdle} → ${afterIdle} over 3s with no input` +
+            (afterIdle > beforeIdle ? " — the respawn point is inside the hazard" : ""),
+        );
+      }
+    }
 
     if (process.env.E2E_KEEP) await page.screenshot({ path: join(ROOT, "e2e-runner.png") });
   } finally {
