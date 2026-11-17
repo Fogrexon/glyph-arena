@@ -6,6 +6,20 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+### Fixed
+
+- **a respawn is never within 96 px of what killed you.** On levels 2 and 3 the spikes sit at
+  standing height, so "grounded" and "safe" were not the same thing: the safe spot was recorded
+  before the hazard check, and the tile you died on became the tile you came back to. QA measured
+  **deaths 1 → 5 in three seconds**, with **17 ms** between deaths. Skipping a hazard tile is not
+  enough — a respawn 0.8 px from the spikes is the same trap, just slower, and my first attempt
+  only stretched 17 ms to 600 ms. A safe spot now needs **96 px of clear ground** around the body
+  (300 ms at the 320 px/s run) or it is not recorded at all, which leaves the level's spawn as the
+  fallback. The rule is `hazardWithin()` in `level.ts` — pure, unit-tested, the same function the
+  game uses — and `__runnerState` gains **`safe`**. The distance is deliberately *not* published:
+  the e2e measures it from the level grid and the unit test measures it directly, and a second
+  copy would be a second thing that can go green on its own.
+
 ### Added
 
 - **runner: a third level, and the ground is the pressure.** Level 3 (`level.ts`, 78 columns)

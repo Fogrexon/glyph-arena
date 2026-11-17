@@ -5,6 +5,7 @@ import {
   TILE,
   goalLineX,
   goalPoint,
+  hazardWithin,
   isHazardTile,
   isSolidTile,
   levelColumns,
@@ -162,4 +163,26 @@ test("level 3 keeps the pursuit enemy's columns flat and clear", () => {
       `the pursuit lane is blocked at column ${column}: the enemy would start inside the level`,
     );
   }
+});
+
+test("a respawn point needs 96 px of clear ground (the safe rule, no browser)", () => {
+  // The first hazard in the current level, whatever that level happens to be: the rule is about
+  // distance, so the test must not be tied to the column a level uses today.
+  let hazardColumn = -1;
+  let hazardRow = -1;
+  for (let row = 0; row < levelRows() && hazardColumn < 0; row += 1) {
+    for (let column = 0; column < levelColumns(); column += 1) {
+      if (isHazardTile(column, row)) {
+        hazardColumn = column;
+        hazardRow = row;
+        break;
+      }
+    }
+  }
+  assert.ok(hazardColumn >= 0, "the level has no hazard to be clear of");
+
+  const y = hazardRow * TILE;
+  const clear = hazardColumn * TILE - 96 - 20; // the body's right edge ends 96 px before the hazard
+  assert.equal(hazardWithin(clear, y, 20, 28, 96), false, "96 px of clear ground was rejected");
+  assert.equal(hazardWithin(clear + 32, y, 20, 28, 96), true, "64 px of clear ground passed the rule");
 });

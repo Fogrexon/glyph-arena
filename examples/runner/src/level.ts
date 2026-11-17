@@ -143,6 +143,23 @@ export function isHazardTile(column: number, row: number): boolean {
 }
 
 /**
+ * Is there a hazard tile inside the rectangle, widened by `margin` px on each side?
+ *
+ * The margin is how "far enough from what kills you" gets a definition: a respawn point has to be
+ * `SAFE_CLEARANCE` away, or the death returns you somewhere you cannot react from. Pure and here
+ * (not in `main.ts`) so the rule can be tested without a browser, and read by the game and the
+ * tests as the same number.
+ */
+export function hazardWithin(x: number, y: number, w: number, h: number, margin = 0): boolean {
+  for (let row = Math.floor(y / TILE); row <= Math.floor((y + h - 0.001) / TILE); row += 1) {
+    for (let column = Math.floor((x - margin) / TILE); column <= Math.floor((x + w + margin - 0.001) / TILE); column += 1) {
+      if (isHazardTile(column, row)) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Where each level's walker walks, in world pixels. The walker is not a tile character, so its
  * lane lives here instead of in the level text: the game and the test read the same numbers, and
  * "how much landing does the pit leave you" stops being a coincidence of two files.
