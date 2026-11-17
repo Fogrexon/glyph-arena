@@ -10,11 +10,15 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 - **runner: a third level, and the ground is the pressure.** Level 3 (`level.ts`, 78 columns)
   keeps one long straight and spends the rest on places where holding right kills you: spikes on
-  the ground line in front of a one-tile step, spikes on the platform you land on from that step,
-  and spikes on the far side of a pit, so a jump is followed by another within half a second.
-  The walker in this level starts at the far end of its lane facing back (`dir: -1`) — the first
-  thing in the run that comes *at* you instead of patrolling away. Same walker, same speed, no new
-  behaviour: a chaser is a different unit.
+  the ground line in front of a one-tile step (columns 10-11), spikes on the platform you land on
+  from that step (columns 22-23), and spikes on the far side of a pit, so a jump is followed by
+  another inside half a second. The walker in this level starts at the far end of its lane facing
+  back (`dir: -1`, columns 32-37) — the first thing in the run that comes *at* you instead of
+  patrolling away, and the first that you have to **wait for** rather than outrun. Same walker,
+  same speed, no new behaviour: a chaser is a different unit.
+- **columns 12-14 are kept flat for the pursuit enemy.** `chaseSpawnLane()` names them and
+  `level.test.ts` walks the lane checking floor and clearance, so the enemy cannot be given a
+  spawn inside a step by a later level edit.
 - **the straight R10b measures pursuit over is a named lane.** `chaseSightLane()` returns level
   3's columns 3-8 (192 px, nothing above the floor), and `level.test.ts` checks every column of it
   — the spec fixes the columns, so the test reads the function instead of repeating the numbers
