@@ -6,6 +6,23 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+### Added
+
+- **runner: level 3 has a pursuer.** It notices you within **224 px**, waits out the level's first
+  **1.0 s**, and then walks at **90 px/s** — the run is 320, so flat ground always lets you leave
+  it; what it punishes is **standing still** (224 px is 2.49 s). It refuses to jump, climb or walk
+  off a ledge: any height change ends the pursuit and it goes back to patrolling its lane, and
+  1.5 s out of view loses it for good. Touching it kills you with the existing `cause: "enemy"`.
+  The rules live in `enemy.ts` as pure functions so the unit test can pin the boundary (224 in,
+  225 out) instead of the game and the test each carrying a number.
+
+- **`__runnerState.enemies` carries two entries on level 3.** The list was already the shape; the
+  pursuer is the second element with `mode: "chase"` while it is coming for you, which is what
+  makes "a thing patrols" and "a thing is hunting you" distinguishable from outside without
+  watching the pixels. Enemies also **go back to their start on every respawn**: otherwise the
+  pursuer stands on the safe spot and kills you on the frame you return — the spike trap one layer
+  up, and the reason a retry has to be a retry.
+
 ### Fixed
 
 - **a respawn is never within 96 px of what killed you.** On levels 2 and 3 the spikes sit at
