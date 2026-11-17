@@ -12,6 +12,7 @@
     "e2e:demo": "node scripts/e2e-demo.mjs",
     "e2e:runner": "node scripts/e2e-runner.mjs",
     "check:deployed": "node scripts/check-deployed-bundles.mjs",
+    "test:scripts": "node --test scripts/record-pr.test.mjs",
     "measure:parry-run": "node scripts/measure-parry-run.mjs"
   },
   "devDependencies": {
