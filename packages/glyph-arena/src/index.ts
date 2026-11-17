@@ -11,8 +11,8 @@
  *
  * ## Why the specifiers are relative
  *
- * `tsc` copies module specifiers into the emitted `.d.ts` verbatim, and the 14
- * modules are **not** published on their own. Naming them here the way they are
+ * `tsc` copies module specifiers into the emitted `.d.ts` verbatim, and the modules
+ * are **not** published on their own. Naming them here the way they are
  * imported inside this repo would therefore publish declarations that no
  * consumer can resolve (those names exist only in this monorepo). Relative paths
  * keep the emitted declaration tree self-contained under `dist/`, the bundler
