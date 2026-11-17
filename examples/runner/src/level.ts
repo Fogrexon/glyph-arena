@@ -115,6 +115,25 @@ export function isHazardTile(column: number, row: number): boolean {
   return tileAt(column, row) === "hazard";
 }
 
+/**
+ * Where each level's walker walks, in world pixels. The walker is not a tile character, so its
+ * lane lives here instead of in the level text: the game and the test read the same numbers, and
+ * "how much landing does the pit leave you" stops being a coincidence of two files.
+ *
+ * Level 1's pit ends at x=1184; this lane starts at x=1280, which is three tiles of landing — the
+ * floor between the jump and the walker used to be one tile (32 px), which is not a gap a person
+ * can see, only one a bot with 80 px of look-ahead can survive.
+ */
+const PATROLS: ReadonlyArray<{ minX: number; maxX: number } | null> = [
+  { minX: 40 * TILE, maxX: 47 * TILE },
+  null,
+];
+
+/** The current level's patrol lane, or null when the level has no walker. */
+export function patrolRange(): { minX: number; maxX: number } | null {
+  return PATROLS[current] ?? null;
+}
+
 /** Where the run starts, in world pixels (feet, not centre). */
 export function spawnPoint(): { x: number; y: number } {
   for (let row = 0; row < rows().length; row += 1) {
