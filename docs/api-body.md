@@ -21,7 +21,7 @@ const body = createBody({ x: 70, y: 120, w: 20, h: 28 }, config);
 
 ## `stepBody(body, input, dt, solid, options?)`
 
-- `input` — `{ left?, right?, jump?, jumpHeld? }`. `jump` is the press (an edge), `jumpHeld` is whether the button is still down; that pair is what makes a short tap a short jump.
+- `input` — `{ left?, right?, jump?, jumpHeld? }`. `jump` is the press, **an edge, not the held state**; `jumpHeld` is whether the button is still down. That pair is what makes a short tap a short jump, and it is why the two are not the same value: the jump buffer is re-armed on every step where `jump` is true, so handing `jump` the held state makes the body leave the ground again the step it lands — a bounce, not a jump.
 - `solid(left, top, right, bottom)` — is that box solid? Called at most twice per axis per step.
 - `options.grid` — cell size in px. When given, a blocked move snaps to the cell boundary; without it the move is reverted and the body keeps the position it could stand in.
 - `dt <= 0` or a non-finite `dt` does nothing.
