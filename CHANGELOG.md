@@ -6,7 +6,25 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+### Added
+
+- **runner: a death log, on the contract and on the screen.** `__runnerState.deathLog` is an
+  array of `{ x, cause, simMs }` — `cause` is `pit`, `spike` or `enemy` — while `deaths` stays the
+  count, so the QA contract that reads `deaths === 0` keeps working. The death overlay prints the
+  last one as `x 1211 / pit · 3.9s`, and the goal screen prints it under the death count. "Where
+  did the player die" is the number the next level gets designed from, and a memory of it is not
+  data. R4 now asserts the log matches the count and names the cause; **R8** wraps
+  `CanvasRenderingContext2D.fillText`/`strokeText` before the page loads and reads back every
+  string the canvas painted, so the HUD — which `textContent` cannot see — is checked too.
+  Proven by injecting `\u2014` into a built HUD string: R8 goes red on `deaths: \u2014 0`.
+
 ### Fixed
+
+- **runner's R2 ground check no longer flakes at the start.** Landing once was not enough: the
+  start press is held 160 ms and the jump buffer remembers it for 0.12 s, so a second jump could
+  fire a few frames after the landing and land inside the measured second (88% on one run, 100%
+  on the next, same code). The check now waits for the ground to still hold after the buffer must
+  have expired, and keeps the 95% threshold. Three consecutive runs: 100%, 100%, 100%.
 
 - **runner: the first tap now starts the run, wherever it lands.** The title screen said
   "Tap — start" but only the jump pad in the corner started it, so a first-time phone user's
