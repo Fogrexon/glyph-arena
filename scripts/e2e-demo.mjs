@@ -154,6 +154,11 @@ function check(ok, label, detail) {
     console.log(`ok   ${label}${detail ? ` — ${detail}` : ""}`);
   } else {
     console.error(`FAIL ${label}${detail ? ` — ${detail}` : ""}`);
+    // On Actions this becomes an annotation on the check run, which is how a failure is read
+    // without the job log. `e2e-runner` had this and `e2e-demo` did not: the run that failed with
+    // only "Process completed with exit code 1" cost an hour of inference to find out which check
+    // it was. One line here turns the next flake into a one-minute diagnosis.
+    console.error(`::error::${label}${detail ? ` — ${detail}` : ""}`);
     failures.push(label);
   }
 }
@@ -1191,13 +1196,20 @@ async function runParry(browser, errors) {
     let previousAt = 0;
     let spike = null;
     let samples = 0;
-    while (Date.now() - fightStart < 45000) {
+    let clockMs = 0;
+    // The budget is the demo's own clock, not the wall clock. `clockMs` is the sum of the frame
+    // deltas, so a loaded runner takes longer in seconds and reaches the same verdict — which is
+    // what the workflow already promises about these checks. The wall limit stays only as a stall
+    // guard: a page that has stopped drawing must not hang the job for ever.
+    while (Date.now() - fightStart < 120000) {
       const s = await page.evaluate(() => window.__parryState);
       if (!s) {
         await page.waitForTimeout(80);
         continue;
       }
       fightState = s;
+      if (typeof s.clockMs === "number") clockMs = s.clockMs;
+      if (clockMs > 40000) break;
       const head = s.threats && s.threats[0] ? s.threats[0] : null;
       const sampledAt = Date.now();
       const elapsedSincePrevious = sampledAt - previousAt;
@@ -1260,10 +1272,17 @@ async function runParry(browser, errors) {
       await page.waitForTimeout(15);
     }
     for (const key of fightHeld) await page.keyboard.up(key);
+    // The budget above is only honest if the clock it reads is really published: without this,
+    // `clockMs` silently staying 0 would turn the sim-time limit into the 120 s stall guard.
+    check(
+      typeof fightState?.clockMs === "number" && fightState.clockMs > 0,
+      "I14: the demo publishes the clock the budget is measured in (clockMs)",
+      `clockMs ${fightState?.clockMs}`,
+    );
     check(
       spike === null && (fightState?.wrapCount ?? 0) >= 1,
       "I14: a wrap does not jump the nearest enemy's contact clock",
-      `wraps ${fightState?.wrapCount}, samples ${samples}, wave ${fightState?.wave}, lives ${fightState?.lives}` +
+      `wraps ${fightState?.wrapCount}, samples ${samples}, wave ${fightState?.wave}, lives ${fightState?.lives}, clock ${clockMs}ms` +
         (spike === null ? "" : ` — contact clock jumped ${spike.from}->${spike.to}ms at wave ${spike.wave}`),
     );
 
