@@ -171,16 +171,30 @@ function roundedRectPath(
 }
 
 export function createDraw({ context }: CreateDrawOptions): Draw {
+  /**
+   * Clear the whole canvas — the whole of it, whatever the current transform says.
+   *
+   * `clearRect` and `fillRect` are both affected by the transform, so a loop that draws through
+   * `setView(camera)` and clears at the top of the next frame would leave the canvas edges of the
+   * previous frame behind: with a camera at (50, 40) on 320×240, exactly the left 50px and the top
+   * 40px survive. So the identity transform is applied for the length of this call, and only this
+   * call.
+   */
   const clear = (color?: string): void => {
     const { width, height } = getCanvasSize(context);
 
-    if (color === undefined) {
-      context.clearRect(0, 0, width, height);
-      return;
+    context.save();
+    context.setTransform(IDENTITY.a, IDENTITY.b, IDENTITY.c, IDENTITY.d, IDENTITY.e, IDENTITY.f);
+    try {
+      if (color === undefined) {
+        context.clearRect(0, 0, width, height);
+      } else {
+        context.fillStyle = color;
+        context.fillRect(0, 0, width, height);
+      }
+    } finally {
+      context.restore();
     }
-
-    context.fillStyle = color;
-    context.fillRect(0, 0, width, height);
   };
 
   const sprite = ({
