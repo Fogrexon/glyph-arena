@@ -30,6 +30,12 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Before anything is built: `pnpm pack` from a checkout with no dist/ must still produce a
+      # package that can be imported. It did not — `files: ["dist"]` with no `prepack` packed
+      # LICENSE, README and package.json and exited 0. `smoke:pack-install` cannot see it, because
+      # it runs after `pnpm -r build`; this is the only step that stands where a new user stands.
+      - run: pnpm check:pack
+
       # typecheck comes FIRST on purpose. With `paths` in tsconfig.base.json
       # it resolves the packages from src/, so it needs no build — and keeping
       # it ahead of build is the only thing that keeps proving that. Move it
