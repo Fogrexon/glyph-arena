@@ -51,6 +51,12 @@ jobs:
       # the emitted declarations must still carry the public API.
       - run: pnpm check:package-entry-points
 
+      # The umbrella README ships inside the tarball and is frozen there until the next
+      # version, so it is the one hand-kept list nobody can fix after the fact. The check
+      # reads `packages/` instead of a list: it fails on a stated module count, on a module
+      # that is not named, and on a README whose examples never draw anything.
+      - run: pnpm check:readme
+
       - run: pnpm typecheck:public-api
 
       # Packs every package, installs the tarballs into an empty project
