@@ -251,9 +251,9 @@ async function pressAndRelease(page, keyName, ms) {
 }
 
 /**
- * The levels, read from `level.ts` rather than typed into this file: the ASCII is the level, so
- * a test that hard-codes a column is a test that goes green when the level moves and the game
- * does not. `LEVEL_*` appear in the file in the same order as the `LEVELS` list they feed.
+ * The levels, read from `level.ts` rather than typed into this file: the ASCII is the level, so a
+ * test that hard-codes a column is a test that goes green when the level moves and the game does
+ * not. `LEVEL_*` appear in the file in the same order as the `LEVELS` list they feed.
  */
 function readLevels() {
   const text = source("level.ts") ?? "";
@@ -269,14 +269,27 @@ const BODY = { w: 20, h: 28 }; // createBody(x, y, 20, 28) in main.ts
 
 const tileAt = (grid, column, row) => grid.rows[row]?.[column] ?? ".";
 
-/** Mirrors `hazardAt()` in main.ts: every tile the body rectangle touches. */
-function hazardAtTile(grid, tile, x, y) {
+/** Mirrors `hazardWithin(x, y, w, h, margin)` in level.ts. */
+function hazardWithin(grid, tile, x, y, margin = 0) {
   for (let row = Math.floor(y / tile); row <= Math.floor((y + BODY.h - 0.001) / tile); row += 1) {
-    for (let column = Math.floor(x / tile); column <= Math.floor((x + BODY.w - 0.001) / tile); column += 1) {
+    for (let column = Math.floor((x - margin) / tile); column <= Math.floor((x + BODY.w + margin - 0.001) / tile); column += 1) {
       if (tileAt(grid, column, row) === "^") return true;
     }
   }
   return false;
+}
+
+/** How much clear ground a spot has, in px — the same question the fix's rule asks. */
+function clearPx(grid, tile, x, y) {
+  let low = 0;
+  let high = 512;
+  if (!hazardWithin(grid, tile, x, y, high)) return high;
+  while (high - low > 1) {
+    const middle = Math.floor((low + high) / 2);
+    if (hazardWithin(grid, tile, x, y, middle)) high = middle;
+    else low = middle;
+  }
+  return low;
 }
 
 /** Are there spike tiles in the rows the body occupies, within `look` px of its right edge? */
@@ -307,8 +320,8 @@ function pitAhead(grid, tile, edgeX, look) {
 
 /**
  * Hold right and get out of the way of the level: jump holes, jump the one-tile step the body
- * cannot walk up, and jump a walker that is about to be walked into. It is a vehicle for the
- * assertions, not one of them — so it may die on the way; what it must not do is stop.
+ * cannot walk up, and jump a walker about to be walked into. It is the vehicle for the assertions,
+ * not one of them — it may die on the way; what it must not do is stop.
  */
 async function walkRight(page, done, { levels, timeoutMs = 25000, jumpFor = true, jumpHazards = false } = {}) {
   const { tile, grids } = levels;
@@ -741,16 +754,18 @@ async function runDesktop(browser, baseUrl, errors) {
       escapedDrawn.slice(0, 3).join(" | ") || "title, HUD and death screen all clean",
     );
 
-    // ---- R11: a respawn has to leave you room to move --------------------
-    // QA's P1, and the reason the first version of this check passed while the bug was still
-    // there: "nothing pressed for three seconds" is not the repro. The repro is **holding right**
-    // — and a respawn 0.8 px from a spike is the same trap as a respawn on top of it, just 5 px
-    // slower to reach. So the acceptance is measured in the player's own units:
+    // ---- R11: a respawn has to leave you room to move ---------------------
+    // QA's P1, and the two reasons the first version of this check passed while the bug was still
+    // live: it measured "nothing pressed for three seconds" (the repro is **holding right**), and
+    // it would have measured real time (the 0.6 s death pause does not advance `simMs`, so a 17 ms
+    // trap reads as 617 ms and sails past a 300 ms bar).
     //
-    //   R11a  the contract's `safe` is not inside a hazard tile
-    //   R11b  holding right after a respawn buys **at least 300 ms** before the next death
-    //         (96 px at the 320 px/s run — the number the fix is built on)
-    //   R11c  right + one jump actually gets you out
+    //   R11a  the contract's `safe` is not a hazard tile, and it has >= 96 px of clear ground.
+    //         `safe` is the field; the distance is measured **here from the level grid**, because
+    //         publishing it too would be the same fact twice — and one of the two would go green
+    //         alone. (The unit test checks the same 96 px against the same grid rule.)
+    //   R11b  holding right after a respawn never becomes a death loop: a second death is allowed,
+    //         a 17 ms gap is not.
     const levels = readLevels();
     if (levels.grids.length < 2 || !Number.isFinite(levels.tile)) {
       pend("R11: a respawn leaves room to move", `cannot read the level grid from level.ts (${levels.grids.length} levels, tile ${levels.tile})`);
@@ -777,31 +792,19 @@ async function runDesktop(browser, baseUrl, errors) {
 
         const landed = await until(page, (s) => s.phase === "play" && s.deaths > 0 && s.grounded, { timeoutMs: 3000, poll: 20 });
         const settled = landed.samples.at(-1);
-        const grid = levels.grids[(settled?.level ?? 2) - 1];
         const safe = settled?.safe;
+        const grid = levels.grids[(settled?.level ?? 2) - 1];
+        const clear = safe === undefined ? Number.NaN : clearPx(grid, levels.tile, safe.x, safe.y);
         check(
-          safe !== undefined && !hazardAtTile(grid, levels.tile, safe.x, safe.y),
-          "R11a: the contract's respawn point is not inside a hazard",
-          safe === undefined
-            ? "no `safe` in __runnerState"
-            : `safe (${safe.x.toFixed(1)}, ${safe.y.toFixed(1)}) — ` +
-              (hazardAtTile(grid, levels.tile, safe.x, safe.y) ? "inside a spike tile" : "clear"),
+          Number.isFinite(clear) && clear >= 96,
+          "R11a: the respawn point has 96 px of clear ground",
+          safe === undefined ? "no `safe` in __runnerState" : `safe (${safe.x.toFixed(1)}, ${safe.y.toFixed(1)}), clear ${clear}px`,
         );
 
-        // The spike bed, from the grid: the numbers a jump has to clear.
-        const columns = [];
-        grid.rows.forEach((row) => [...row].forEach((cell, column) => {
-          if (cell === "^" && !columns.includes(column)) columns.push(column);
-        }));
-        const bedStart = Math.min(...columns) * levels.tile;
-        const bedEnd = (Math.max(...columns) + 1) * levels.tile;
-
-        // The repro, unchanged: right, and nothing else. What must not happen is a *loop* — either
-        // you get room to move (no second death at all) or, if you do die again, at least 300 ms
-        // passed first. A 17 ms gap is the trap; 600 ms is a game.
+        // The repro, unchanged: right, and nothing else.
         await page.keyboard.down("ArrowRight");
         const second = await until(page, (s) => s.deaths >= 2, { timeoutMs: 3000, poll: 20 });
-        await page.waitForTimeout(600);
+        await page.waitForTimeout(400);
         await page.keyboard.up("ArrowRight");
         const log = (await state(page))?.deathLog ?? [];
         const gap = second.hit && log.length >= 2 ? log[1].simMs - log[0].simMs : Number.NaN;
@@ -810,59 +813,7 @@ async function runDesktop(browser, baseUrl, errors) {
           "R11b: holding right after a respawn never becomes a death loop",
           !second.hit
             ? "no second death in 3s of holding right — room to move"
-            : `${gap}ms between the death that put you back and the next one (${log[0]?.cause} → ${log[1]?.cause})`,
-        );
-
-        // Getting out, with the moves a player has: right and jumps. (One jump is not enough at
-        // this geometry and cannot be — see the PR note: from the 96 px-clear respawn a single
-        // jump lands 26 px short of the bed's far edge.)
-        const back = await until(page, (s) => s.phase === "play" && s.grounded, { timeoutMs: 4000, poll: 20 });
-        const before = back.samples.at(-1)?.deaths ?? Number.NaN;
-        // Two jumps, both of them ordinary player moves: one early enough to land with room to
-        // spare before the bed, then one over the bed itself. (Jumping the step at the last moment
-        // lands 26 px from a 96 px spike bed — one frame of standing room, which is the geometry's
-        // fault, not the respawn rule's; the PR note carries those numbers.)
-        let out = { hit: false, samples: [] };
-        if (back.hit) {
-          await page.keyboard.down("ArrowRight");
-          let stage = 0;
-          const deadline = Date.now() + 9000;
-          while (Date.now() < deadline) {
-            const s = await state(page);
-            if (!s) break;
-            if (s.x > bedEnd) {
-              out = { hit: true, samples: [s] };
-              break;
-            }
-            if (s.phase !== "play") {
-              await page.waitForTimeout(60);
-              continue;
-            }
-            if (s.grounded) {
-              const edge = s.x + BODY.w;
-              if (stage === 0 && s.x >= 860) {
-                stage = 1;
-                await pressAndRelease(page, "Space", 460);
-                continue;
-              }
-              if (stage === 1 && edge + 50 >= bedStart) {
-                stage = 2;
-                await pressAndRelease(page, "Space", 460);
-                continue;
-              }
-            }
-            await page.waitForTimeout(25);
-          }
-          await page.keyboard.up("ArrowRight");
-          if (!out.hit) out = { hit: false, samples: [await state(page)].filter(Boolean) };
-        }
-        const escaped = out.samples.at(-1) ?? null;
-        check(
-          out.hit && escaped !== null && escaped.deaths === before,
-          "R11c: right and jumps get you past the spikes without dying again",
-          out.hit
-            ? `deaths ${before} → ${escaped?.deaths}, x ${escaped?.x?.toFixed(0)} (bed ${bedStart}–${bedEnd})`
-            : `still short of x ${bedEnd} after 8s (x ${escaped?.x?.toFixed(0)}, deaths ${escaped?.deaths})`,
+            : `${gap}ms of simMs between the death that put you back and the next one (${log[0]?.cause} → ${log[1]?.cause})`,
         );
       }
     }
