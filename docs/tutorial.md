@@ -47,6 +47,7 @@ Replace `index.html`'s body with a canvas that fills the window:
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>First game</title>
+    <link rel="icon" href="data:," />
     <style>
       html, body { margin: 0; height: 100%; background: #0d1626; }
       canvas { display: block; width: 100%; height: 100%; }
@@ -97,7 +98,7 @@ const LEVEL = [
   "..........#####.................",
   "................................",
   "########.......################",
-  "########.......################",
+  "################################",
 ];
 
 const map = createTileMap(LEVEL.join("\n"), {
@@ -105,6 +106,9 @@ const map = createTileMap(LEVEL.join("\n"), {
   cell: 32,
 });
 ```
+
+Row 5 is solid all the way across, so the gap in row 4 is a one-cell trench rather than a hole
+into nothing: falling into it costs a jump, not the game.
 
 `mapColumns(map)` and `mapRows(map)` give the size, `hasTag(map, column, row, "solid")` asks about one
 cell, and `solidInRect(map, left, top, right, bottom, "solid")` asks about a box in pixels.
@@ -131,7 +135,8 @@ const feel = {
   jumpCutFactor: 0.35,
 };
 
-const player = createBody({ x: 70, y: 120, w: 20, h: 28 }, feel);
+// The floor's top edge is row 4, so y = 4 * 32 - 28 = 100 puts the body's feet on it.
+const player = createBody({ x: 70, y: 100, w: 20, h: 28 }, feel);
 console.log(jumpHeightOf(feel)); // 111.08 px, from the same config the body uses
 ```
 
@@ -232,7 +237,7 @@ const LEVEL = [
   "..........#####.................",
   "................................",
   "########.......################",
-  "########.......################",
+  "################################",
 ];
 const map = createTileMap(LEVEL.join("\n"), { legend: { "#": ["solid"] }, cell: CELL });
 
@@ -254,7 +259,7 @@ const feel = {
 const solid = (left: number, top: number, right: number, bottom: number) =>
   solidInRect(map, left, top, right, bottom, "solid");
 
-const player = createBody({ x: 70, y: 120, w: 20, h: 28 }, feel);
+const player = createBody({ x: 70, y: 100, w: 20, h: 28 }, feel);
 const camera = createCamera();
 
 console.log(jumpHeightOf(feel)); // 111.08 px, from the same config the body uses
