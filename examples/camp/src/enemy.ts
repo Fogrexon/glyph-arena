@@ -18,10 +18,10 @@ export const ENEMY_AI = {
   /** The tell. Long enough to react to, short enough that standing still is a mistake. */
   windupMs: 260,
   /** The commit: 105 px of travel at 420 px/s. Faster than your run (300), so the way out is up. */
-  lungeMs: 250,
-  lungeSpeedPxPerSecond: 420,
+  lungeMs: 300,
+  lungeSpeedPxPerSecond: 460,
   /** After a lunge it is open: no second lunge for this long. */
-  restMs: 420,
+  restMs: 300,
 } as const;
 
 /** Should a walking enemy stop and start the tell? */

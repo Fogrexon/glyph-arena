@@ -44,7 +44,7 @@ const PLAYER_CONFIG: BodyConfig = {
 const ENEMY_CONFIG: BodyConfig = { ...PLAYER_CONFIG, runSpeed: 74, runAccel: 900, airAccel: 500, jumpVelocity: -520 };
 
 const PLAYER_STATS = { hearts: 3, invulnerableMs: 900, contactKnockback: 320 };
-const ENEMY_STATS = { hp: 6, sightPx: 260, contactDamage: 1 };
+const ENEMY_STATS = { hp: 10, sightPx: 260, contactDamage: 1 };
 
 const canvas = document.querySelector("canvas");
 if (canvas === null) {
@@ -160,10 +160,16 @@ function hurtPlayer(from: 1 | -1): void {
 }
 
 function stepWorld(dt: number, dtMs: number, moveLeft: boolean, moveRight: boolean, jumpPressed: boolean, jumpHeld: boolean): void {
-  const direction = (moveRight ? 1 : 0) - (moveLeft ? 1 : 0);
+  // The swing commits: while the blade is out (windup, active, recovery) you cannot steer. That is
+  // what makes "attack" a cost instead of a free cancel — without it a player who holds attack wins
+  // every exchange, which is exactly what the first measurement showed.
+  const committed = attack.elapsedMs >= 0;
+  const left = moveLeft && !committed;
+  const right = moveRight && !committed;
+  const direction = (right ? 1 : 0) - (left ? 1 : 0);
   if (direction !== 0) facing = direction > 0 ? 1 : -1;
 
-  stepBody(player, { left: moveLeft, right: moveRight, jump: jumpPressed, jumpHeld }, dt, solidAt, { grid: TILE });
+  stepBody(player, { left, right, jump: jumpPressed, jumpHeld }, dt, solidAt, { grid: TILE });
 
   for (const enemy of enemies) {
     if (!enemy.alive) continue;
