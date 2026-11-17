@@ -47,9 +47,9 @@ type RunnerState = {
   simMs: number;
   /**
    * Where a death sends you back to. Published because the only rule that matters about it —
-   * "a respawn is never inside something that kills you" — cannot be checked from outside
-   * unless the value the rule uses is visible. QA had to infer it from `x` and found a 4.2 px
-   * overlap that no one could see.
+   * "a respawn is never inside, or right next to, what killed you" — cannot be checked from
+   * outside unless the value the rule uses is visible. QA had to infer it from `x` and found a
+   * 4.2 px overlap that no one could see.
    */
   safe: { x: number; y: number };
   /** Jump physics, published so a harness can pin the feel without reading the source. */
@@ -114,13 +114,18 @@ function solidAt(left: number, top: number, right: number, bottom: number): bool
   return false;
 }
 
-function hazardAt(body: Body): boolean {
-  for (let row = Math.floor(body.y / TILE); row <= Math.floor((body.y + body.h - 0.001) / TILE); row += 1) {
-    for (let column = Math.floor(body.x / TILE); column <= Math.floor((body.x + body.w - 0.001) / TILE); column += 1) {
+/** Any hazard tile a rectangle touches. Split out of `hazardAt` so the safe rule can widen it. */
+function hazardsIn(x: number, y: number, w: number, h: number): boolean {
+  for (let row = Math.floor(y / TILE); row <= Math.floor((y + h - 0.001) / TILE); row += 1) {
+    for (let column = Math.floor(x / TILE); column <= Math.floor((x + w - 0.001) / TILE); column += 1) {
       if (isHazardTile(column, row)) return true;
     }
   }
   return false;
+}
+
+function hazardAt(body: Body): boolean {
+  return hazardsIn(body.x, body.y, body.w, body.h);
 }
 
 let spawn = spawnPoint();
@@ -141,6 +146,12 @@ const deathLog: DeathRecord[] = [];
 let respawnSeconds = 0;
 let clock = 0;
 let simSeconds = 0;
+/**
+ * How much clear ground a respawn point needs around it: 300 ms of running at 320 px/s.
+ * A death that returns you 5 px from the thing that killed you is the same trap, just slower.
+ */
+const SAFE_CLEARANCE = 96;
+
 /** The last place the runner stood safely: a death returns there. */
 let safe = { x: body.x, y: body.y };
 
@@ -371,14 +382,17 @@ function makeEnemy(): Enemy | null {
   const patrol = patrolRange();
   if (patrol === null) return null;
   const w = 24;
+  // `dir: -1` starts at the far end of the lane, walking back at the runner: that is the whole
+  // difference between "a thing patrols over there" and "something is coming for you".
+  const x = patrol.dir === 1 ? patrol.minX : patrol.maxX - w;
   return {
-    x: Math.round((patrol.minX + patrol.maxX) / 2) - w / 2,
+    x,
     y: 10 * TILE + 2,
     w,
     h: 26,
     minX: patrol.minX,
     maxX: patrol.maxX,
-    dir: 1,
+    dir: patrol.dir,
     speed: 55,
   };
 }
@@ -747,11 +761,16 @@ const loop = createLoop({
         solidAt,
       );
       stepEnemy(dt);
-      // "Grounded" is not the same as "safe". Standing on a spike tile is grounded and lethal,
-      // and because this ran before the hazard check below, the spot you died on became the spot
-      // you respawned to — on level 2 that meant dying again on the next frame, for ever, while
-      // holding right. A safe place has to be one that cannot kill you.
-      if (body.grounded && body.vy === 0 && !hazardAt(body)) {
+      // "Grounded" is not the same as "safe", and "safe" is not the same as "far enough".
+      //
+      // Asking only `!hazardAt(body)` stops standing *on* a spike from becoming the respawn point,
+      // but leaves the respawn 0.8 px from one — and at 5.33 px per frame, holding right killed the
+      // player again on the next frame. The interval between deaths stretched from 17 ms to 600 ms
+      // and the trap stayed exactly where it was.
+      //
+      // 96 px is 300 ms of running at MOVE_SPEED (320 px/s): enough time to see the hazard, choose,
+      // and act. A spot with less than that around it is not somewhere a death may return you.
+      if (body.grounded && body.vy === 0 && hazardsIn(body.x - SAFE_CLEARANCE, body.y, body.w + SAFE_CLEARANCE * 2, body.h) === false) {
         safe = { x: body.x, y: body.y };
       }
       if (!wasGrounded && body.grounded) {
