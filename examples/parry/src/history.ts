@@ -93,8 +93,11 @@ export function bestLine(best: Best | null): string {
   }
   const parries = `${best.parried} ${best.parried === 1 ? "parry" : "parries"}`;
   const lives = `${best.lives} ${best.lives === 1 ? "life" : "lives"}`;
-  const time = best.clearSeconds === null ? "no clear yet" : `${best.clearSeconds.toFixed(1)}s clear`;
-  return `Best: ${parries}, ${lives}, ${time}`;
+  if (best.clearSeconds === null) {
+    // An endless run never clears, so there is nothing to compare a clear time with.
+    return `Best: ${parries}, ${lives}`;
+  }
+  return `Best: ${parries}, ${lives}, ${best.clearSeconds.toFixed(1)}s clear`;
 }
 
 /**

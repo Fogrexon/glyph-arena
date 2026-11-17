@@ -6,6 +6,18 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+### Changed
+
+- `examples/parry` is an **endless run** now. The fixed 20-wave script is gone: waves come from
+  `waveAt(index)` and never run out, a parry scores **100**, dodging keeps you alive but scores nothing,
+  and the run ends on the **third hit** instead of reaching wave 20. Every 30 s the enemies move 10%
+  faster and one more arrives at a time (`endless.ts`, capped at 4 at once and 320 px/s). An enemy that
+  leaves the arena **wraps to the opposite side** instead of disappearing, so running away never clears
+  the field - the old despawn would have made dodging the safe way to play. The HUD leads with
+  `Score`, then `Lives`, then `Wave · parried/attempts`; the title carries the one-line purpose.
+  `window.__parryState` gains **`score`** and **`attempts`** (demo-only; no package API change;
+  `index-*.js` changes)
+
 ### Added
 
 - `examples/parry`: the wave table is generated now (`waveAt(index)` / `waveShapeAt(index)`) instead of being
