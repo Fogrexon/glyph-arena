@@ -1,0 +1,22 @@
+{
+  "name": "@fogrexon/glyph-arena-runner-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:pages": "vite build",
+    "preview": "vite preview",
+    "test": "tsx --test test/**/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@fogrexon/glyph-arena-actions": "workspace:*",
+    "@fogrexon/glyph-arena-input": "workspace:*",
+    "@fogrexon/glyph-arena-loop": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5"
+  }
+}
