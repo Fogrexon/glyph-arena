@@ -10,6 +10,7 @@
     "check:pack": "node scripts/check-pack-rebuilds.mjs",
     "smoke:pack-install": "node scripts/smoke-pack-install.mjs",
     "publish:npm": "node scripts/publish-npm.mjs",
+    "check:readme": "node scripts/check-umbrella-readme.mjs",
     "docs:render": "node scripts/render-docs.mjs",
     "e2e:demo": "node scripts/e2e-demo.mjs",
     "e2e:runner": "node scripts/e2e-runner.mjs",
