@@ -8,6 +8,20 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Added
 
+- **`pnpm check:deployed --write --pr`** — the deploy record now goes to `main` through a pull
+  request, in one command: create the branch, send `docs/bundles.json`, open the PR, wait for
+  `verify`, squash-merge, and read `main` back. `main` is protected (PR required, `verify`
+  required, admins included) and this container has no git credentials, so the API is the only
+  road; doing it by hand is what let a dropped workflow file 404 `/runner/` for half an hour.
+  The command is built around the three failures that actually happened, as assertions: the
+  branch is read back **before** any file is written (a missing branch makes the file API commit
+  to the default branch silently), the PR's `changed_files` must equal the number of files sent,
+  and a merge whose `main` did not move is an error. Needs `GITHUB_TOKEN`; without one it says so
+  and changes nothing. `--pr --dry-run` prints the plan. `--write` alone still just edits the file
+  locally. Covered by `pnpm test:scripts` against a fake GitHub (no token, no network).
+
+### Added
+
 - **`pnpm e2e:runner`** (CI step 9) — the runner slice's acceptance, read from
   `window.__runnerState` rather than from pixels or a stopwatch: ① a second of running
   kills nobody, the ground holds and the camera moves into a world wider than the window,

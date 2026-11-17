@@ -82,6 +82,10 @@ function check(ok, label, detail) {
     console.log(`ok   ${label}${detail ? ` — ${detail}` : ""}`);
   } else {
     console.error(`FAIL ${label}${detail ? ` — ${detail}` : ""}`);
+    // On Actions this becomes an annotation on the check run, which is the only
+    // way to read a failure from here: this container has no token for the job
+    // log, so a failure that is only in the log is a failure nobody can see.
+    console.error(`::error::${label}${detail ? ` — ${detail}` : ""}`);
     failures.push(label);
   }
 }
@@ -407,6 +411,7 @@ async function runDesktop(browser, baseUrl, errors) {
     if (!(await startPlaying(page))) {
       check(false, "R4: the run starts for the death check", "phase never reached play");
     } else {
+      await page.bringToFront();
       // Hold right and do not jump: the gap in the floor is the first thing
       // that can kill you, and running at it is what a player does.
       await page.keyboard.down("ArrowRight");
@@ -422,7 +427,15 @@ async function runDesktop(browser, baseUrl, errors) {
       const back = respawn.samples[respawn.samples.length - 1];
 
       if (!died || !lastAlive) {
-        check(false, "R4: the pit is lethal", died ? "no grounded sample before the death" : "no death in 14s of running right");
+        const last = runUntilDeath.samples.at(-1);
+        check(
+          false,
+          "R4: the pit is lethal",
+          died
+            ? "no grounded sample before the death"
+            : `no death in 14s of running right (last: phase ${last?.phase}, x ${last?.x?.toFixed(0)}, ` +
+              `vx ${last?.vx?.toFixed(0)}, grounded ${last?.grounded}, ${runUntilDeath.samples.length} samples)`,
+        );
       } else if (!respawn.hit || !back) {
         check(false, "R4: the player comes back", `still ${runUntilDeath.samples.at(-1)?.phase} after 3s`);
       } else {
@@ -434,15 +447,25 @@ async function runDesktop(browser, baseUrl, errors) {
           "R4: the respawn countdown is the spec's 0.6s",
           `__runnerState said ${countdown}ms (wall clock ${wallClock}ms, inside polling slop)`,
         );
-        const verdict = judgeRespawn({ deathX: lastAlive.x, respawnX: back.x, grounded: back.grounded });
+        // The first play frame after a respawn is still in the air: `respawn()`
+        // builds the body at the safe spot and the next physics step is what
+        // makes it grounded. Sampling that frame and calling it "not on ground"
+        // is the check being early, not the game being wrong — wait for the
+        // landing, and fail if it never lands.
+        const landed = await until(page, (s) => s.phase === "play" && s.deaths > 0 && s.grounded, {
+          timeoutMs: 900,
+          poll: 20,
+        });
+        const settled = landed.samples.at(-1) ?? back;
+        const verdict = judgeRespawn({ deathX: lastAlive.x, respawnX: settled.x, grounded: settled.grounded });
         check(
           verdict.ok,
           "R4: the respawn point obeys the rule for the way you died",
           verdict.ok
-            ? `${verdict.kind} — ${lastAlive.x.toFixed(0)} → ${back.x.toFixed(0)} px (${verdict.retreat.toFixed(0)})`
-            : verdict.why,
+            ? `${verdict.kind} — ${lastAlive.x.toFixed(0)} → ${settled.x.toFixed(0)} px (${verdict.retreat.toFixed(0)})`
+            : `${verdict.why}${landed.hit ? "" : " — it never landed within 900ms of the respawn"}`,
         );
-        check(back.deaths === 1, "R4: one death is counted once", `deaths ${back.deaths}`);
+        check(settled.deaths === 1, "R4: one death is counted once", `deaths ${settled.deaths}`);
       }
     }
     if (process.env.E2E_KEEP) await page.screenshot({ path: join(ROOT, "e2e-runner.png") });
@@ -507,7 +530,8 @@ async function runTouch(browser, baseUrl, errors) {
       await pointer(page, "pointerup", pads[label].x, pads[label].y);
       await page.waitForTimeout(60);
       const vx = samples.length > 0 ? samples[samples.length - 1].vx : Number.NaN;
-      return { vx, minVy: Math.min(...samples.map((s) => s.vy)), samples: samples.length, type };
+      const minVy = samples.length > 0 ? Math.min(...samples.map((s) => s.vy)) : Number.NaN;
+      return { vx, minVy, samples: samples.length, type };
     };
 
     const settle = async () => page.waitForTimeout(220);
@@ -595,6 +619,8 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(`e2e (runner) crashed: ${error.stack ?? error.message}`);
+  const message = `e2e (runner) crashed: ${error.stack ?? error.message}`;
+  console.error(message);
+  console.error(`::error::${message.split("\n")[0]}`);
   process.exitCode = 1;
 });

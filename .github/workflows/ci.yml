@@ -52,6 +52,12 @@ jobs:
       # contacted; S4 in the script proves the check actually reads types.
       - run: pnpm smoke:pack-install
 
+      # The record-PR flow (`pnpm check:deployed --write --pr`) against a fake
+      # GitHub: the branch exists before the file is sent, a PR carrying more
+      # files than we sent is never merged, and a "merged" that leaves main
+      # where it was counts as a failure. No network, no token.
+      - run: pnpm test:scripts
+
       - run: pnpm -r test
 
       # 8. The demo in a real browser: the 3 s hazard grace, "standing still
