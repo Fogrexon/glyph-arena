@@ -159,15 +159,23 @@ import { createInput } from "@fogrexon/glyph-arena";
 const input = createInput();
 input.attach(window);
 
+let wasHeld = false; // module scope, next to the body
+
 // inside onFrame
 const keys = input.snapshot().keys;
 const left = keys.has("ArrowLeft") || keys.has("KeyA");
 const right = keys.has("ArrowRight") || keys.has("KeyD");
-const jump = keys.has("Space");
+const jumpHeld = keys.has("Space");
+const jump = jumpHeld && !wasHeld; // the edge, not the hold
+wasHeld = jumpHeld;
 ```
 
 `attach` takes any `EventTarget`, so the same code works on `window`, an element, or a test double.
 `snapshot()` is a copy: the set you read cannot change under you mid-frame.
+
+`jump` is the edge and `jumpHeld` is the level. `stepBody` arms its jump buffer for as long as
+`input.jump` is true, so handing it the held state for both makes the body jump again the moment it
+lands — the difference between "jump" and "bounce for as long as the key is down".
 
 ## 7. A camera that follows
 
@@ -261,6 +269,7 @@ const solid = (left: number, top: number, right: number, bottom: number) =>
 
 const player = createBody({ x: 70, y: 100, w: 20, h: 28 }, feel);
 const camera = createCamera();
+let jumpWasHeld = false; // `jump` is the edge: a press, not "the key is down"
 
 console.log(jumpHeightOf(feel)); // 111.08 px, from the same config the body uses
 
@@ -268,14 +277,17 @@ createLoop({
   onFrame: ({ delta }) => {
     const dt = Math.min(delta, 1 / 30); // a long frame must not teleport the body
     const keys = input.snapshot().keys;
+    const jumpHeld = keys.has("Space");
+    const jump = jumpHeld && !jumpWasHeld;
+    jumpWasHeld = jumpHeld;
 
     stepBody(
       player,
       {
         left: keys.has("ArrowLeft") || keys.has("KeyA"),
         right: keys.has("ArrowRight") || keys.has("KeyD"),
-        jump: keys.has("Space"),
-        jumpHeld: keys.has("Space"),
+        jump,
+        jumpHeld,
       },
       dt,
       solid,
