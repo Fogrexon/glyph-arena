@@ -27,7 +27,7 @@ import { createLoop } from "@fogrexon/glyph-arena-loop";
 import { createForest } from "@fogrexon/glyph-arena-scene";
 import { createTimer } from "@fogrexon/glyph-arena-timer";
 import { createTransform } from "@fogrexon/glyph-arena-transform";
-import { createTween } from "@fogrexon/glyph-arena-tween";
+import { approach, createTween } from "@fogrexon/glyph-arena-tween";
 
 import type { Actions } from "@fogrexon/glyph-arena-actions";
 import type { Assets } from "@fogrexon/glyph-arena-assets";
@@ -63,6 +63,8 @@ export const publicFactories = {
   timer: createTimer,
   transform: createTransform,
   tween: createTween,
+  // Not just the factory: a second value export proves the package surface reaches consumers.
+  tweenApproach: approach,
 } satisfies Record<string, unknown>;
 
 /** One type per package: fails if a declaration stops exporting it. */

@@ -35,3 +35,24 @@ Returns a tween runner with:
 - `durationSeconds === 0` completes on the next `tick()`; `get` is `undefined` afterward.
 - After the completing `tick()`, `get` is `undefined` (the final value is not retained).
 - If `ease` throws, that tween is removed; other tweens continue; the first error is rethrown.
+
+### `approach(current, aim, dt, options?)`
+
+Move `current` toward `aim` by `rate` per second and return the new value. This is the scalar
+version of a camera, a health bar that drains smoothly, or a steering value that must not snap: the
+aim may move every frame, there is no duration and no completion, so there is nothing to cancel.
+
+```ts
+import { approach } from "@fogrexon/glyph-arena-tween";
+
+let cameraX = 0;
+
+// every frame
+cameraX = approach(cameraX, body.x - viewWidth * 0.33, dt, { rate: 8 });
+```
+
+- `rate` — how much of the remaining gap to close per second. Default `8`.
+- The step is `clamp(dt * rate, 0, 1)`, so a long frame (a stall, a tab switch) closes the whole gap
+  instead of overshooting it and bouncing back. `dt <= 0` or a non-finite `dt` returns `current`
+  unchanged, which is what a paused frame should do.
+- Not `to()`: a tween has a fixed duration and an end; this chases a moving aim forever.
