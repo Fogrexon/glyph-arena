@@ -13,7 +13,18 @@ import { createTimer } from "@fogrexon/glyph-arena-timer";
 import { createTransform, type Matrix2D } from "@fogrexon/glyph-arena-transform";
 import { createTween } from "@fogrexon/glyph-arena-tween";
 import { bestLine, bestOf, comparisonLine, isImprovement, isNewBest, type RunSummary } from "./history";
-import { CONTACT_DISTANCE, WAVES } from "./waves";
+import {
+  concurrentAt,
+  MAX_ENEMY_SPEED,
+  PARRY_SCORE,
+  PRECISE_BONUS,
+  PRECISE_PARRY_MS,
+  STREAK_BONUS,
+  STREAK_LENGTH,
+  speedRampAt,
+  wrapAxis,
+} from "./endless";
+import { CONTACT_DISTANCE, WAVES, waveAt } from "./waves";
 
 type Phase = "title" | "play" | "result";
 
@@ -27,6 +38,9 @@ type Phase = "title" | "play" | "result";
 type ParryState = {
   phase: Phase;
   parried: number;
+  /** Dashes thrown at a closing enemy: the denominator of the hit rate. */
+  attempts: number;
+  score: number;
   lives: number;
   wave: number;
   /** Physics: projected time until the boxes touch, the number on the HUD. */
@@ -37,17 +51,19 @@ type ParryState = {
   contactDirX: number | null;
   contactDirY: number | null;
   /** Every enemy that will actually reach the player, soonest first: `contactDir` is the first. */
-  threats: Array<{ ms: number; dirX: number; dirY: number }>;
+  threats: Array<{ id: number; ms: number; dirX: number; dirY: number }>;
   windowMs: number;
   /** How long a dash lasts, so "press a little early" is arithmetic instead of a magic number. */
   dashMs: number;
   /** The session's best run, or null before the first one ends. `clearMs` is null until a clear. */
   best: { parried: number; lives: number; clearMs: number | null } | null;
-  /**
-   * Enemies still on the field. Cleared, hit and off-screen enemies all leave it, so a run that
-   * misses a wave still reaches zero and the clear condition can fire.
-   */
+  /** Enemies still on the field. Wrapped ones stay on it; a parry or a hit is what removes one. */
   enemyCount: number;
+  /** Endless ramps, so a harness can see the step-up without inferring it from the speed. */
+  speedRamp: number;
+  concurrent: number;
+  /** How many times an enemy has wrapped. A wrap is the one event that legitimately teleports one. */
+  wrapCount: number;
 };
 
 type Matrix6 = [number, number, number, number, number, number];
@@ -219,10 +235,20 @@ async function main(): Promise<void> {
 
   const enemies: Drawable[] = [];
   const entityNodes = new Map<Entity, Node>();
+  /** Frame a given enemy wrapped on: it is not a candidate on that frame (its position jumped). */
+  const wrappedOnFrame = new Map<Entity, number>();
+  let frameId = 0;
+  let wrapCount = 0;
+  /** A stable id per enemy, so a harness can follow one enemy instead of only "the nearest". */
+  const enemyIds = new Map<Entity, number>();
+  let nextEnemyId = 1;
 
   let scheduleSeconds = 0;
   let lives = INITIAL_LIVES;
   let parried = 0;
+  let attempts = 0;
+  let score = 0;
+  let parryStreak = 0;
   let waveIndex = 0;
   let lastErrorMs: number | null = null;
   const errorSamples: number[] = [];
@@ -280,14 +306,10 @@ async function main(): Promise<void> {
     return PARRY_WINDOW_START + (PARRY_WINDOW_END - PARRY_WINDOW_START) * progress;
   }
 
-  function spawnWave(index: number): void {
-    const wave = WAVES[index];
-    if (wave === undefined) {
-      return;
-    }
-    const radians = (wave.angle * Math.PI) / 180;
-    const spawnX = WORLD_WIDTH / 2 + Math.cos(radians) * wave.radius;
-    const spawnY = WORLD_HEIGHT / 2 + Math.sin(radians) * wave.radius;
+  function spawnEnemy(angle: number, radius: number, speed: number): void {
+    const radians = (angle * Math.PI) / 180;
+    const spawnX = WORLD_WIDTH / 2 + Math.cos(radians) * radius;
+    const spawnY = WORLD_HEIGHT / 2 + Math.sin(radians) * radius;
     const enemy = spawnEntity("enemy", nodeAabb(spawnX, spawnY, ENEMY_SIZE, ENEMY_SIZE), ENEMY_SIZE);
     const playerCenter = centerOf(getAabb(playerEntity));
     const enemyCenter = centerOf(getAabb(enemy.entity));
@@ -295,10 +317,27 @@ async function main(): Promise<void> {
     const dy = playerCenter.y - enemyCenter.y;
     const length = Math.hypot(dx, dy) || 1;
     world.set(enemy.entity, COMPONENT_VELOCITY, {
-      vx: (dx / length) * wave.speed,
-      vy: (dy / length) * wave.speed,
+      vx: (dx / length) * speed,
+      vy: (dy / length) * speed,
     } satisfies Velocity);
     enemies.push(enemy);
+  }
+
+  /**
+   * One slot of the endless run: the generated wave, plus whatever the clock has added.
+   *
+   * `waveAt` decides the angle, the radius and when it should arrive; the ramps decide how fast
+   * it moves and how many arrive together. Index is unbounded -- a run stops when the player is
+   * hit three times, not when a table runs out.
+   */
+  function spawnWave(index: number): void {
+    const wave = waveAt(index);
+    const speed = Math.min(wave.speed * speedRampAt(scheduleSeconds), MAX_ENEMY_SPEED);
+    const count = concurrentAt(scheduleSeconds);
+    const spread = 360 / count;
+    for (let slot = 0; slot < count; slot += 1) {
+      spawnEnemy(wave.angle + slot * spread, wave.radius, speed);
+    }
   }
 
   function removeEnemy(index: number): void {
@@ -306,6 +345,7 @@ async function main(): Promise<void> {
     const node = entityNodes.get(enemy.entity);
     world.despawn(enemy.entity);
     entityNodes.delete(enemy.entity);
+    enemyIds.delete(enemy.entity);
     if (node !== undefined) {
       forest.destroy(node);
     }
@@ -329,6 +369,17 @@ async function main(): Promise<void> {
     lastErrorMs = Math.round((distance / speed) * 1000);
     errorSamples.push(lastErrorMs);
     parried += 1;
+    // Scored here, never derived from how many enemies are left: a hit removes an enemy too, and a
+    // score that moved on a hit would reward the wrong thing.
+    let earned = PARRY_SCORE;
+    if (Math.abs(lastErrorMs) <= PRECISE_PARRY_MS) {
+      earned += PRECISE_BONUS;
+    }
+    parryStreak += 1;
+    if (parryStreak % STREAK_LENGTH === 0) {
+      earned += STREAK_BONUS;
+    }
+    score += earned;
     removeEnemy(index);
     hitstopUntil = scheduleSeconds + HITSTOP_SECONDS;
     shakeUntil = scheduleSeconds + 0.18;
@@ -345,6 +396,7 @@ async function main(): Promise<void> {
 
   function damagePlayer(): void {
     lives -= 1;
+    parryStreak = 0;
     if (lives <= 0) {
       fail();
       return;
@@ -396,12 +448,6 @@ async function main(): Promise<void> {
     phase = "result";
   }
 
-  function clear(): void {
-    resultText = "CLEAR";
-    recordRun("CLEAR");
-    phase = "result";
-  }
-
   function resetRun(): void {
     for (let index = enemies.length - 1; index >= 0; index -= 1) {
       removeEnemy(index);
@@ -409,6 +455,9 @@ async function main(): Promise<void> {
     enemies.length = 0;
     lives = INITIAL_LIVES;
     parried = 0;
+    attempts = 0;
+    score = 0;
+    parryStreak = 0;
     waveIndex = 0;
     lastErrorMs = null;
     errorSamples.length = 0;
@@ -595,13 +644,16 @@ async function main(): Promise<void> {
     (window as typeof window & { __parryState?: ParryState }).__parryState = {
       phase,
       parried,
+      attempts,
+      score,
       lives,
-      wave: Math.min(waveIndex, WAVES.length),
+      wave: waveIndex,
       contactMs: contact === null ? null : Math.round(contact.seconds * 1000),
       pressMs: contact === null ? null : Math.round(contact.pressSeconds * 1000),
       contactDirX: contact === null ? null : Math.round(contact.dirX * 1000) / 1000,
       contactDirY: contact === null ? null : Math.round(contact.dirY * 1000) / 1000,
       threats: closing.map((threat) => ({
+        id: threat.id,
         ms: Math.round(threat.pressSeconds * 1000),
         dirX: Math.round(threat.dirX * 1000) / 1000,
         dirY: Math.round(threat.dirY * 1000) / 1000,
@@ -609,6 +661,9 @@ async function main(): Promise<void> {
       windowMs: Math.round(parryWindow() * 1000),
       dashMs: Math.round(DASH_DURATION * 1000),
       enemyCount: enemies.length,
+      speedRamp: speedRampAt(scheduleSeconds),
+      concurrent: concurrentAt(scheduleSeconds),
+      wrapCount,
       best: publishBest(),
     };
   }
@@ -626,7 +681,7 @@ async function main(): Promise<void> {
     };
   }
 
-  type Threat = { seconds: number; pressSeconds: number; dirX: number; dirY: number };
+  type Threat = { id: number; seconds: number; pressSeconds: number; dirX: number; dirY: number };
 
   /**
    * Every enemy that is actually closing in, soonest first.
@@ -646,6 +701,11 @@ async function main(): Promise<void> {
       if (speed === 0) {
         continue;
       }
+      // The frame an enemy wraps is the one frame its position is a lie: skip it, or the HUD and
+      // `__parryState` would offer a contact time that belongs to the far side of the arena.
+      if (wrappedOnFrame.get(enemy.entity) === frameId) {
+        continue;
+      }
       const enemyCenter = centerOf(getAabb(enemy.entity));
       const dx = playerCenter.x - enemyCenter.x;
       const dy = playerCenter.y - enemyCenter.y;
@@ -663,6 +723,7 @@ async function main(): Promise<void> {
       }
       const distance = Math.hypot(dx, dy) || 1;
       threats.push({
+        id: enemyIds.get(enemy.entity) ?? 0,
         seconds,
         pressSeconds: distance / speed,
         // Player -> enemy, so dashing along it goes *into* the incoming box.
@@ -689,10 +750,14 @@ async function main(): Promise<void> {
     if (phase === "play") {
       ctx.fillStyle = "#e8eaed";
       ctx.font = "20px system-ui, sans-serif";
-      ctx.fillText(`Parried: ${parried}`, 16, 32);
+      ctx.fillText(`Score: ${score}`, 16, 32);
       ctx.font = "16px system-ui, sans-serif";
       ctx.fillText(`Lives: ${lives}`, 16, 56);
-      ctx.fillText(`Wave: ${Math.min(waveIndex, WAVES.length)}/${WAVES.length}`, 16, 78);
+      ctx.fillText(
+        `Wave: ${waveIndex} \u00b7 ${parried}/${attempts} parried`,
+        16,
+        78,
+      );
       if (parried === 0 && waveIndex === 1 && enemies.length > 0) {
         ctx.fillStyle = "#fbbf24";
         ctx.font = "18px system-ui, sans-serif";
@@ -716,9 +781,13 @@ async function main(): Promise<void> {
       ctx.fillStyle = "#e8eaed";
       ctx.font = "20px system-ui, sans-serif";
       const latest = runHistory[runHistory.length - 1];
-      ctx.fillText(`Parried: ${parried}/${WAVES.length}`, 16, 32);
+      ctx.fillText(`Score: ${score}`, 16, 32);
       ctx.font = "16px system-ui, sans-serif";
-      ctx.fillText(`Reached wave: ${latest === undefined ? 0 : latest.wave}/${WAVES.length}`, 16, 56);
+      ctx.fillText(
+        `Parried: ${parried}/${attempts} \u00b7 reached wave ${latest === undefined ? 0 : latest.wave}`,
+        16,
+        56,
+      );
       ctx.fillText(
         `Median error: ${latest === undefined || latest.parried === 0 ? "\u2014" : `${latest.absoluteMs}ms`}`,
         16,
@@ -837,7 +906,7 @@ async function main(): Promise<void> {
         ctx.fillText("Parry", 16, 48);
         ctx.font = "18px system-ui, sans-serif";
         const subtitleLines = drawWrapped(
-          "Dash into an incoming enemy to parry it \u2014 20 waves",
+          "Dash into an enemy to parry it for 100 points. Dodging keeps you alive but scores nothing. Three hits and the run is over.",
           16,
           84,
           canvas.width - 32,
@@ -863,6 +932,7 @@ async function main(): Promise<void> {
         phase = "play";
       }
 
+      frameId += 1;
       if (phase === "play" && scheduleSeconds < hitstopUntil) {
         // Hitstop: hold the world still for a moment so a parry lands with weight.
         // The clock has to keep running - it is what the stop is measured against, so freezing it
@@ -895,6 +965,11 @@ async function main(): Promise<void> {
 
         if (query.pressed("dash") && scheduleSeconds >= dashUntil) {
           dashUntil = scheduleSeconds + DASH_DURATION;
+          // Counted only when an enemy is close enough to be worth dashing at, so a stray tap
+          // does not poison the hit rate the result screen shows.
+          if (nextContactSeconds() !== null) {
+            attempts += 1;
+          }
         }
         const dashing = scheduleSeconds < dashUntil;
         const speed = dashing ? DASH_SPEED : MOVE_SPEED;
@@ -920,17 +995,17 @@ async function main(): Promise<void> {
           const box = getAabb(enemy.entity);
           const velocity = (world.get(enemy.entity, COMPONENT_VELOCITY) as Velocity | undefined) ?? { vx: 0, vy: 0 };
           const next = { ...box, x: box.x + velocity.vx * delta, y: box.y + velocity.vy * delta };
+          // Wrap, do not delete: an enemy that leaves the arena comes back on the other side, so
+          // dodging never clears the field. Deleting it would make running away the safe play.
           const center = centerOf(next);
-          if (
-            center.x < -OFFSCREEN_MARGIN ||
-            center.x > WORLD_WIDTH + OFFSCREEN_MARGIN ||
-            center.y < -OFFSCREEN_MARGIN ||
-            center.y > WORLD_HEIGHT + OFFSCREEN_MARGIN
-          ) {
-            removeEnemy(index);
-            continue;
+          const wrappedX = wrapAxis(center.x, WORLD_WIDTH, OFFSCREEN_MARGIN);
+          const wrappedY = wrapAxis(center.y, WORLD_HEIGHT, OFFSCREEN_MARGIN);
+          const moved = wrappedX - center.x !== 0 || wrappedY - center.y !== 0;
+          if (moved) {
+            wrappedOnFrame.set(enemy.entity, frameId);
+            wrapCount += 1;
           }
-          setAabb(enemy.entity, next);
+          setAabb(enemy.entity, moved ? { ...next, x: next.x + (wrappedX - center.x), y: next.y + (wrappedY - center.y) } : next);
         }
 
         // Parry check: only while dashing, only inside the forward box, only for enemies still ahead.
@@ -982,12 +1057,13 @@ async function main(): Promise<void> {
           }
         }
 
-        while (waveIndex < WAVES.length && WAVES[waveIndex].at <= scheduleSeconds) {
+        // Unbounded on purpose: the run ends on the third hit, not on a table running out. The
+        // budget stops a single frame from spawning a burst after a long stall.
+        let spawned = 0;
+        while (spawned < 8 && waveAt(waveIndex).at <= scheduleSeconds) {
           spawnWave(waveIndex);
           waveIndex += 1;
-        }
-        if (waveIndex >= WAVES.length && enemies.length === 0 && lives > 0) {
-          clear();
+          spawned += 1;
         }
 
         scheduleSeconds += delta;
