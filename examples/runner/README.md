@@ -71,8 +71,9 @@ of it is `R`.
 ## Measured on the published build
 
 All of the below was measured on <https://fogrexon.github.io/glyph-arena/runner/> on 2026-11-17, against
-`assets/index-CN4uAbEF.js`, the bundle `/runner/` served when this was measured (`docs/bundles.json` records
-what each page ships now, which moves whenever the demo is rebuilt).
+`assets/index-CN4uAbEF.js`, the bundle `/runner/` served when this was measured (the served bundle moves
+whenever a demo is rebuilt; `pnpm check:served` compares what the build produced with what the site
+actually serves — there is no committed record).
 
 - **Start**: a held `Space` goes `title → play`, while a 0 ms `press("Space")` leaves it on the title; `R` returns to `title`, and starting from the title always begins at level 1.
 - **Run and jump**: `ArrowRight` for 0.5 s moved the body `x 70 → 217.6`; `Space` from a standing start lifted `y 324 → 219.2`, a **104.8 px** rise against the 111 px apex the physics publishes.
