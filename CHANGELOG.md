@@ -2,9 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. Documentation-only changes (`docs/`, `README.md`) update the published site without a new tag.
+Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. Documentation-only changes (`docs/`, `README.md`) update the published site without a new tag. The tag is also the npm version: `@fogrexon/glyph-arena` is published at the version the tag names (`pnpm publish:npm --publish`), so the two are always the same number.
 
 ## [Unreleased]
+
+## [0.2.0] - 2026-11-17
+
+The version the first npm publication carries: `@fogrexon/glyph-arena@0.2.0`. Nothing under this repository's `@fogrexon/glyph-arena-*` names is published on its own.
 
 ### Changed
 
