@@ -8,16 +8,35 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Fixed
 
-- **a respawn is never inside what killed you.** On level 2 the spikes sit at standing height, so
-  "grounded" and "safe" were not the same thing: the safe spot was recorded before the hazard
-  check, which made the tile you died on the tile you came back to. Holding right meant dying
-  again on the very next frame — QA measured **deaths 1 → 5 in three seconds with no input** —
-  and the only way out was to guess "jump and push left eight times". The fix is one condition
-  (`!hazardAt(body)`), and `__runnerState` now publishes **`safe`**, because the rule could not
-  be checked from outside while the value it uses was invisible: `e2e:runner` **R11** reads
-  `safe`, tests it against the level grid for a hazard tile, and then presses nothing for three
-  seconds. Against the bundle that was live (`index-ClwvVxu6.js`) R11 reports `deaths 1 → 6`;
-  with the fix, `safe (1131.2, 292.0)` is clear and `deaths 1 → 1`.
+- **a respawn is never inside what killed you, and never 5 px from it either.** On level 2 the
+  spikes sit at standing height, so "grounded" and "safe" were not the same thing: the safe spot
+  was recorded before the hazard check, which made the tile you died on the tile you came back to.
+  Holding right meant dying again on the very next frame — QA measured **deaths 1 → 5 in three
+  seconds**, and my first fix (skip a hazard tile) only stretched the interval between deaths from
+  **17 ms to 600 ms**: the respawn was still 0.8 px from the spikes, so the trap was unchanged.
+  A safe spot now has to be **96 px clear of any hazard** (300 ms at the 320 px/s run) — enough
+  time to see the spike, choose, and act — and `__runnerState` publishes **`safe`**, because the
+  rule could not be checked from outside while the value it uses was invisible.
+  `e2e:runner` **R11** measures it in the player's units: **R11a** the contract's `safe` is not a
+  hazard tile, **R11b** holding right after a respawn never becomes a death loop (a second death is
+  allowed, a 17 ms gap is not), **R11c** right plus jumps gets past the spikes without dying again.
+  Against the bundle that was live (`index-ClwvVxu6.js`): R11a/R11b/R11c all fail — 17 ms, and a
+  run that dies 17 times in 8 s without ever getting past x 1146. With the fix: `safe (940, 324)`,
+  no second death in three seconds of holding right, and x 1248 reached without a death.
+
+### Added
+
+- **runner: a third level, and the ground is the pressure.** Level 3 (`level.ts`, 78 columns)
+  keeps one long straight and spends the rest on places where holding right kills you: spikes on
+  the ground line in front of a one-tile step, spikes on the platform you land on from that step,
+  and spikes on the far side of a pit, so a jump is followed by another within half a second.
+  The walker in this level starts at the far end of its lane facing back (`dir: -1`) — the first
+  thing in the run that comes *at* you instead of patrolling away. Same walker, same speed, no new
+  behaviour: a chaser is a different unit.
+- **the straight R10b measures pursuit over is a named lane.** `chaseSightLane()` returns level
+  3's columns 3-8 (192 px, nothing above the floor), and `level.test.ts` checks every column of it
+  — the spec fixes the columns, so the test reads the function instead of repeating the numbers
+  (the `goalLineX()` rule). `levelCount` is 3 and R0 now expects `level 1 of 3`.
 
 ### Fixed
 
