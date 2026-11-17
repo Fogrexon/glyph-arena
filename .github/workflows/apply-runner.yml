@@ -26,6 +26,12 @@ jobs:
               echo "skipped $P"
             fi
           done
+          # A file too large for one API call arrives as numbered text parts.
+          if ls .github/m-*.txt >/dev/null 2>&1; then
+            cat .github/m-*.txt > examples/runner/src/main.ts
+            applied=1
+            echo "assembled main.ts from parts"
+          fi
           if [ "$applied" = "0" ]; then
             echo "nothing to apply"
             exit 0
@@ -33,5 +39,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "feat(runner): scaffold the platformer slice"
+          git commit -m "feat(runner): level, physics and the drawing loop"
           git push
