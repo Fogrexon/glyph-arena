@@ -68,7 +68,9 @@ Only one package is published: `@fogrexon/glyph-arena`. It bundles the 14 module
 
 ### Publishing
 
-`pnpm publish:npm` is the whole release step. It refuses to run unless `HEAD` is the tag `v<version>` from the umbrella, that tag exists on `origin`, the tree is clean, and npm does not already have the version; then it builds, packs, and runs `scripts/verify-published.mjs` against **that tarball** (license, ESM only, no `.cjs`, LICENSE shipped, relative declarations, every subpackage reachable, strict `tsc`). It publishes nothing by itself.
+`pnpm publish:npm` is the whole release step. It refuses to run unless `HEAD` is the tag `v<version>` from the umbrella, the tree is clean, and npm does not already have the version; then it builds, packs, and runs `scripts/verify-published.mjs` against **that tarball** (license, ESM only, no `.cjs`, LICENSE shipped, relative declarations, every subpackage reachable, strict `tsc`). It publishes nothing by itself.
+
+The tag is cut **locally** first — `git tag v<version>` on the release commit — and pushed only after the registry copy passes. A tag on `origin` whose version npm answers 404 for is worse than no tag: a clone sees a version it cannot install. `--publish` prints the `git push origin v<version>` line once the registry copy is verified.
 
 `NPM_TOKEN=<automation token> pnpm publish:npm --publish` publishes the exact tarball that passed, then re-runs the same verifier against `@fogrexon/glyph-arena@<version>` from the registry. The token needs to belong to the account that owns the `@fogrexon` scope.
 

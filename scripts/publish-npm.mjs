@@ -8,6 +8,10 @@
 // Running that against the tarball and then publishing *that tarball* is what makes the thing
 // we verified the thing npm received. The tag check exists because publishing an untagged commit
 // is how a tag and a published artifact drift apart.
+//
+// Order of the two public facts: the tag is cut **locally** (so the commit is the commit), the
+// tarball is published, the registry copy is verified, and only then is the tag pushed. A tag on
+// `origin` whose version npm answers 404 for tells a clone to install something that is not there.
 import { execFileSync } from "node:child_process";
 import { chmodSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -27,16 +31,23 @@ const version = JSON.parse(readFileSync(join(DIR, "package.json"), "utf8")).vers
 const tag = `v${version}`;
 console.log(`publish ${PKG}@${version} (tag ${tag})\n`);
 
-// 1) HEAD must be the tagged commit, and the tag must exist on origin: a local-only tag would
-// publish a commit nobody can fetch.
+// 1) HEAD must be the tagged commit. The tag is cut locally and pushed only after the registry
+// copy is verified: a tag on `origin` whose version npm answers 404 for tells a clone to install
+// something that does not exist.
 let head = "";
 try { head = sh("git", ["describe", "--tags", "--exact-match", "HEAD"]).trim(); } catch {
-  die(`HEAD is not an exact tag — cut ${tag} first`);
+  die(`HEAD is not an exact tag — cut ${tag} first (git tag ${tag})`);
 }
 if (head !== tag) die(`HEAD is tagged ${head}, package version is ${version}`);
 ok(`HEAD is ${head}`);
-if (!sh("git", ["ls-remote", "--tags", "origin", `refs/tags/${tag}`]).trim()) die(`origin has no ${tag}`);
-ok(`origin has ${tag}`);
+const onOrigin = sh("git", ["ls-remote", "--tags", "origin", `refs/tags/${tag}`]).trim();
+if (onOrigin) {
+  const remoteSha = onOrigin.split(/\s+/)[0];
+  if (remoteSha !== sh("git", ["rev-parse", "HEAD"]).trim()) die(`origin's ${tag} is ${remoteSha}, not HEAD`);
+  info(`origin already has ${tag} (it will point at a published version once this run finishes)`);
+} else {
+  info(`origin has no ${tag} yet — it is pushed after the registry copy is verified`);
+}
 
 // 2) A dirty tree means the tarball would not be the tagged source.
 const dirty = sh("git", ["status", "--porcelain"]).trim();
@@ -100,4 +111,5 @@ try {
   }
   if (!good) die("published, but the registry copy failed verification");
   console.log(`\nDONE  https://www.npmjs.com/package/${PKG}/v/${version}`);
+  if (!onOrigin) console.log(`now the tag, which is local only:  git push origin ${tag}`);
 } finally { rmSync(packDir, { recursive: true, force: true }); }
