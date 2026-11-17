@@ -8,6 +8,19 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Fixed
 
+- **a respawn is never inside what killed you.** On level 2 the spikes sit at standing height, so
+  "grounded" and "safe" were not the same thing: the safe spot was recorded before the hazard
+  check, which made the tile you died on the tile you came back to. Holding right meant dying
+  again on the very next frame — QA measured **deaths 1 → 5 in three seconds with no input** —
+  and the only way out was to guess "jump and push left eight times". The fix is one condition
+  (`!hazardAt(body)`), and `__runnerState` now publishes **`safe`**, because the rule could not
+  be checked from outside while the value it uses was invisible: `e2e:runner` **R11** reads
+  `safe`, tests it against the level grid for a hazard tile, and then presses nothing for three
+  seconds. Against the bundle that was live (`index-ClwvVxu6.js`) R11 reports `deaths 1 → 6`;
+  with the fix, `safe (1131.2, 292.0)` is clear and `deaths 1 → 1`.
+
+### Fixed
+
 - **runner: the result screens answer a tap.** The goal screen said "R to run it again" and a
   phone has no R, so clearing level 1 left a touch player on a screen they could not leave
   (#QA, the same dead end as the title screen). Tapping the goal or death screen now does what
