@@ -13,6 +13,13 @@
  * pixels and never from a stopwatch, except the two wall-clock numbers it
  * *reports* next to the game's own (the verdict uses the game's).
  *
+ * R6 and R7 are not game checks but "what ships" checks, and they are here for
+ * the same reason: a phone session found all three by hand. A `\uXXXX` that
+ * survived to the browser, a favicon nobody linked (so the browser asks for
+ * `/favicon.ico` and logs a 404), and a title screen that read "Tap — start"
+ * while only the corner pad answered a tap. None of those are visible to the
+ * state contract, which is exactly why they need a machine.
+ *
  * Deliberate non-goals:
  *
  * - J1–J4 (760 / 2600 / 0.09 / 0.12) are unit-test territory: they are
@@ -36,7 +43,7 @@
  * screenshot.
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join, resolve, sep } from "node:path";
@@ -134,6 +141,62 @@ function declared(file, pattern, fallbackName) {
   const match = text.match(pattern);
   if (!match) return { value: null, why: `${fallbackName} not found in ${file}` };
   return { value: Number(match[1]), why: "" };
+}
+
+/** The text the browser is actually handed: the built page and its bundles, never the sources. */
+function builtArtifacts() {
+  const files = [{ name: "index.html", text: readFileSync(join(DIST, "index.html"), "utf8") }];
+  const assets = join(DIST, "assets");
+  if (existsSync(assets)) {
+    for (const entry of readdirSync(assets).sort()) {
+      if (entry.endsWith(".js") || entry.endsWith(".css")) {
+        files.push({ name: `assets/${entry}`, text: readFileSync(join(assets, entry), "utf8") });
+      }
+    }
+  }
+  return files;
+}
+
+const RAW_ESCAPE = /\\u[0-9a-fA-F]{4}/;
+
+/**
+ * R6: what ships, not what is typed.
+ *
+ * `\u2014` is a TypeScript escape — the compiler turns it into `—` and the bundle carries the
+ * character, so the source may contain it and that is fine. `index.html` has no compiler: the
+ * same six characters ship as text and the tab reads `Runner \u2014 Glyph Arena`. That went out
+ * in #155 and only an eye caught it (#QA), which is exactly the class of defect this script
+ * exists to take off the eye. So the rule is on the built files: a `\uXXXX` that survives into
+ * the page or the bundle is a dash somebody meant, and it is red here.
+ *
+ * The favicon rides along because it is the same kind of invisible: a missing `<link rel="icon">`
+ * makes the browser ask for `/favicon.ico`, which 404s and puts an error in the console a tester
+ * has to notice by hand.
+ */
+function runArtifacts() {
+  const files = builtArtifacts();
+  const offenders = [];
+  for (const file of files) {
+    const match = file.text.match(RAW_ESCAPE);
+    if (match) offenders.push(`${file.name}: ${match[0]}`);
+  }
+  check(
+    offenders.length === 0,
+    "R6: no \\uXXXX escape reached the browser as text",
+    offenders.join("; ") || `${files.length} built file(s) clean`,
+  );
+
+  const html = files[0].text;
+  check(
+    html.includes('rel="icon"') && html.includes("favicon.svg"),
+    "R6: the page links its favicon",
+    'no <link rel="icon" href="...favicon.svg"> in the built page — the browser then asks for /favicon.ico and logs a 404',
+  );
+  check(
+    existsSync(join(DIST, "favicon.svg")),
+    "R6: the favicon is in the built site",
+    "public/favicon.svg did not reach dist/",
+  );
 }
 
 async function state(page) {
@@ -271,6 +334,19 @@ async function runDesktop(browser, baseUrl, errors) {
   try {
     await page.goto(`${baseUrl}/`, { waitUntil: "load" });
 
+    // ---- R6: the title the tab shows, read from the running page ---------
+    const documentTitle = await page.title();
+    check(
+      !documentTitle.includes("\\u"),
+      "R6: the tab title carries no raw escape",
+      documentTitle.includes("\\u") ? `document.title is ${JSON.stringify(documentTitle)}` : documentTitle,
+    );
+    check(
+      documentTitle === "Runner — Glyph Arena",
+      "R6: the tab title is the real dash",
+      `${JSON.stringify(documentTitle)} — expected ${JSON.stringify("Runner — Glyph Arena")}`,
+    );
+
     // ---- R0: the contract itself ---------------------------------------
     const first = await until(page, (s) => typeof s.phase === "string", { timeoutMs: 4000 });
     const shape = first.samples[0] ?? null;
@@ -340,6 +416,18 @@ async function runDesktop(browser, baseUrl, errors) {
     if (!(await startPlaying(page))) {
       check(false, "R2: the slice starts", "phase never reached play");
     } else {
+      // Space both starts the run and jumps, and the body is created a hair above the
+      // ground: both are airborne frames that say nothing about "the ground holds while you
+      // run". Land first — with a bound, so a spawn that never settles still fails here
+      // instead of being averaged away.
+      const startSettled = await until(page, (s) => s.grounded && s.vy === 0, { timeoutMs: 1500 });
+      check(
+        startSettled.hit,
+        "R2: the start settles on the ground",
+        startSettled.hit
+          ? `grounded and still after ${startSettled.samples.length} sample(s)`
+          : "never grounded within 1.5 s — the spawn or the landing is wrong",
+      );
       const before = await state(page);
       const held = [];
       const watch = (async () => {
@@ -517,9 +605,26 @@ async function runTouch(browser, baseUrl, errors) {
       return;
     }
     if (title.samples[0].phase !== "play") {
+      // R7 (① on a phone): the whole title screen starts the run. QA measured the old
+      // behaviour — the hint said "Tap — start", the middle of the screen did nothing, and
+      // only the corner pad worked, so a first-time phone user was stuck on the first move.
+      await pointer(page, "pointerdown", viewport.width / 2, viewport.height / 2);
+      await page.waitForTimeout(150);
+      await pointer(page, "pointerup", viewport.width / 2, viewport.height / 2);
+      const centred = await until(page, (s) => s.phase === "play", { timeoutMs: 4000 });
+      check(
+        centred.hit,
+        "R7 (①): a tap in the middle of the title screen starts the run",
+        `phase ${centred.samples.at(-1)?.phase}`,
+      );
+      // Back to the title so the pad-start check below still proves the pad, not this tap.
+      await pressAndRelease(page, "KeyR", 120);
+      await until(page, (s) => s.phase === "title", { timeoutMs: 2000 });
       await pointer(page, "pointerdown", pads.jump.x, pads.jump.y);
       await page.waitForTimeout(180);
       await pointer(page, "pointerup", pads.jump.x, pads.jump.y);
+    } else {
+      check(true, "R7 (①): a tap in the middle of the title screen starts the run", "the page was already playing");
     }
     const started = await until(page, (s) => s.phase === "play", { timeoutMs: 6000 });
     check(started.hit, "R5 (③): the pad starts the run", `phase ${started.samples.at(-1)?.phase}`);
@@ -582,12 +687,18 @@ async function main() {
       "R3: the jump rises 111 px and a tap cuts it short",
       "R4 (②): death and the respawn rule",
       "R5 (③): touch pads match the keyboard",
+      "R6: no escape sequence and a linked favicon reach the browser",
+      "R7 (①): a tap in the middle of the title screen starts the run",
     ];
     for (const label of labels) pend(label, `no built runner at ${DIST}`);
     console.log(`runner: not built yet — ${pending.length} check(s) pending, 0 run, 0 failed`);
     console.log("e2e (runner): pending is not a pass; these run the moment examples/runner/dist exists");
     return;
   }
+
+  // Static first: the built files are checked before a browser is opened, so a shipping
+  // mistake fails in a second and not after two browser passes.
+  runArtifacts();
 
   const server = await serveDist(DIST, PORT);
   const baseUrl = `http://127.0.0.1:${PORT}`;
