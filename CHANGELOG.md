@@ -6,6 +6,15 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+### Fixed
+
+- **runner: the result screens answer a tap.** The goal screen said "R to run it again" and a
+  phone has no R, so clearing level 1 left a touch player on a screen they could not leave
+  (#QA, the same dead end as the title screen). Tapping the goal or death screen now does what
+  the keyboard does: the goal restarts **the same level from its start** (respawning on the goal
+  line would clear it again on the next frame), the death screen respawns at the safe spot, and
+  neither counts a death. The goal line says "tap to run it again" on touch.
+
 ### Added
 
 - **The three demos are one gallery now.** `pickup` (`/`), `parry` (`/parry/`) and `runner`

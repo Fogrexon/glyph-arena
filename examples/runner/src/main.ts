@@ -526,7 +526,11 @@ function draw(): void {
     ctx.fillText("GOAL", canvas.width * 0.42, canvas.height * 0.44);
     ctx.fillStyle = "#e8eaed";
     ctx.font = `${16 * s}px system-ui, sans-serif`;
-    ctx.fillText(`deaths: ${deaths} \u00b7 R to run it again`, canvas.width * 0.42, canvas.height * 0.44 + 34 * s);
+    ctx.fillText(
+      touchEnabled ? `deaths: ${deaths} \u00b7 tap to run it again` : `deaths: ${deaths} \u00b7 R to run it again`,
+      canvas.width * 0.42,
+      canvas.height * 0.44 + 34 * s,
+    );
     ctx.font = `${13 * s}px system-ui, sans-serif`;
     ctx.fillStyle = PALETTE.hud;
     ctx.fillText(lastDeathLine(), canvas.width * 0.42, canvas.height * 0.44 + 58 * s);
@@ -646,6 +650,25 @@ const loop = createLoop({
       draw();
       return;
     }
+    // The result screens are buttons too. A phone has no Esc and no R, so a goal screen that
+    // only the keyboard can leave is the same dead end QA found on the title screen.
+    if ((phase === "goal" || phase === "dead") && tappedAnywhere) {
+      ensureAudio();
+      if (phase === "goal") {
+        // "Run it again" means this level from its start, not a respawn on the goal line —
+        // respawning there would clear the level again on the next frame.
+        phase = "play";
+        loadLevelAt(level);
+        levelBannerSeconds = 0;
+      } else {
+        respawn(true);
+        phase = "play";
+      }
+      publish();
+      draw();
+      return;
+    }
+
     if (query.pressed("retry")) {
       phase = "play";
       respawn(true);
