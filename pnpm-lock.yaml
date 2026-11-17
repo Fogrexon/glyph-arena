@@ -127,6 +127,9 @@ importers:
       '@fogrexon/glyph-arena-actions':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-actions
+      '@fogrexon/glyph-arena-body':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-body
       '@fogrexon/glyph-arena-input':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-input
