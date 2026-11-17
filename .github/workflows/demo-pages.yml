@@ -59,6 +59,11 @@ jobs:
         env:
           RUNNER_BASE: "/glyph-arena/runner/"
 
+      # The camp slice (a different genre) is published at /glyph-arena/camp/.
+      - run: pnpm --filter @fogrexon/glyph-arena-camp-demo build
+        env:
+          CAMP_BASE: "/glyph-arena/camp/"
+
       # Where each demo is published comes from its own `package.json` (`glyphArenaPage`), not from a
       # list here: the day an example is added, a hand-kept list silently stops publishing it.
       - run: node scripts/assemble-site.mjs
