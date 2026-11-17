@@ -121,7 +121,7 @@ describe("rect", () => {
 describe("text", () => {
   it("puts y at the top by default, not on the baseline", () => {
     const { calls, context } = createContext();
-    drawText({ context }, { text: "SCORE", x: 10, y: 20, size: 16, fill: "#fff" });
+    createDraw({ context }).text({ text: "SCORE", x: 10, y: 20, size: 16, fill: "#fff" });
 
     // Canvas' own default is `alphabetic`, which shifts every line down by its ascent.
     assert.equal(context.textBaseline, "top");
@@ -131,10 +131,16 @@ describe("text", () => {
 
   it("honours align, font and maxWidth", () => {
     const { calls, context } = createContext();
-    drawText(
-      { context },
-      { text: "0:25", x: 780, y: 8, size: 24, font: "monospace", align: "right", fill: "#fff", maxWidth: 100 },
-    );
+    createDraw({ context }).text({
+      text: "0:25",
+      x: 780,
+      y: 8,
+      size: 24,
+      font: "monospace",
+      align: "right",
+      fill: "#fff",
+      maxWidth: 100,
+    });
 
     assert.equal(context.textAlign, "right");
     assert.equal(context.font, "24px monospace");
@@ -143,7 +149,7 @@ describe("text", () => {
 
   it("draws nothing without a fill", () => {
     const { calls, context } = createContext();
-    drawText({ context }, { text: "x", x: 0, y: 0, size: 10 });
+    createDraw({ context }).text({ text: "x", x: 0, y: 0, size: 10 });
 
     assert.deepEqual(methods(calls), []);
   });

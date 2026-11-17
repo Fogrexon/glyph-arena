@@ -222,7 +222,12 @@ describe("createDraw", () => {
       "Crop",
       "Draw",
       "DrawContext",
+      "MeasureTextOptions",
+      "RectOptions",
       "SpriteOptions",
+      "TextMetricsSize",
+      "TextOptions",
+      "ViewMatrix",
       "createDraw",
     ]);
 
