@@ -14,6 +14,18 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
   the keyboard does: the goal restarts **the same level from its start** (respawning on the goal
   line would clear it again on the next frame), the death screen respawns at the safe spot, and
   neither counts a death. The goal line says "tap to run it again" on touch.
+- **runner: the pit no longer ends on the walker.** Level 1's pit ended at x=1184 and the
+  walker's lane started at x=1216 — **32px, one tile, of landing.** A person cannot see a gap that
+  size at 320px/s: the pit jump lands you (x=1171) already inside the walker's reach, so at worst
+  there is 0.13s between "I am on the ground" and "something touched me" (my scripted play died
+  there 27 times in a row). The lane now starts at x=1280, which is **three tiles (96px) of
+  landing**, and the floor is a test rather than a habit: `slice.test.ts` reads the pit's right
+  edge and the walker's `minX` and goes red under two tiles (64px). Difficulty is unchanged —
+  the walker still sweeps the same seven tiles, still kills on touch (`cause: "enemy"`), and the
+  bot's 80px look-ahead was not touched, so the level still clears with the same bot. The lane
+  itself moved into `level.ts` (`patrolRange()`), because a number that lives in `main.ts` is a
+  number the test cannot read. `__runnerState.enemies` publishes it as an **array**
+  (`{x,y,w,h,dir,mode,speed,minX,maxX}`): the chase enemy is a second element, not a rename.
 
 ### Added
 
