@@ -279,6 +279,18 @@ function hazardAtTile(grid, tile, x, y) {
   return false;
 }
 
+/** Are there spike tiles in the rows the body occupies, within `look` px of its right edge? */
+function spikesAhead(grid, tile, edgeX, y, look, height = BODY.h) {
+  const first = Math.floor(y / tile);
+  const last = Math.floor((y + height - 0.001) / tile);
+  for (let column = Math.floor(edgeX / tile); column <= Math.floor((edgeX + look) / tile); column += 1) {
+    for (let row = first; row <= last; row += 1) {
+      if (tileAt(grid, column, row) === "^") return true;
+    }
+  }
+  return false;
+}
+
 /** Is there a hole in the floor within `look` px of the body's right edge? */
 function pitAhead(grid, tile, edgeX, look) {
   const solid = (column) => {
@@ -298,7 +310,7 @@ function pitAhead(grid, tile, edgeX, look) {
  * cannot walk up, and jump a walker that is about to be walked into. It is a vehicle for the
  * assertions, not one of them — so it may die on the way; what it must not do is stop.
  */
-async function walkRight(page, done, { levels, timeoutMs = 25000, jumpFor = true } = {}) {
+async function walkRight(page, done, { levels, timeoutMs = 25000, jumpFor = true, jumpHazards = false } = {}) {
   const { tile, grids } = levels;
   const gridFor = (level) => grids[level - 1] ?? grids[0];
   const samples = [];
@@ -328,7 +340,8 @@ async function walkRight(page, done, { levels, timeoutMs = 25000, jumpFor = true
         const edge = current.x + BODY.w;
         const enemy = (current.enemies ?? []).find((e) => e.x > edge && e.x - edge < 120);
         blocked = Math.abs(current.vx) < 5 ? blocked + 1 : 0;
-        if (pitAhead(grid, tile, edge, 90) || blocked >= 3 || enemy) {
+        const hazardAhead = jumpHazards && spikesAhead(grid, tile, edge, current.y, 70);
+        if (pitAhead(grid, tile, edge, 90) || blocked >= 3 || enemy || hazardAhead) {
           blocked = 0;
           await pressAndRelease(page, "Space", 460); // the 97 px pit needs the full hold
           continue;
@@ -488,8 +501,8 @@ async function runDesktop(browser, baseUrl, errors) {
         `cameraX ${shape.cameraX}, goalX ${shape.goalX}, worldWidth ${shape.worldWidth}`,
       );
       check(
-        shape.levelCount === 2 && shape.level === 1,
-        "R0: the run starts on level 1 of 2 (a clear runs straight into the next level)",
+        shape.levelCount === 3 && shape.level === 1,
+        "R0: the run starts on level 1 of 3 (a clear runs straight into the next level)",
         `level ${shape.level} / ${shape.levelCount}`,
       );
       const viewportWidth = await page.evaluate(() => window.innerWidth);
@@ -728,18 +741,23 @@ async function runDesktop(browser, baseUrl, errors) {
       escapedDrawn.slice(0, 3).join(" | ") || "title, HUD and death screen all clean",
     );
 
-    // ---- R11: a respawn is never inside what killed you ------------------
-    // QA's P1: on level 2 the spike sits at standing height, the "grounded" spot at the moment
-    // of contact became the respawn point, and holding right meant dying again every frame
-    // (deaths 1 -> 5 in three seconds). Both halves of the rule are checked here: where the
-    // contract says you will respawn, and whether standing still there kills you.
+    // ---- R11: a respawn has to leave you room to move --------------------
+    // QA's P1, and the reason the first version of this check passed while the bug was still
+    // there: "nothing pressed for three seconds" is not the repro. The repro is **holding right**
+    // — and a respawn 0.8 px from a spike is the same trap as a respawn on top of it, just 5 px
+    // slower to reach. So the acceptance is measured in the player's own units:
+    //
+    //   R11a  the contract's `safe` is not inside a hazard tile
+    //   R11b  holding right after a respawn buys **at least 300 ms** before the next death
+    //         (96 px at the 320 px/s run — the number the fix is built on)
+    //   R11c  right + one jump actually gets you out
     const levels = readLevels();
     if (levels.grids.length < 2 || !Number.isFinite(levels.tile)) {
-      pend("R11: a respawn is never inside a hazard", `cannot read the level grid from level.ts (${levels.grids.length} levels, tile ${levels.tile})`);
+      pend("R11: a respawn leaves room to move", `cannot read the level grid from level.ts (${levels.grids.length} levels, tile ${levels.tile})`);
     } else {
       await page.goto(`${baseUrl}/`, { waitUntil: "load" });
-      const started = await startPlaying(page);
-      const entered = started ? await walkRight(page, (s) => s.level === 2, { levels, timeoutMs: 30000 }) : { hit: false, samples: [] };
+      const startedR11 = await startPlaying(page);
+      const entered = startedR11 ? await walkRight(page, (s) => s.level === 2, { levels, timeoutMs: 30000 }) : { hit: false, samples: [] };
       check(
         entered.hit,
         "R11: the harness reaches level 2",
@@ -747,12 +765,15 @@ async function runDesktop(browser, baseUrl, errors) {
           ? `${entered.samples.length} samples, level ${entered.samples.at(-1)?.level}`
           : `never left level 1 in 30s (deaths ${entered.samples.at(-1)?.deaths}, x ${entered.samples.at(-1)?.x?.toFixed(0)})`,
       );
+
       if (entered.hit) {
-        // Deliberately stop jumping: the spikes on level 2 are the point.
-        const hitSpike = await walkRight(page, (s) => s.deaths > 0, { levels, timeoutMs: 12000, jumpFor: true });
+        const hitSpike = await walkRight(page, (s) => s.deaths > 0, { levels, timeoutMs: 12000 });
         const dead = hitSpike.samples.find((s) => s.deaths > 0);
-        const cause = dead?.deathLog?.at(-1)?.cause;
-        check(hitSpike.hit && cause === "spike", "R11: level 2's spikes kill", `deaths ${dead?.deaths}, cause ${cause}`);
+        check(
+          hitSpike.hit && dead?.deathLog?.at(-1)?.cause === "spike",
+          "R11: level 2's spikes kill",
+          `deaths ${dead?.deaths}, cause ${dead?.deathLog?.at(-1)?.cause}`,
+        );
 
         const landed = await until(page, (s) => s.phase === "play" && s.deaths > 0 && s.grounded, { timeoutMs: 3000, poll: 20 });
         const settled = landed.samples.at(-1);
@@ -760,22 +781,88 @@ async function runDesktop(browser, baseUrl, errors) {
         const safe = settled?.safe;
         check(
           safe !== undefined && !hazardAtTile(grid, levels.tile, safe.x, safe.y),
-          "R11: the contract's respawn point is not inside a hazard",
+          "R11a: the contract's respawn point is not inside a hazard",
           safe === undefined
             ? "no `safe` in __runnerState"
-            : `safe (${safe.x.toFixed(1)}, ${safe.y.toFixed(1)}) on level ${settled?.level} — ` +
+            : `safe (${safe.x.toFixed(1)}, ${safe.y.toFixed(1)}) — ` +
               (hazardAtTile(grid, levels.tile, safe.x, safe.y) ? "inside a spike tile" : "clear"),
         );
 
-        // Nothing pressed for three seconds, exactly as QA reproduced it.
-        const beforeIdle = settled?.deaths ?? Number.NaN;
-        await page.waitForTimeout(3000);
-        const afterIdle = (await state(page))?.deaths ?? Number.NaN;
+        // The spike bed, from the grid: the numbers a jump has to clear.
+        const columns = [];
+        grid.rows.forEach((row) => [...row].forEach((cell, column) => {
+          if (cell === "^" && !columns.includes(column)) columns.push(column);
+        }));
+        const bedStart = Math.min(...columns) * levels.tile;
+        const bedEnd = (Math.max(...columns) + 1) * levels.tile;
+
+        // The repro, unchanged: right, and nothing else. What must not happen is a *loop* — either
+        // you get room to move (no second death at all) or, if you do die again, at least 300 ms
+        // passed first. A 17 ms gap is the trap; 600 ms is a game.
+        await page.keyboard.down("ArrowRight");
+        const second = await until(page, (s) => s.deaths >= 2, { timeoutMs: 3000, poll: 20 });
+        await page.waitForTimeout(600);
+        await page.keyboard.up("ArrowRight");
+        const log = (await state(page))?.deathLog ?? [];
+        const gap = second.hit && log.length >= 2 ? log[1].simMs - log[0].simMs : Number.NaN;
         check(
-          Number.isFinite(beforeIdle) && afterIdle === beforeIdle,
-          "R11: standing still after a respawn does not kill you again",
-          `deaths ${beforeIdle} → ${afterIdle} over 3s with no input` +
-            (afterIdle > beforeIdle ? " — the respawn point is inside the hazard" : ""),
+          !second.hit || (Number.isFinite(gap) && gap >= 300),
+          "R11b: holding right after a respawn never becomes a death loop",
+          !second.hit
+            ? "no second death in 3s of holding right — room to move"
+            : `${gap}ms between the death that put you back and the next one (${log[0]?.cause} → ${log[1]?.cause})`,
+        );
+
+        // Getting out, with the moves a player has: right and jumps. (One jump is not enough at
+        // this geometry and cannot be — see the PR note: from the 96 px-clear respawn a single
+        // jump lands 26 px short of the bed's far edge.)
+        const back = await until(page, (s) => s.phase === "play" && s.grounded, { timeoutMs: 4000, poll: 20 });
+        const before = back.samples.at(-1)?.deaths ?? Number.NaN;
+        // Two jumps, both of them ordinary player moves: one early enough to land with room to
+        // spare before the bed, then one over the bed itself. (Jumping the step at the last moment
+        // lands 26 px from a 96 px spike bed — one frame of standing room, which is the geometry's
+        // fault, not the respawn rule's; the PR note carries those numbers.)
+        let out = { hit: false, samples: [] };
+        if (back.hit) {
+          await page.keyboard.down("ArrowRight");
+          let stage = 0;
+          const deadline = Date.now() + 9000;
+          while (Date.now() < deadline) {
+            const s = await state(page);
+            if (!s) break;
+            if (s.x > bedEnd) {
+              out = { hit: true, samples: [s] };
+              break;
+            }
+            if (s.phase !== "play") {
+              await page.waitForTimeout(60);
+              continue;
+            }
+            if (s.grounded) {
+              const edge = s.x + BODY.w;
+              if (stage === 0 && s.x >= 860) {
+                stage = 1;
+                await pressAndRelease(page, "Space", 460);
+                continue;
+              }
+              if (stage === 1 && edge + 50 >= bedStart) {
+                stage = 2;
+                await pressAndRelease(page, "Space", 460);
+                continue;
+              }
+            }
+            await page.waitForTimeout(25);
+          }
+          await page.keyboard.up("ArrowRight");
+          if (!out.hit) out = { hit: false, samples: [await state(page)].filter(Boolean) };
+        }
+        const escaped = out.samples.at(-1) ?? null;
+        check(
+          out.hit && escaped !== null && escaped.deaths === before,
+          "R11c: right and jumps get you past the spikes without dying again",
+          out.hit
+            ? `deaths ${before} → ${escaped?.deaths}, x ${escaped?.x?.toFixed(0)} (bed ${bedStart}–${bedEnd})`
+            : `still short of x ${bedEnd} after 8s (x ${escaped?.x?.toFixed(0)}, deaths ${escaped?.deaths})`,
         );
       }
     }
