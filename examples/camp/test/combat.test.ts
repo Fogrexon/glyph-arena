@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { ATTACK, attackBox, attackPhase, beginAttack, overlaps, stepAttack } from "../src/combat.ts";
+import { ENEMY_AI, canInterrupt, modeRemainingMs, wantsLunge } from "../src/enemy.ts";
 
 const TOTAL = ATTACK.windupMs + ATTACK.activeMs + ATTACK.recoveryMs;
 
@@ -42,4 +43,21 @@ test("overlap is half-open: touching edges do not connect", () => {
   assert.equal(overlaps(a, { left: 9, top: 9, right: 19, bottom: 19 }), true);
   assert.equal(overlaps(a, { left: 10, top: 0, right: 20, bottom: 10 }), false);
   assert.equal(overlaps(a, { left: 0, top: 10, right: 10, bottom: 20 }), false);
+});
+
+test("the enemy commits only up close, on the ground, and only from a walk", () => {
+  assert.equal(wantsLunge("walk", 0, 90, true), true);
+  assert.equal(wantsLunge("walk", 0, 200, true), false, "far away it keeps walking");
+  assert.equal(wantsLunge("walk", 0, 90, false), false, "it does not lunge in the air");
+  assert.equal(wantsLunge("windup", 0, 90, true), false, "it cannot start a second tell");
+  assert.equal(wantsLunge("rest", 0, 90, true), false, "it is open after a lunge");
+});
+
+test("a hit cancels the tell or the lunge, and nothing else", () => {
+  assert.equal(canInterrupt("windup"), true);
+  assert.equal(canInterrupt("lunge"), false, "the commit has armour: swinging into it loses");
+  assert.equal(canInterrupt("walk"), false);
+  assert.equal(canInterrupt("rest"), false);
+  assert.equal(modeRemainingMs("windup", 100), ENEMY_AI.windupMs - 100);
+  assert.equal(modeRemainingMs("walk", 9999), 0);
 });

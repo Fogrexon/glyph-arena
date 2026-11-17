@@ -17,6 +17,7 @@ import { createLoop } from "@fogrexon/glyph-arena-loop";
 import { approach } from "@fogrexon/glyph-arena-tween";
 
 import { ATTACK, attackBox, attackPhase, beginAttack, overlaps, stepAttack, type Attack } from "./combat";
+import { ENEMY_AI, canInterrupt, type EnemyMode } from "./enemy";
 import { TILE, enemySpawns, isSolidTile, levelColumns, levelRows, solidAt, spawnPoint } from "./level";
 
 const VIEW_W = 640;
@@ -43,7 +44,7 @@ const PLAYER_CONFIG: BodyConfig = {
 const ENEMY_CONFIG: BodyConfig = { ...PLAYER_CONFIG, runSpeed: 74, runAccel: 900, airAccel: 500, jumpVelocity: -520 };
 
 const PLAYER_STATS = { hearts: 3, invulnerableMs: 900, contactKnockback: 320 };
-const ENEMY_STATS = { hp: 3, sightPx: 260, contactDamage: 1 };
+const ENEMY_STATS = { hp: 6, sightPx: 260, contactDamage: 1 };
 
 const canvas = document.querySelector("canvas");
 if (canvas === null) {
@@ -73,6 +74,9 @@ type Enemy = {
   hp: number;
   alive: boolean;
   flashMs: number;
+  mode: EnemyMode;
+  modeMs: number;
+  facing: 1 | -1;
 };
 
 let player: Body = createBody({ x: 0, y: 0, w: 20, h: 28 }, PLAYER_CONFIG);
@@ -102,6 +106,9 @@ function reset(): void {
     hp: ENEMY_STATS.hp,
     alive: true,
     flashMs: 0,
+    mode: "walk",
+    modeMs: 0,
+    facing: -1,
   }));
   attack = { elapsedMs: -1, hasHit: false, facing: 1 };
   facing = 1;
@@ -129,6 +136,11 @@ function hitEnemy(enemy: Enemy, from: 1 | -1): void {
   hitstopMs = ATTACK.hitstopMs;
   shakeMs = 110;
   hits += 1;
+  if (canInterrupt(enemy.mode)) {
+    // Hitting the tell is the counter: the lunge never happens.
+    enemy.mode = "rest";
+    enemy.modeMs = 0;
+  }
   if (enemy.hp <= 0) {
     enemy.alive = false;
     kills += 1;
@@ -156,15 +168,41 @@ function stepWorld(dt: number, dtMs: number, moveLeft: boolean, moveRight: boole
   for (const enemy of enemies) {
     if (!enemy.alive) continue;
     enemy.flashMs = Math.max(0, enemy.flashMs - dtMs);
+    enemy.modeMs += dtMs;
     const distance = player.x + player.w / 2 - (enemy.body.x + enemy.body.w / 2);
     const chasing = Math.abs(distance) < ENEMY_STATS.sightPx;
-    stepBody(
-      enemy.body,
-      { left: chasing && distance < 0, right: chasing && distance > 0 },
-      dt,
-      solidAt,
-      { grid: TILE },
-    );
+
+    if (enemy.mode === "walk") {
+      if (chasing && Math.abs(distance) <= ENEMY_AI.lungeRangePx && enemy.body.grounded) {
+        enemy.mode = "windup";
+        enemy.modeMs = 0;
+        enemy.facing = distance < 0 ? -1 : 1;
+      } else {
+        stepBody(enemy.body, { left: chasing && distance < 0, right: chasing && distance > 0 }, dt, solidAt, { grid: TILE });
+      }
+    } else if (enemy.mode === "windup") {
+      enemy.body.vx = 0;
+      stepBody(enemy.body, {}, dt, solidAt, { grid: TILE });
+      if (enemy.modeMs >= ENEMY_AI.windupMs) {
+        enemy.mode = "lunge";
+        enemy.modeMs = 0;
+      }
+    } else if (enemy.mode === "lunge") {
+      // Held, not accelerated: the lunge is a fixed distance in a fixed time, so it can be learned.
+      enemy.body.vx = enemy.facing * ENEMY_AI.lungeSpeedPxPerSecond;
+      stepBody(enemy.body, {}, dt, solidAt, { grid: TILE });
+      if (enemy.modeMs >= ENEMY_AI.lungeMs) {
+        enemy.mode = "rest";
+        enemy.modeMs = 0;
+      }
+    } else {
+      enemy.body.vx = 0;
+      stepBody(enemy.body, {}, dt, solidAt, { grid: TILE });
+      if (enemy.modeMs >= ENEMY_AI.restMs) {
+        enemy.mode = "walk";
+        enemy.modeMs = 0;
+      }
+    }
   }
 
   if (attack.elapsedMs >= 0) {
@@ -265,8 +303,14 @@ function draw(): void {
   for (const enemy of enemies) {
     if (!enemy.alive) continue;
     const x = enemy.body.x - fromX;
-    ctx.fillStyle = enemy.flashMs > 0 ? "#ffffff" : "#e0574f";
+    const tell = enemy.mode === "windup" ? Math.floor(enemy.modeMs / 70) % 2 === 0 : false;
+    ctx.fillStyle = enemy.flashMs > 0 ? "#ffffff" : tell ? "#ff9c6e" : enemy.mode === "lunge" ? "#ff7a5c" : "#e0574f";
     ctx.fillRect(x, enemy.body.y, enemy.body.w, enemy.body.h);
+    if (enemy.mode === "windup") {
+      ctx.strokeStyle = "#ffd0a8";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x - 3, enemy.body.y - 3, enemy.body.w + 6, enemy.body.h + 6);
+    }
     ctx.fillStyle = enemy.flashMs > 0 ? "#ffd9d6" : "#8f3733";
     for (let i = 0; i < enemy.hp; i += 1) ctx.fillRect(x + i * 5, enemy.body.y - 7, 4, 3);
   }
@@ -299,7 +343,7 @@ type CampState = {
   simMs: number;
   blade: string;
   hitstopMs: number;
-  enemy: { x: number; y: number; hp: number; alive: boolean } | null;
+  enemy: { x: number; y: number; hp: number; alive: boolean; mode: string } | null;
   cameraX: number;
 };
 
@@ -315,7 +359,7 @@ function publish(): void {
     simMs: Math.round(simMs),
     blade: attackPhase(attack.elapsedMs),
     hitstopMs: Math.round(hitstopMs),
-    enemy: first === undefined ? null : { x: first.body.x, y: first.body.y, hp: first.hp, alive: first.alive },
+    enemy: first === undefined ? null : { x: first.body.x, y: first.body.y, hp: first.hp, alive: first.alive, mode: first.mode },
     cameraX,
   };
 }
