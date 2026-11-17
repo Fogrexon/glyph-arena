@@ -427,6 +427,40 @@ The version the first npm publication carries: `@fogrexon/glyph-arena@0.2.0`. No
 
 - `@fogrexon/glyph-arena-timer` — `dispose()` now stops firing immediately: callbacks that were already due in the same tick are no longer invoked after it (behaviour change, no API signature change)
 
+### Added
+
+- **`tilemap`: tiles are text, and the pixel-to-row conversion lives in one place.**
+  `createTileMap(text | lines, { legend, cell })`, `mapColumns` / `mapRows`, `tileAt` / `tagsAt` /
+  **`hasTag`**, `solidInRect` (half-open), and `surfaceRowBelow(map, xPx, yPx, tag, { maxRows })`.
+  The package carries no grid and no vocabulary of its own. Three of its contracts are bugs that
+  happened the same day: **pixels in** (`bottom / cell` rounded down and read one row too far),
+  **half-open** rects (so the caller's `-0.001` disappears), and tags read through `hasTag`
+  (`=== "solid"` breaks the moment a tile carries two tags). Numeric gate: with comments stripped
+  the only literals allowed are `0` and `1`.
+
+- **`draw` can make a screen with no images.** `rect({ x, y, w, h, fill?, stroke?, lineWidth?,
+  radius? })`, `text({ text, x, y, size, font?, fill?, align?, baseline?, maxWidth? })`,
+  `measureText({ text, size, font? })`, `setView(matrix | null)`. Until now `draw` had `clear` and
+  `sprite`, and `sprite` needs an image, so all three examples called `ctx.fillRect` / `fillText` /
+  `roundRect` themselves: the first place every game goes was the one place the library did nothing.
+  `radius` is an option on `rect` and not a second function (the samples' `roundRect` is a
+  rectangle), with a hand-built `arcTo` path where `roundRect` is missing. `y` in `text` is the
+  **top** by default, because canvas' own default is `alphabetic` and shifts every line down on
+  someone else's screen. With neither `fill` nor `stroke`, `rect` draws **nothing** instead of
+  throwing — this runs every frame, and a throw there stops the game rather than reporting a
+  mistake. `setView(null)` comes back to screen coordinates so a HUD can sit outside the camera;
+  `ctx.setTransform` appeared in no document and was the missing piece of the 30-minute path.
+  **Measured in a browser (Chromium 156): a 320x240 page drawn with `rect` and `text` alone, no
+  image files at all, has 6365 non-transparent pixels; with `view(e=-50,f=-20)` a red rect lands at
+  (55,85) and (105,105) is transparent** — the check reads pixels, not "was it called".
+
+### Fixed
+
+- **two more hand-kept lists are derived now.** The umbrella test wrote out 18 export names, so every
+  new module turned it red; it reads `packages/` and compares against the modules' own exports.
+  `smoke:pack-install`'s consumer was a hand-written import list, so the tarball side passed while
+  the importing side broke the day `tilemap` landed; the consumer is generated from the tarballs.
+
 ## [0.1.0] - 2026-11-15
 
 ### Added
