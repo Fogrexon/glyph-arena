@@ -143,6 +143,11 @@ function respawn(atSafe: boolean): void {
   const x = atSafe ? safe.x : spawn.x + 6;
   const y = atSafe ? safe.y : spawn.y - 28;
   body = createBody(x, y, 20, 28);
+  if (atSafe) {
+    // The runner comes back standing where they last stood. Say so on the first frame: a fresh body
+    // reports `grounded: false` until physics runs, and the state mirror is what the acceptance reads.
+    body.grounded = true;
+  }
   respawnSeconds = 0;
   if (!atSafe) {
     cameraX = 0;
