@@ -15,7 +15,8 @@
     "@fogrexon/glyph-arena-actions": "workspace:*",
     "@fogrexon/glyph-arena-body": "workspace:*",
     "@fogrexon/glyph-arena-input": "workspace:*",
-    "@fogrexon/glyph-arena-loop": "workspace:*"
+    "@fogrexon/glyph-arena-loop": "workspace:*",
+    "@fogrexon/glyph-arena-tilemap": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.8.3",
