@@ -2,6 +2,9 @@
 
 ## Setup
 
+Node 22 and pnpm 10 — the versions CI runs. `pnpm install` once at the root; it populates every
+package, so `pnpm typecheck` and `pnpm test` work without a build.
+
 ```bash
 pnpm install
 ```
@@ -41,7 +44,7 @@ install → typecheck → build → check:package-entry-points → typecheck:pub
 ```
 
 - `check:package-entry-points` — every `main` / `types` / `exports` entry in a package points at a file that exists.
-- `typecheck:public-api` — a type-only fixture imports all 14 packages by name and checks the emitted declarations.
+- `typecheck:public-api` — a type-only fixture imports every package by name and checks the emitted declarations.
 - `smoke:pack-install` — `pnpm pack` builds tarballs, installs them into an empty project offline, then imports them and typechecks a strict consumer. It never touches the registry.
 
 When a change affects the deployed demo, also confirm it on the live URL before calling it done. Merged but not live is not done.
@@ -59,11 +62,11 @@ Examples live under `examples/`. The pickup sample is at `examples/pickup-demo`;
 
 ## What ships to npm
 
-Only one package is published: `@fogrexon/glyph-arena`. It bundles the 14 modules into a single ESM build and re-exports their value exports flat with self-contained type declarations. The 14 `@fogrexon/glyph-arena-*` modules stay workspace-internal and are never published on their own, so nothing outside this repository can install them by name.
+Only one package is published: `@fogrexon/glyph-arena`. It bundles every module under `packages/` into a single ESM build and re-exports their value exports flat with self-contained type declarations. The `@fogrexon/glyph-arena-*` modules stay workspace-internal and are never published on their own, so nothing outside this repository can install them by name.
 
 - **Adding or renaming a module** means adding it to `packages/glyph-arena/src/index.ts` (relative `export *`) and to `fixtures/public-api/index.mts`. Skip either and `pnpm -r typecheck` stays green while the published package is missing the export.
 - **The emitted declarations must stay self-contained**: no bare `@fogrexon/*` specifiers inside `dist/`. `pnpm typecheck:public-api` and `pnpm smoke:pack-install` check this.
-- **The version lives on the umbrella** (`packages/glyph-arena/package.json`); the 14 subpackage versions are internal values.
+- **The version lives on the umbrella** (`packages/glyph-arena/package.json`); the subpackage versions are internal values.
 - A module that runs code at import time would break `sideEffects: false` in the umbrella — keep every module a factory.
 
 ### Publishing
@@ -83,17 +86,8 @@ The tag is cut **locally** first — `git tag v<version>` on the release commit 
 
 These files are rendered to HTML by `scripts/render-docs.mjs` during the demo build and published at [fogrexon.github.io/glyph-arena/docs](https://fogrexon.github.io/glyph-arena/docs/). Edit the `docs/api-*.md` sources, not the generated pages.
 
-- [glyph-arena-actions API](docs/api-actions.md)
-- [glyph-arena-assets API](docs/api-assets.md)
-- [glyph-arena-audio API](docs/api-audio.md)
-- [glyph-arena-camera API](docs/api-camera.md)
-- [glyph-arena-collide API](docs/api-collide.md)
-- [glyph-arena-draw API](docs/api-draw.md)
-- [glyph-arena-ecs API](docs/api-ecs.md)
-- [glyph-arena-gamepad API](docs/api-gamepad.md)
-- [glyph-arena-input API](docs/api-input.md)
-- [glyph-arena-loop API](docs/api-loop.md)
-- [glyph-arena-scene API](docs/api-scene.md)
-- [glyph-arena-timer API](docs/api-timer.md)
-- [glyph-arena-tween API](docs/api-tween.md)
-- [glyph-arena-transform API](docs/api-transform.md)
+The list of pages is not written down here — the [docs front page](https://fogrexon.github.io/glyph-arena/docs/)
+is generated from `packages/` when the docs are built, and the build fails if a module has no page.
+
+- Start at [`docs/tutorial.md`](docs/tutorial.md) — empty folder to a playable game.
+- The umbrella's own page is [`docs/api-glyph-arena.md`](docs/api-glyph-arena.md).
