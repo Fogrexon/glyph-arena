@@ -48,6 +48,19 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Fixed
 
+- **the deploy no longer keeps a record — it compares the real thing with the real thing.**
+  `docs/bundles.json` was a *proxy* for "the deploy landed", and a proxy drifts: today `main` was
+  green while Pages served a bundle two deploys old (the deploy is outside the CI gates). The file
+  is gone, with `scripts/check-deployed-bundles.mjs`, `scripts/lib/record-pr.mjs` and its test.
+  Instead the deploy workflow runs `assemble-site.mjs` — where each demo is published comes from its
+  own `package.json` (`glyphArenaPage`), not from three hand-written `cp` lines — and after
+  publishing, a `verify-deployed` job compares **the `index-*.js` named by each page in the build
+  artifact** with **the `index-*.js` the live page names**, retrying for three minutes while Pages'
+  CDN catches up. A mismatch is a red run; it commits nothing, so it cannot loop and never needs to
+  write to `main` (which requires a PR, `verify`, admins included). The page list is read from the
+  built tree, so an added example is checked the day it is added — the fifth hand-kept list today,
+  retired instead of fixed.
+
 - **`I14` asserted the bot's skill, not the game.** The parry end-to-end run played until wave 21 to
   prove "the run does not stop at twenty waves". That is a property of `waveShapeAt()` — a pure
   function with no RNG, already covered for indices 20..199 by `examples/parry/test/waves.test.ts` —

@@ -1,5 +1,6 @@
 {
   "name": "@fogrexon/glyph-arena-parry-demo",
+  "glyphArenaPage": "/parry/",
   "private": true,
   "type": "module",
   "scripts": {

@@ -1,5 +1,6 @@
 {
   "name": "@fogrexon/glyph-arena-pickup-demo",
+  "glyphArenaPage": "",
   "private": true,
   "type": "module",
   "scripts": {

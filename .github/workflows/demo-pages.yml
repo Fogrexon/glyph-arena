@@ -73,11 +73,9 @@ jobs:
         env:
           RUNNER_BASE: "/glyph-arena/runner/"
 
-      - run: |
-          mkdir -p site/parry site/runner
-          cp -r examples/pickup-demo/dist/. site/
-          cp -r examples/parry/dist/. site/parry/
-          cp -r examples/runner/dist/. site/runner/
+      # Where each demo is published comes from its own `package.json` (`glyphArenaPage`), not from a
+      # list here: the day an example is added, a hand-kept list silently stops publishing it.
+      - run: node scripts/assemble-site.mjs
 
       - uses: actions/upload-pages-artifact@v3
         with:
@@ -92,3 +90,28 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # A record in the repository was a proxy for "the deploy landed", and it drifted: `main` stayed
+  # green while Pages served a bundle two deploys old. So there is no record any more -- this job
+  # compares the bundle this build produced with the bundle the live page names, and is red when
+  # they differ. It commits nothing, so it cannot loop and does not need `main` (which is protected).
+  verify-deployed:
+    needs: [build, deploy]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # The built demos, exactly as they were published.
+      - uses: actions/download-artifact@v4
+        with:
+          name: github-pages
+          path: pages-artifact
+
+      - run: mkdir -p pages && tar -xzf pages-artifact/artifact.tar -C pages
+
+      - name: compare the built bundles with what the site serves
+        run: node scripts/check-served-bundles.mjs --site=pages --timeout=180 --interval=15
