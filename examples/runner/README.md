@@ -1,10 +1,10 @@
 # Runner
 
 The self-drawn 2D platformer slice. One sentence: **run right, jump the gaps, do not touch the spikes or
-the walker, and reach the flag.** There are two levels and no randomness — each layout is a text grid in
-`src/level.ts`, so a diff shows it and a test checks its shape without a browser. Clearing level 1 runs
-straight into level 2 (`LEVEL 2` for a moment, HUD `level 2 / 2`); the goal screen comes after the second
-flag.
+the walker, and reach the flag.** There are three levels and no randomness — each layout is a text grid in
+`src/level.ts`, so a diff shows it and a test checks its shape without a browser. A clear runs straight into
+the next level (`LEVEL 2` / `LEVEL 3` for a moment, HUD `level k / 3`); the goal screen comes after the
+third flag.
 
 Play: <https://fogrexon.github.io/glyph-arena/runner/>
 
@@ -28,6 +28,24 @@ height: 20px`) with four links — Pickup, Parry, Runner, API Docs — and the p
 `aria-current="page"`. The API pages are the exception: `/docs/` has no such strip and links
 `../index.html` from its own header, so from the docs the way to a demo is that link or the back button.
 
+## The three levels
+
+All three are ASCII grids in `src/level.ts` (`LEVEL_ONE`, `LEVEL_TWO`, `LEVEL_THREE`) on 32 px tiles, and the
+column numbers below are the grid's own columns. A clear runs straight into the next level.
+
+| Level | Columns | What the ground asks of you | Flag |
+|---|---|---|---|
+| 1 | 76 | a pit at 34-36; spikes at 52-54 hanging above the floor, so they catch a jump rather than a run; one walker | `goalX 2368` in `worldWidth 2432` |
+| 2 | 66 | a pit at 16-17; a **one-tile step at column 30**; spikes on the plateau at 36-38; no walker | `goalX 2048` in `worldWidth 2112` |
+| 3 | 78 | **spikes on the floor at 10-11**; a one-tile step at 16-25 with spikes on top at 22-23; a walker at 32-37; pits at 40-42 and 58-60 with spikes just past the first landing | `goalX 2432` in `worldWidth 2496` |
+
+Level 2 adds exactly one thing (height) because two new things at once would stop the level from saying what
+killed you. Level 3 is where the ground stops being a corridor: the floor spikes at columns 10-11 kill a
+runner who only holds right, so the pressure comes from the level's own geometry rather than from a faster
+enemy. Two lanes on level 3 are reserved by tests, not by taste: **`chaseSightLane()` is columns 3-8**
+(x 96-288, the level's only long straight) and **`chaseSpawnLane()` is columns 12-14**, kept flat because that
+is where the pursuit enemy goes next.
+
 ## Controls
 
 | | Keyboard | Touch |
@@ -43,28 +61,25 @@ The title screen and the in-game hint follow the device. Keyboard: `Space — st
 `Arrows / A D · Space jump · Esc retry · R title`. Touch: `Tap — start`, then
 `Left / right pads, jump on the right`.
 
-**The result screens are buttons.** Measured on a touch-capable page: a tap while the death report is up
-ends the 0.6 s pause immediately (`respawnInMs 584 → 0`, back in `play` on the last safe ground), and a
-tap on the goal screen replays the level from its start (`x 70`, same `level`, `deaths` unchanged). The
-wording follows the device too — on a touch screen the goal screen printed
-`deaths: n · tap to run it again`, while on a keyboard the way out of it is `R`.
+**The result screens are buttons.** Measured on a 390x844 touch screen: a tap while the death report is up
+ends the 0.6 s pause immediately (`respawnInMs 583 → 0`, back in `play` on the safe spot, `x 1082.0`). The
+goal screen answers a tap the same way — measured while it was still the level-2 flag, before level 3
+landed: it replays that level from its start (`x 70`), with the same `level` and `deaths`. The wording
+follows the device too: on touch it printed `deaths: n · tap to run it again`, and on a keyboard the way out
+of it is `R`.
 
 ## Measured on the published build
 
 All of the below was measured on <https://fogrexon.github.io/glyph-arena/runner/> on 2026-11-17, against
-`assets/index-ClwvVxu6.js` — the bundle `docs/bundles.json` records for `runner`.
+`assets/index-CN4uAbEF.js` — the bundle `docs/bundles.json` records for `runner`.
 
-- **Start**: a held `Space` goes `title → play`, and `R` returns to `title`; starting from the title always begins at level 1 (`level 1`, `x 70`), measured after leaving the goal screen with `R`.
-- **Run**: `ArrowRight` for 0.5 s moved the body `x 70 → 217.6`; `D` for 0.4 s moved it `217.6 → 345.5`.
-- **Jump**: `Space` from a standing start lifted `y 324 → 219.2`, a **104.8 px** rise against the 111 px apex the physics publishes.
-- **Retry**: `Esc` in the air at `x 464.9` (`grounded: false`) put the body back on the ground at `x 449.2`, `grounded: true` — the last ground it stood on.
-- **The pit** (the gap in the ground) killed at `x 1211` on desktop and `x 1211` on a 390x844 touch screen, `cause: "pit"`; the death report printed `x 1211 / pit · 6.0s` (4.2 s on touch).
-- **Respawning** brought the body back to `x 1082`, `grounded: true`, `deaths: 1`.
-- **Level 1 → 2**: crossing the level-1 flag printed `LEVEL 2` and `climb the step, clear the spikes`, and the HUD read `level 2 / 2`. Level 1's flag is at `goalX 2368` in a `worldWidth 2432` world; level 2's is at `goalX 2048` in `worldWidth 2112`.
-- **The walker** on level 1 shows up in `enemies[0]` as `{ mode: "patrol", speed: 55, minX: 1280, maxX: 1504 }`.
-- **The goal screen** (after the level-2 flag) printed `GOAL`, `deaths: 28 · tap to run it again` and the last death (`x 1232 / spike · 18.7s`) on a touch-capable page; a tap there went back to `play` at `x 70`, same level, same death count, and `R` from that screen went to `title`.
-- **A scripted run cleared both levels with 28 deaths** — hold right, jump whenever grounded; a 125 ms jump hold gets through level 1, and level 2's spike field needed about 430 ms.
-- **Console errors**: 0 on the title, in play, on the death report and on the goal screen.
+- **Start**: a held `Space` goes `title → play`, while a 0 ms `press("Space")` leaves it on the title; `R` returns to `title`, and starting from the title always begins at level 1.
+- **Run and jump**: `ArrowRight` for 0.5 s moved the body `x 70 → 217.6`; `Space` from a standing start lifted `y 324 → 219.2`, a **104.8 px** rise against the 111 px apex the physics publishes.
+- **The level-1 pit** killed at `x 1211` (`cause: "pit"`) and the death report printed `x 1211 / pit · 4.0s`.
+- **The respawn is a recorded spot, not the death spot**: `__runnerState.safe` read `{ x: 1082.2, y: 324 }` and the body came back at exactly that x, `grounded: true`, `deaths: 1`. A spot only becomes safe with **96 px of clear ground** around it (300 ms at 320 px/s), which is why a spike bed cannot swallow the respawn: on level 3 the safe spot was `x 203` while the spikes that had killed the body sat at `x 320` — 97 px from its right edge.
+- **Level 1 → 2 → 3**: each clear printed `LEVEL 2` / `LEVEL 3` with `climb the step, clear the spikes`, and the HUD read `level 2 / 3`, then `level 3 / 3`. Level 3 reported `goalX 2432` in `worldWidth 2496`, and its walker showed in `enemies[0]` as `{ mode: "patrol", dir: -1, speed: 55, minX: 1024, maxX: 1184 }` — walking back at the runner, not away.
+- **Holding right on level 3** dies on the floor spikes at `x 304` (`cause: "spike"`), and holding it again after the respawn dies again about 0.3 s later: that is the walk back into them from 100 px away, not the 17 ms respawn-inside-the-hazard loop #179 removed.
+- **Console errors**: 0 across the three levels.
 
 A **synthetic press shorter than a frame is never seen**: `press("Space")` (0 ms) left the game on the title while holding it for 170 ms started it, and the jump is variable, so a 90 ms hold is cut before the apex. A harness driving this game has to hold its presses — about 150 ms for a press, longer for a full-height jump — or it will drive nothing and report it as broken.
 
@@ -95,8 +110,9 @@ pixels. The field set below is what the published build actually carries:
 | `respawnInMs` | milliseconds left in the death pause, `0` outside it |
 | `cameraX` | left edge of the view, world px |
 | `level`, `levelCount` | which level is loaded (1-based) and how many the run has |
-| `goalX` | the current level's flag, world px (level 1: 2368, level 2: 2048) |
-| `worldWidth` | the current level's width, world px (level 1: 2432, level 2: 2112) |
+| `safe` | the spot a death returns you to: the last ground stood on with 96 px of clear space around it, `{ x, y }` in world px |
+| `goalX` | the current level's flag, world px (levels 1 / 2 / 3: 2368 / 2048 / 2432) |
+| `worldWidth` | the current level's width, world px (levels 1 / 2 / 3: 2432 / 2112 / 2496) |
 | `simMs` | milliseconds of play in this run |
 | `jumpHeight` | the apex the physics gives (111) |
 | `gravity` | px/s2 (2600) |
