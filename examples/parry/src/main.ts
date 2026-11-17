@@ -43,6 +43,14 @@ type ParryState = {
   score: number;
   lives: number;
   wave: number;
+  /**
+   * Simulated milliseconds of play. The E2E budgets in *this*, not in wall time: the clock is the
+   * sum of the frame deltas, so a slow machine takes longer in wall time and reaches the same
+   * verdict — which is what `ci.yml` already promises about these checks. Before this field existed
+   * the only clock a harness could see was its own wristwatch, so a loaded runner could fail a
+   * check by being slow rather than by being wrong.
+   */
+  clockMs: number;
   /** Physics: projected time until the boxes touch, the number on the HUD. */
   contactMs: number | null;
   /** The number the parry judgement compares with `windowMs`: straight-line distance / speed. */
@@ -651,6 +659,7 @@ async function main(): Promise<void> {
       score,
       lives,
       wave: waveIndex,
+      clockMs: Math.round(scheduleSeconds * 1000),
       contactMs: contact === null ? null : Math.round(contact.seconds * 1000),
       pressMs: contact === null ? null : Math.round(contact.pressSeconds * 1000),
       contactDirX: contact === null ? null : Math.round(contact.dirX * 1000) / 1000,
