@@ -6,6 +6,19 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+### Added
+
+- **`pnpm e2e:runner`** (CI step 9) — the runner slice's acceptance, read from
+  `window.__runnerState` rather than from pixels or a stopwatch: ① a second of running
+  kills nobody, the ground holds and the camera moves into a world wider than the window,
+  ② a death returns you to ground you can stand on within the spec's 0.6 s, with the spike
+  (±8 px) and pit (≥60 px back, never into the hole) rules kept apart, ③ the two touch pads
+  and the jump pad move you exactly as fast and as high as the keyboard. It also asserts the
+  shipped constants still equal the spec (**760 / 2600 / 0.09 / 0.09**) — a relaxed number
+  fails there instead of passing quietly, which is how a jump buffer of 0.12 got caught.
+  Until `examples/runner/dist` exists it reports `PEND` lines and counts them separately
+  from passing: pending is not a pass (demo-only; no package API change; no `index-*.js` change)
+
 ### Changed
 
 - `examples/parry`: **the first enemy of every run comes from where the player is looking.** The opening
