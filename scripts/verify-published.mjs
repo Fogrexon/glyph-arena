@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // 傘パッケージの publish 後検証。registry / tarball のどちらでも同じ6項目を判定する。
 //
-//   node verify-published.mjs --tarball=/path/to/fogrexon-glyph-arena-0.1.2.tgz --tsc=/path/to/tsc
-//   node verify-published.mjs --spec=@fogrexon/glyph-arena@0.1.2 --tsc=/path/to/tsc
+//   node verify-published.mjs --tarball=/path/to/fogrexon-glyph-arena-<version>.tgz --tsc=/path/to/tsc
+//   node verify-published.mjs --spec=@fogrexon/glyph-arena@<version> --tsc=/path/to/tsc
 //
 // 判定: ①install できる ②license=MIT・ESM only ③.cjs 0件・LICENSE 同梱
 //       ④宣言の import 指定子が全て相対 ⑤ESM import で全サブパッケージが届く ⑥strict+NodeNext で tsc が通る

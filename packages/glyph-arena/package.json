@@ -1,7 +1,7 @@
 {
   "name": "@fogrexon/glyph-arena",
-  "version": "0.1.2",
-  "description": "The Glyph Arena 2D game runtime as one package: the 14 modules bundled into a single ESM build with self-contained type declarations",
+  "version": "0.2.0",
+  "description": "The Glyph Arena 2D game runtime as one package: the workspace modules bundled into a single ESM build with self-contained type declarations",
   "license": "MIT",
   "repository": {
     "type": "git",

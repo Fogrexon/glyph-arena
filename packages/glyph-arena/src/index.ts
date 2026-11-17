@@ -1,7 +1,7 @@
 /**
  * `@fogrexon/glyph-arena` — the whole runtime in one package.
  *
- * This is the package intended for npm. It bundles the 14 workspace modules
+ * This is the package intended for npm. It bundles the workspace modules
  * (which stay internal to this repo) and re-exports their public API flat, so a
  * consumer writes one import instead of one per module:
  *
@@ -11,8 +11,8 @@
  *
  * ## Why the specifiers are relative
  *
- * `tsc` copies module specifiers into the emitted `.d.ts` verbatim, and the 14
- * modules are **not** published on their own. Naming them here the way they are
+ * `tsc` copies module specifiers into the emitted `.d.ts` verbatim, and the modules
+ * are **not** published on their own. Naming them here the way they are
  * imported inside this repo would therefore publish declarations that no
  * consumer can resolve (those names exist only in this monorepo). Relative paths
  * keep the emitted declaration tree self-contained under `dist/`, the bundler
