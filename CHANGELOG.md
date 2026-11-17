@@ -8,21 +8,22 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Fixed
 
-- **a respawn is never inside what killed you, and never 5 px from it either.** On level 2 the
-  spikes sit at standing height, so "grounded" and "safe" were not the same thing: the safe spot
-  was recorded before the hazard check, which made the tile you died on the tile you came back to.
-  Holding right meant dying again on the very next frame — QA measured **deaths 1 → 5 in three
-  seconds**, and my first fix (skip a hazard tile) only stretched the interval between deaths from
-  **17 ms to 600 ms**: the respawn was still 0.8 px from the spikes, so the trap was unchanged.
-  A safe spot now has to be **96 px clear of any hazard** (300 ms at the 320 px/s run) — enough
-  time to see the spike, choose, and act — and `__runnerState` publishes **`safe`**, because the
-  rule could not be checked from outside while the value it uses was invisible.
-  `e2e:runner` **R11** measures it in the player's units: **R11a** the contract's `safe` is not a
-  hazard tile, **R11b** holding right after a respawn never becomes a death loop (a second death is
-  allowed, a 17 ms gap is not), **R11c** right plus jumps gets past the spikes without dying again.
-  Against the bundle that was live (`index-ClwvVxu6.js`): R11a/R11b/R11c all fail — 17 ms, and a
-  run that dies 17 times in 8 s without ever getting past x 1146. With the fix: `safe (940, 324)`,
-  no second death in three seconds of holding right, and x 1248 reached without a death.
+- **a respawn is never within 96 px of what killed you.** On level 2 the spikes sit at standing
+  height, so "grounded" and "safe" were not the same thing: the safe spot was recorded before the
+  hazard check, and the tile you died on became the tile you came back to. QA measured **deaths
+  1 → 5 in three seconds**, and the interval between deaths was **17 ms**. Skipping a hazard tile
+  is not enough — a respawn 0.8 px from the spikes is the same trap, just slower, so my first
+  attempt only stretched 17 ms to 600 ms. A safe spot now needs **96 px of clear ground** around
+  the body (300 ms at the 320 px/s run) or it is not recorded at all, which leaves the level's
+  spawn as the fallback. The rule is `hazardWithin()` in `level.ts` (pure, unit-tested) and
+  `__runnerState` gains **`safe`** — the distance is deliberately *not* published, because the
+  e2e measures it from the level grid and the unit test measures it directly, and a second copy
+  would be a second thing that can go green on its own.
+  `e2e:runner` **R11** now measures what QA reproduced: **R11a** the contract's `safe` has 96 px
+  of clear ground, **R11b** *holding right* after a respawn is never a death loop, with the gap
+  taken in **`simMs`** — real time would add the 0.6 s death pause and let a 17 ms trap pass a
+  300 ms bar. Against the bundle that was live (`index-D6Z1lqPf.js`): 17 ms, both checks red. With
+  the fix: `safe (940, 324)`, no second death in three seconds of holding right.
 
 ### Added
 
