@@ -8,6 +8,7 @@
     "typecheck:public-api": "tsc -p fixtures/public-api/tsconfig.json",
     "check:package-entry-points": "node scripts/check-package-entry-points.mjs",
     "smoke:pack-install": "node scripts/smoke-pack-install.mjs",
+    "publish:npm": "node scripts/publish-npm.mjs",
     "docs:render": "node scripts/render-docs.mjs",
     "e2e:demo": "node scripts/e2e-demo.mjs",
     "e2e:runner": "node scripts/e2e-runner.mjs",

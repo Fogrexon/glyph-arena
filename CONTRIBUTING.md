@@ -66,6 +66,12 @@ Only one package is published: `@fogrexon/glyph-arena`. It bundles the 14 module
 - **The version lives on the umbrella** (`packages/glyph-arena/package.json`); the 14 subpackage versions are internal values.
 - A module that runs code at import time would break `sideEffects: false` in the umbrella — keep every module a factory.
 
+### Publishing
+
+`pnpm publish:npm` is the whole release step. It refuses to run unless `HEAD` is the tag `v<version>` from the umbrella, that tag exists on `origin`, the tree is clean, and npm does not already have the version; then it builds, packs, and runs `scripts/verify-published.mjs` against **that tarball** (license, ESM only, no `.cjs`, LICENSE shipped, relative declarations, every subpackage reachable, strict `tsc`). It publishes nothing by itself.
+
+`NPM_TOKEN=<automation token> pnpm publish:npm --publish` publishes the exact tarball that passed, then re-runs the same verifier against `@fogrexon/glyph-arena@<version>` from the registry. The token needs to belong to the account that owns the `@fogrexon` scope.
+
 ## API documentation
 
 These files are rendered to HTML by `scripts/render-docs.mjs` during the demo build and published at [fogrexon.github.io/glyph-arena/docs](https://fogrexon.github.io/glyph-arena/docs/). Edit the `docs/api-*.md` sources, not the generated pages.
