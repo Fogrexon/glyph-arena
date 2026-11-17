@@ -6,6 +6,27 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+### Fixed
+
+- **runner: the first tap now starts the run, wherever it lands.** The title screen said
+  "Tap — start" but only the jump pad in the corner started it, so a first-time phone user's
+  first move did nothing (#QA, measured on 390×844). The whole title screen is the button now;
+  the pad still works, because a tap on the pad is also a tap on the screen.
+- **runner: a favicon, and a title that is a title.** `/runner/` shipped no `<link rel="icon">`,
+  so the browser asked for `/favicon.ico`, got a 404 and logged an error — the same shape as the
+  parry fix. It also shipped `<title>Runner \u2014 Glyph Arena</title>`: HTML has no compiler, so
+  the escape reached the tab as text. `examples/runner/index.html` now links
+  `public/favicon.svg` and carries a real `—`.
+- **the escapes now fail in CI, not in an eye.** `e2e:runner` grew **R6**, on the built files
+  rather than the sources: any `\uXXXX` left in `dist/index.html` or `dist/assets/*.js` is red
+  (a TypeScript escape compiles to the character; one that survives to the browser is a dash
+  somebody meant), `document.title` must be the real string, and the page must link a favicon
+  that exists in `dist`. **R7** taps the middle of the 390×844 title screen and requires
+  `phase: "play"`. Both were proven against the previously deployed page: R6 fails it on all
+  four lines. R2 also learned to wait for the start jump to land before measuring "the ground
+  holds while you run" (the spawn frames and the start jump are airborne by design, which made
+  a 95% threshold flake between 88% and 100% on identical code).
+
 ### Added
 
 - **`pnpm check:deployed --write --pr`** — the deploy record now goes to `main` through a pull
