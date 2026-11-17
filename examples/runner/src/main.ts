@@ -9,7 +9,7 @@ import { createActions } from "@fogrexon/glyph-arena-actions";
 import { createInput } from "@fogrexon/glyph-arena-input";
 import { createLoop } from "@fogrexon/glyph-arena-loop";
 
-import { TILE, currentLevel, goalLineX, isHazardTile, isSolidTile, levelColumns, levelCount, levelRows, loadLevel, spawnPoint } from "./level";
+import { TILE, currentLevel, goalLineX, isHazardTile, isSolidTile, levelColumns, levelCount, levelRows, loadLevel, patrolRange, spawnPoint } from "./level";
 import { GRAVITY, createBody, jumpHeight, stepBody, type Body } from "./physics";
 
 type Phase = "title" | "play" | "dead" | "goal";
@@ -48,6 +48,22 @@ type RunnerState = {
   /** Jump physics, published so a harness can pin the feel without reading the source. */
   jumpHeight: number;
   gravity: number;
+  /**
+   * Every walker on the level, always an array. One walker today, and the next unit brings a
+   * chaser that walks and pursues — so the shape is a list from the start and `mode` says which
+   * behaviour it is, rather than renaming a single object the day a second one appears.
+   */
+  enemies: Array<{
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    dir: number;
+    mode: "patrol" | "chase";
+    speed: number;
+    minX: number;
+    maxX: number;
+  }>;
 };
 
 const LOGICAL_HEIGHT = 540;
@@ -171,7 +187,7 @@ function loadLevelAt(index: number): void {
   goal = { x: goalLineX(), y: 0 };
   worldWidth = levelColumns() * TILE;
   worldHeight = levelRows() * TILE;
-  enemy = makeEnemy(index);
+  enemy = makeEnemy();
   body = createBody(spawn.x + 6, spawn.y - 28, 20, 28);
   safe = { x: body.x, y: body.y };
   cameraX = 0;
@@ -342,21 +358,25 @@ function drawLevel(): void {
 type Enemy = { x: number; y: number; w: number; h: number; minX: number; maxX: number; dir: number; speed: number };
 
 /** The walker only exists where a level places one; level 2's new verb is height, not pursuit. */
-function makeEnemy(index: number): Enemy | null {
-  if (index !== 0) return null;
+function makeEnemy(): Enemy | null {
+  // The lane comes from `level.ts`, so the distance between the pit and the walker is one number
+  // the test can read too. A walker placed here would put that number back in two places.
+  const patrol = patrolRange();
+  if (patrol === null) return null;
+  const w = 24;
   return {
-    x: 40 * TILE + 5,
+    x: Math.round((patrol.minX + patrol.maxX) / 2) - w / 2,
     y: 10 * TILE + 2,
-    w: 24,
+    w,
     h: 26,
-    minX: 38 * TILE,
-    maxX: 45 * TILE,
+    minX: patrol.minX,
+    maxX: patrol.maxX,
     dir: 1,
     speed: 55,
   };
 }
 
-let enemy: Enemy | null = makeEnemy(currentLevel());
+let enemy: Enemy | null = makeEnemy();
 
 function stepEnemy(dt: number): void {
   if (enemy === null) return;
@@ -583,6 +603,22 @@ function publish(): void {
     simMs: Math.round(simSeconds * 1000),
     jumpHeight: jumpHeight(),
     gravity: GRAVITY,
+    enemies:
+      enemy === null
+        ? []
+        : [
+            {
+              x: enemy.x,
+              y: enemy.y,
+              w: enemy.w,
+              h: enemy.h,
+              dir: enemy.dir,
+              mode: "patrol",
+              speed: enemy.speed,
+              minX: enemy.minX,
+              maxX: enemy.maxX,
+            },
+          ],
   };
 }
 

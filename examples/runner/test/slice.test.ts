@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { TILE, goalLineX, isHazardTile, isSolidTile, levelColumns, levelCount, levelRows, loadLevel, spawnPoint } from "../src/level.ts";
+import { TILE, goalLineX, isHazardTile, isSolidTile, levelColumns, levelCount, levelRows, loadLevel, patrolRange, spawnPoint } from "../src/level.ts";
 import { createBody, stepBody } from "../src/physics.ts";
 
 const solid = (left: number, top: number, right: number, bottom: number): boolean => {
@@ -72,4 +72,43 @@ test("a simple bot clears every level, in order, to the goal", () => {
     // would have failed the loop above, not here.
     assert.ok(index < levelCount());
   }
+});
+
+/**
+ * The landing on the far side of a pit must be at least two tiles before a walker's lane starts.
+ *
+ * This is level design, not balance: a pit that ends 32 px from a walker asks a person for a gap
+ * they cannot see (the bot survives it because it looks 80 px ahead). The number lives in
+ * `level.ts`, so moving the pit or the lane back together goes red here instead of quietly making
+ * the level unfair again.
+ */
+test("a pit leaves at least two tiles of landing before the walker's lane", () => {
+  let checked = 0;
+  for (let index = 0; index < levelCount(); index += 1) {
+    loadLevel(index);
+    const patrol = patrolRange();
+    if (patrol === null) continue;
+    const groundRow = levelRows() - 1;
+    const columns = levelColumns();
+    let column = 0;
+    while (column < columns) {
+      if (isSolidTile(column, groundRow)) {
+        column += 1;
+        continue;
+      }
+      const pitStart = column;
+      while (column < columns && !isSolidTile(column, groundRow)) column += 1;
+      // A pit that opens to the right of the lane has nothing to do with landing on a walker.
+      if (pitStart * TILE >= patrol.minX) break;
+      const landingX = column * TILE;
+      const gap = patrol.minX - landingX;
+      assert.ok(
+        gap >= 2 * TILE,
+        `level ${index + 1}: the pit ends at x=${landingX} and the walker's lane starts at x=${patrol.minX} — ${gap}px of landing, less than ${2 * TILE}px`,
+      );
+      checked += 1;
+    }
+  }
+  // A loop that found nothing would pass while testing nothing, which is the shape of a silent check.
+  assert.ok(checked >= 1, "no pit sits before a walker on any level, so this test proved nothing");
 });
