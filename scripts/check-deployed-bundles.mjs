@@ -50,7 +50,7 @@ for (const [name, url] of Object.entries(pages)) {
   }
 
   if (expected === null && !write) {
-    console.error(`FAIL ${name}: serving ${unique[0]} but the record is null \u2014 run \`pnpm check:deployed --write\` and commit docs/bundles.json`);
+    console.error(`FAIL ${name}: serving ${unique[0]} but the record is null — run \`pnpm check:deployed --write\` and commit docs/bundles.json`);
     failed += 1;
     continue;
   }
@@ -59,7 +59,7 @@ for (const [name, url] of Object.entries(pages)) {
   if (unique[0] !== expected && !write) {
     console.error(
       `FAIL ${name}: serving ${unique[0]}, recorded ${expected}` +
-        ` \u2014 run \`pnpm check:deployed --write\` after the deploy and commit docs/bundles.json`,
+        ` — run \`pnpm check:deployed --write\` after the deploy and commit docs/bundles.json`,
     );
     failed += 1;
   } else if (!write) {
