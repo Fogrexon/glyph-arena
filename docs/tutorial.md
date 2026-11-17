@@ -177,6 +177,119 @@ draw.measureText({ text: "SCORE 0", size: 16 }).width; // when you need the numb
 someone else's screen. `align: "right"` makes `x` the right edge; `measureText` gives the width when a
 layout needs it as a number.
 
+## The whole file
+
+Everything above, in one file, in the order the frame runs it: `strict` TypeScript compiles this as it
+stands. Two lines carry more weight than they look like — `dt` is clamped to `1 / 30` because `loop`
+already clamps to `0.1 s`, and a long frame at that step would let the body pass through a wall;
+`jump` is the press and `jumpHeld` is "still down", and that pair is what makes a short tap a short
+jump.
+
+```ts
+import {
+  createBody,
+  createCamera,
+  createDraw,
+  createInput,
+  createLoop,
+  createTileMap,
+  hasTag,
+  jumpHeightOf,
+  solidInRect,
+  stepBody,
+} from "@fogrexon/glyph-arena";
+
+const CELL = 32;
+const COLS = 32;
+const ROWS = 6;
+
+const canvas = document.querySelector<HTMLCanvasElement>("#game")!;
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const draw = createDraw({ context: canvas.getContext("2d")! });
+const input = createInput();
+input.attach(window);
+
+const LEVEL = [
+  "................................",
+  "................................",
+  "..........#####.................",
+  "................................",
+  "########.......################",
+  "########.......################",
+];
+const map = createTileMap(LEVEL.join("\n"), { legend: { "#": ["solid"] }, cell: CELL });
+
+// Every number this game feels by lives here; the library holds none of them.
+const feel = {
+  gravity: 2600,
+  jumpVelocity: -760,
+  maxFall: 1200,
+  coyoteSeconds: 0.09,
+  jumpBufferSeconds: 0.12,
+  runSpeed: 320,
+  runAccel: 2600,
+  airAccel: 1700,
+  groundFriction: 2400,
+  airFriction: 400,
+  jumpCutFactor: 0.35,
+};
+
+const solid = (left: number, top: number, right: number, bottom: number) =>
+  solidInRect(map, left, top, right, bottom, "solid");
+
+const player = createBody({ x: 70, y: 120, w: 20, h: 28 }, feel);
+const camera = createCamera();
+
+console.log(jumpHeightOf(feel)); // 111.08 px, from the same config the body uses
+
+createLoop({
+  onFrame: ({ delta }) => {
+    const dt = Math.min(delta, 1 / 30); // a long frame must not teleport the body
+    const keys = input.snapshot().keys;
+
+    stepBody(
+      player,
+      {
+        left: keys.has("ArrowLeft") || keys.has("KeyA"),
+        right: keys.has("ArrowRight") || keys.has("KeyD"),
+        jump: keys.has("Space"),
+        jumpHeld: keys.has("Space"),
+      },
+      dt,
+      solid,
+      { grid: CELL },
+    );
+
+    draw.clear("#0d1626");
+
+    camera.set({ x: player.x - canvas.width * 0.33, y: 0 });
+    draw.setView(camera.view(canvas.width, canvas.height));
+
+    for (let row = 0; row < ROWS; row += 1) {
+      for (let col = 0; col < COLS; col += 1) {
+        if (hasTag(map, col, row, "solid")) {
+          draw.rect({ x: col * CELL, y: row * CELL, w: CELL, h: CELL, fill: "#2a3550" });
+        }
+      }
+    }
+    draw.rect({ x: player.x, y: player.y, w: player.w, h: player.h, fill: "#f7b32b" });
+
+    draw.setView(null);
+    draw.text({ text: `x ${Math.round(player.x)}`, x: 16, y: 16, size: 16, fill: "#e8eaed" });
+    draw.text({
+      text: "SCORE 0",
+      x: canvas.width - 16,
+      y: 16,
+      size: 16,
+      fill: "#e8eaed",
+      align: "right",
+    });
+  },
+}).start();
+```
+
 ## What you have
 
 A canvas, a text level, a body with gravity, coyote time and a jump buffer, a camera, and a HUD. That
