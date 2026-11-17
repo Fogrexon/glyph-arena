@@ -77,6 +77,7 @@ pixels. The demo mirrors the run into `window.__parryState`, refreshed every fra
 | Field | Meaning |
 | --- | --- |
 | `phase` | `"title"`, `"play"` or `"result"` |
+| `clockMs` | simulated ms of play — the clock an E2E budgets in, so a slow machine takes longer in wall time and still reaches the same verdict |
 | `parried`, `lives`, `wave` | the same numbers the HUD shows |
 | `contactMs` | projected ms until the boxes touch — **the HUD's `Contact in`**, i.e. the human-facing warning |
 | `pressMs` | straight-line distance / speed — **the number the parry judgement compares with `windowMs`** |
