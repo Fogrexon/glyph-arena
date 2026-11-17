@@ -8,6 +8,29 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Added
 
+- **runner: a second level, in the same notation.** Clearing level 1 now runs straight into
+  level 2 — no menu, no reload — and `__runnerState` publishes `level` (1-based) and
+  `levelCount`. Level 2 is written in `level.ts` in exactly the same ASCII (`# ^ @ |`), because
+  if a second level needs a second format, the format is the thing that does not scale. Its one
+  new demand is **height**: a one-tile step up onto a plateau, spikes on the plateau to clear,
+  and the goal at the top. No walker on level 2 — two new things at once stop a level from
+  telling you what killed you.
+- **one source of truth for the goal line.** `goalLineX()` lives in `level.ts` and both the game
+  and the bot read it, so a test can no longer pass a level the game would not clear.
+- **CI plays every level, in order.** `slice.test.ts`'s bot now walks the levels from 1 to N and
+  has to clear each one; `level.test.ts` checks every level by the same rules (spawn on solid
+  ground, something that kills, wider than 1200 px) and asserts level 2 actually has a step and a
+  pit while level 1 still has neither.
+- **`e2e:runner` R0** now also asserts `level === 1` and `levelCount === 2` on load.
+
+### Fixed
+
+- **the bot's jump lookahead.** One 80 px lookahead jumped spikes so early that it landed on the
+  far side of a spike bed (level 2, x 1227). Spikes are now read 40 px ahead and pits/steps keep
+  the 80 px look — the bot got smarter, the level did not get easier.
+
+### Added (previous)
+
 - **runner: a death log, on the contract and on the screen.** `__runnerState.deathLog` is an
   array of `{ x, cause, simMs }` — `cause` is `pit`, `spike` or `enemy` — while `deaths` stays the
   count, so the QA contract that reads `deaths === 0` keeps working. The death overlay prints the
