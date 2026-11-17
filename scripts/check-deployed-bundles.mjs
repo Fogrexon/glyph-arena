@@ -25,8 +25,6 @@ const detected = {};
 let failed = 0;
 
 for (const [name, url] of Object.entries(pages)) {
-  // Cache-buster: otherwise the CDN in front of Pages can serve the previous
-  // release for a while and this check reports a name that no longer exists.
   const response = await fetch(`${url}?cb=${Date.now()}`);
   if (!response.ok) {
     console.error(`FAIL ${name}: ${url} returned ${response.status}`);
@@ -48,7 +46,7 @@ for (const [name, url] of Object.entries(pages)) {
   if (unique[0] !== expected && !write) {
     console.error(
       `FAIL ${name}: serving ${unique[0]}, recorded ${expected}` +
-        ` — run \`pnpm check:deployed --write\` after the deploy and commit docs/bundles.json`,
+        ` \u2014 run \`pnpm check:deployed --write\` after the deploy and commit docs/bundles.json`,
     );
     failed += 1;
   } else if (!write) {

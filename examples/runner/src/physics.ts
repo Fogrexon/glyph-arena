@@ -1,0 +1,110 @@
+/**
+ * The body that runs and jumps, and the three numbers that decide how it feels.
+ *
+ * Kept pure: `stepBody` takes a solid-tile query and mutates one body, so the
+ * jump height, the fall and the coyote window can be tested without a browser.
+ * The numbers below are the ones a player feels, in that order.
+ */
+
+/** Downward acceleration, px/s^2. With the jump velocity below, the arc is ~0.58 s. */
+export const GRAVITY = 2600;
+
+/** Jump impulse, px/s. Negative is up; the apex is 111 px with the gravity above. */
+export const JUMP_VELOCITY = -760;
+
+/** Fall speed cap, so a long drop stays readable. */
+export const MAX_FALL = 1200;
+
+/** How long after leaving a ledge a jump still counts. */
+export const COYOTE_SECONDS = 0.09;
+
+/** How long before landing a jump press is remembered. */
+export const JUMP_BUFFER_SECONDS = 0.12;
+
+export const RUN_ACCEL = 2600;
+export const AIR_ACCEL = 1700;
+export const MAX_RUN = 320;
+export const GROUND_FRICTION = 2400;
+export const AIR_FRICTION = 400;
+
+export type Body = {
+  /** Left edge, world px. */
+  x: number;
+  /** Top edge, world px. */
+  y: number;
+  w: number;
+  h: number;
+  vx: number;
+  vy: number;
+  grounded: boolean;
+  /** Seconds left in the coyote / jump-buffer windows. */
+  coyote: number;
+  buffer: number;
+};
+
+export type SolidQuery = (left: number, top: number, right: number, bottom: number) => boolean;
+
+export function createBody(x: number, y: number, w = 20, h = 28): Body {
+  return { x, y, w, h, vx: 0, vy: 0, grounded: false, coyote: 0, buffer: 0 };
+}
+
+/** How high a jump from rest reaches, in px. Exported so a test can pin it. */
+export function jumpHeight(): number {
+  return (JUMP_VELOCITY * JUMP_VELOCITY) / (2 * GRAVITY);
+}
+
+/** One fixed step. `jumpPressed` is true only on the frame the key went down. */
+export function stepBody(
+  body: Body,
+  input: { left: boolean; right: boolean; jumpPressed: boolean; jumpHeld: boolean },
+  dt: number,
+  solid: SolidQuery,
+): void {
+  const accel = body.grounded ? RUN_ACCEL : AIR_ACCEL;
+  const friction = body.grounded ? GROUND_FRICTION : AIR_FRICTION;
+
+  if (input.left && !input.right) {
+    body.vx = Math.max(body.vx - accel * dt, -MAX_RUN);
+  } else if (input.right && !input.left) {
+    body.vx = Math.min(body.vx + accel * dt, MAX_RUN);
+  } else if (body.vx > 0) {
+    body.vx = Math.max(body.vx - friction * dt, 0);
+  } else if (body.vx < 0) {
+    body.vx = Math.min(body.vx + friction * dt, 0);
+  }
+
+  body.buffer = input.jumpPressed ? JUMP_BUFFER_SECONDS : Math.max(0, body.buffer - dt);
+  body.coyote = body.grounded ? COYOTE_SECONDS : Math.max(0, body.coyote - dt);
+
+  if (body.buffer > 0 && body.coyote > 0) {
+    body.vy = JUMP_VELOCITY;
+    body.grounded = false;
+    body.buffer = 0;
+    body.coyote = 0;
+  } else if (!input.jumpHeld && body.vy < JUMP_VELOCITY * 0.35) {
+    body.vy = JUMP_VELOCITY * 0.35;
+  }
+
+  body.vy = Math.min(body.vy + GRAVITY * dt, MAX_FALL);
+
+  body.x += body.vx * dt;
+  if (body.vx > 0 && solid(body.x, body.y + 1, body.x + body.w, body.y + body.h - 1)) {
+    body.x = Math.floor((body.x + body.w) / 32) * 32 - body.w;
+    body.vx = 0;
+  } else if (body.vx < 0 && solid(body.x, body.y + 1, body.x + body.w, body.y + body.h - 1)) {
+    body.x = (Math.floor(body.x / 32) + 1) * 32;
+    body.vx = 0;
+  }
+
+  body.y += body.vy * dt;
+  const wasFalling = body.vy >= 0;
+  body.grounded = false;
+  if (body.vy > 0 && solid(body.x + 1, body.y, body.x + body.w - 1, body.y + body.h + 1)) {
+    body.y = Math.floor((body.y + body.h) / 32) * 32 - body.h;
+    body.vy = 0;
+    body.grounded = wasFalling;
+  } else if (body.vy < 0 && solid(body.x + 1, body.y, body.x + body.w - 1, body.y + body.h)) {
+    body.y = (Math.floor(body.y / 32) + 1) * 32;
+    body.vy = 0;
+  }
+}
