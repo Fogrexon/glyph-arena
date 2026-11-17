@@ -420,3 +420,198 @@ function drawTouch(): void {
   label(buttons.jump, "\u25b2", touchState.jump);
 }
 
+function draw(): void {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  drawSky();
+  drawParallax();
+  drawLevel();
+  drawEnemy();
+  drawPlayer();
+  const s = scale();
+  if (phase === "title") {
+    ctx.fillStyle = "rgba(13, 22, 38, 0.55)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#e8eaed";
+    ctx.font = `${30 * s}px system-ui, sans-serif`;
+    ctx.fillText("Runner", 40 * s, 80 * s);
+    ctx.font = `${16 * s}px system-ui, sans-serif`;
+    ctx.fillStyle = PALETTE.hud;
+    ctx.fillText("Run right, jump the gaps, do not touch the spikes or the walker.", 40 * s, 116 * s);
+    ctx.fillStyle = "#9aa0a6";
+    ctx.fillText(
+      touchEnabled ? "Left / right pads, jump on the right" : "Arrows / A D \u00b7 Space jump \u00b7 Esc retry \u00b7 R title",
+      40 * s,
+      142 * s,
+    );
+    ctx.fillStyle = PALETTE.scarf;
+    ctx.font = `${18 * s}px system-ui, sans-serif`;
+    ctx.fillText(touchEnabled ? "Tap \u2014 start" : "Space \u2014 start", 40 * s, 178 * s);
+  } else {
+    ctx.fillStyle = PALETTE.hud;
+    ctx.font = `${14 * s}px system-ui, sans-serif`;
+    ctx.fillText(`deaths: ${deaths}`, 24 * s, canvas.height - 24 * s);
+  }
+  if (phase === "goal") {
+    ctx.fillStyle = "rgba(13, 22, 38, 0.6)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = PALETTE.scarf;
+    ctx.font = `${34 * s}px system-ui, sans-serif`;
+    ctx.fillText("GOAL", canvas.width * 0.42, canvas.height * 0.44);
+    ctx.fillStyle = "#e8eaed";
+    ctx.font = `${16 * s}px system-ui, sans-serif`;
+    ctx.fillText(`deaths: ${deaths} \u00b7 R to run it again`, canvas.width * 0.42, canvas.height * 0.44 + 34 * s);
+  }
+  if (phase === "dead") {
+    ctx.fillStyle = `rgba(224, 80, 96, ${Math.min(0.5, respawnSeconds / RESPAWN_SECONDS) * 0.8})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+  drawTouch();
+}
+
+// ---------------------------------------------------------------- loop
+
+const touchEnabled = typeof navigator !== "undefined" && navigator.maxTouchPoints > 0;
+const touchState = { left: false, right: false, jump: false };
+let previousPointers = new Set<number>();
+let touchJumpPressed = false;
+
+function publish(): void {
+  (window as typeof window & { __runnerState?: RunnerState }).__runnerState = {
+    phase,
+    x: body.x,
+    y: body.y,
+    vx: body.vx,
+    vy: body.vy,
+    grounded: body.grounded,
+    deaths,
+    respawnInMs: Math.round(respawnSeconds * 1000),
+    cameraX,
+    goalX: goal.x,
+    worldWidth,
+    simMs: Math.round(simSeconds * 1000),
+    jumpHeight: jumpHeight(),
+    gravity: GRAVITY,
+  };
+}
+
+const loop = createLoop({
+  onFrame(time) {
+    const dt = Math.min(time.delta, MAX_FRAME_DELTA);
+    clock += dt;
+    const snapshot = input.snapshot();
+    const keys = new Set(snapshot.keys);
+    const query = actions.tick(keys);
+
+    const freshTaps: Array<{ x: number; y: number }> = [];
+    for (const point of snapshot.pointers) {
+      if (!previousPointers.has(point.id)) {
+        freshTaps.push(point);
+      }
+    }
+    previousPointers = new Set(snapshot.pointers.map((point) => point.id));
+    const rect = canvas.getBoundingClientRect();
+    const toCanvas = (point: { x: number; y: number }) => ({
+      x: (point.x - rect.left) * (rect.width === 0 ? 1 : canvas.width / rect.width),
+      y: (point.y - rect.top) * (rect.height === 0 ? 1 : canvas.height / rect.height),
+    });
+    const buttons = touchButtons();
+    let touchLeft = false;
+    let touchRight = false;
+    let touchJump = false;
+    for (const point of snapshot.pointers) {
+      const local = toCanvas(point);
+      if (inside(local, buttons.left)) touchLeft = true;
+      if (inside(local, buttons.right)) touchRight = true;
+      if (inside(local, buttons.jump)) touchJump = true;
+    }
+    touchState.left = touchLeft;
+    touchState.right = touchRight;
+    touchState.jump = touchJump;
+    touchJumpPressed = touchJump;
+    const tapped = freshTaps.some((point) => {
+      const local = toCanvas(point);
+      return inside(local, buttons.jump);
+    });
+
+    if (phase === "title") {
+      if (query.pressed("jump") || tapped) {
+        ensureAudio();
+        phase = "play";
+        simSeconds = 0;
+        body = createBody(spawn.x + 6, spawn.y - 28, 20, 28);
+        safe = { x: body.x, y: body.y };
+      }
+      publish();
+      draw();
+      return;
+    }
+
+    if (query.pressed("title")) {
+      phase = "title";
+      publish();
+      draw();
+      return;
+    }
+    if (query.pressed("retry")) {
+      phase = "play";
+      respawn(true);
+      publish();
+      draw();
+      return;
+    }
+
+    if (phase === "dead") {
+      respawnSeconds = Math.max(0, respawnSeconds - dt);
+      if (respawnSeconds === 0) {
+        phase = "play";
+        respawn(true);
+      }
+      publish();
+      draw();
+      return;
+    }
+
+    if (phase === "play") {
+      simSeconds += dt;
+      const wasGrounded = body.grounded;
+      stepBody(
+        body,
+        {
+          left: query.down("left") || touchLeft,
+          right: query.down("right") || touchRight,
+          jumpPressed: query.pressed("jump") || tapped,
+          jumpHeld: query.down("jump") || touchJump,
+        },
+        dt,
+        solidAt,
+      );
+      stepEnemy(dt);
+      if (body.grounded && body.vy === 0) {
+        safe = { x: body.x, y: body.y };
+      }
+      if (!wasGrounded && body.grounded) {
+        play("land");
+      }
+      if (query.pressed("jump") || tapped) {
+        ensureAudio();
+        play("jump");
+      }
+
+      const hitEnemy =
+        body.x < enemy.x + enemy.w && body.x + body.w > enemy.x && body.y < enemy.y + enemy.h && body.y + body.h > enemy.y;
+      if (hazardAt(body) || hitEnemy || body.y > worldHeight + 240) {
+        die();
+      } else if (body.x + body.w > goal.x) {
+        phase = "goal";
+      }
+
+      const target = Math.max(0, Math.min(worldWidth - viewWidth(), body.x - viewWidth() * 0.33 + body.vx * 0.12));
+      cameraX += (target - cameraX) * Math.min(1, dt * 8);
+    }
+
+    publish();
+    draw();
+  },
+});
+
+loop.start();
