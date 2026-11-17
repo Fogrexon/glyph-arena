@@ -88,11 +88,13 @@ pixels. The field set below is what the published build actually carries:
 | `deathLog` | every death this page load, oldest first: `{ x, cause, simMs }` |
 | `respawnInMs` | milliseconds left in the death pause, `0` outside it |
 | `cameraX` | left edge of the view, world px |
+| `level`, `levelCount` | which level is loaded (1-based) and how many the run has |
 | `goalX` | the flag's x (2368) |
 | `worldWidth` | the level's width (2432) |
 | `simMs` | milliseconds of play in this run |
 | `jumpHeight` | the apex the physics gives (111) |
 | `gravity` | px/s2 (2600) |
+| `enemies` | every walker on the level, always an array: `{ x, y, w, h, dir, mode, speed, minX, maxX }` |
 
 A `deathLog` entry carries its cause as `pit`, `spike` or `enemy` — `enemy` is the walker, because calling
 that one a spike would make the data lie. The death screen and the log print the same line from the same
