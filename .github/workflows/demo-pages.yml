@@ -55,20 +55,10 @@ jobs:
 
       - run: pnpm install
 
-      - run: pnpm --filter @fogrexon/glyph-arena-actions build
-      - run: pnpm --filter @fogrexon/glyph-arena-assets build
-      - run: pnpm --filter @fogrexon/glyph-arena-audio build
-      - run: pnpm --filter @fogrexon/glyph-arena-camera build
-      - run: pnpm --filter @fogrexon/glyph-arena-collide build
-      - run: pnpm --filter @fogrexon/glyph-arena-draw build
-      - run: pnpm --filter @fogrexon/glyph-arena-ecs build
-      - run: pnpm --filter @fogrexon/glyph-arena-gamepad build
-      - run: pnpm --filter @fogrexon/glyph-arena-input build
-      - run: pnpm --filter @fogrexon/glyph-arena-loop build
-      - run: pnpm --filter @fogrexon/glyph-arena-scene build
-      - run: pnpm --filter @fogrexon/glyph-arena-timer build
-      - run: pnpm --filter @fogrexon/glyph-arena-transform build
-      - run: pnpm --filter @fogrexon/glyph-arena-tween build
+      # Every library, in dependency order — not a list. The list was hand-kept and went stale the
+      # day `glyph-arena-body` landed: the runner could not build because its dist was missing, and
+      # the site stopped deploying while `main` stayed green (the deploy is not a CI gate).
+      - run: pnpm -r --filter "./packages/*" build
       - run: pnpm --filter @fogrexon/glyph-arena-pickup-demo build
         env:
           GITHUB_PAGES: "true"
