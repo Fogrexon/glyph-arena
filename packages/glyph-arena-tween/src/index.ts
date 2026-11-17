@@ -228,3 +228,39 @@ export function createTween(): Tween {
     dispose,
   };
 }
+
+export type ApproachOptions = {
+  /** How much of the remaining gap to close per second. Default `8`. */
+  rate?: number;
+};
+
+const DEFAULT_APPROACH_RATE = 8;
+
+/**
+ * Move `current` toward `aim` by `rate` per second, frame-rate independently enough to hold at
+ * any frame length: this is the scalar version of a camera, a health bar that drains smoothly, or
+ * a steering value that must not snap.
+ *
+ * The step is `clamp(dt * rate, 0, 1)`, so a long frame (a stall, a tab switch) closes the whole
+ * gap instead of overshooting it and bouncing back. `dt <= 0` or a non-finite `dt` returns
+ * `current` unchanged, which is what a paused frame should do.
+ *
+ * `aim` may move every frame. This is not `to()`: there is no duration and no completion, only a
+ * chase, so there is nothing to cancel and no handle to leak.
+ */
+export function approach(
+  current: number,
+  aim: number,
+  dt: number,
+  options: ApproachOptions = {},
+): number {
+  const rate = options.rate ?? DEFAULT_APPROACH_RATE;
+
+  if (!Number.isFinite(dt) || dt <= 0) {
+    return current;
+  }
+
+  const step = Math.min(Math.max(dt * rate, 0), 1);
+
+  return current + (aim - current) * step;
+}

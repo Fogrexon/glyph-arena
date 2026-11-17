@@ -5,7 +5,8 @@ import * as api from "../src/index.js";
 
 /**
  * The value exports the flat re-export must expose — one per module (collide
- * exports `overlaps`, the rest export a `create*` factory). Type-only exports
+ * exports `overlaps`, tween exports `approach` beside its factory, the rest
+ * export a `create*` factory). Type-only exports
  * are checked by `pnpm typecheck:public-api` instead, which imports `Matrix2D`
  * by name from this package and compiles against the emitted declaration.
  *
@@ -14,6 +15,7 @@ import * as api from "../src/index.js";
  * turns this red instead of shipping.
  */
 const expectedValueExports = [
+  "approach",
   "createActions",
   "createAssets",
   "createAudio",

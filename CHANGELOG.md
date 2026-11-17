@@ -22,6 +22,14 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Added
 
+- **`approach(current, aim, dt)` in `@fogrexon/glyph-arena-tween`.** Every game in this repository
+  wrote the same two lines to ease a value toward a moving aim — `value + (aim - value) *
+  Math.min(1, dt * 8)` — and `examples/runner` still does, for its camera. The package now owns
+  that step: the gap closes at `rate` per second, a long frame closes the whole gap instead of
+  overshooting and bouncing, and a paused frame (`dt <= 0`) returns the value unchanged. It is not
+  `to()`: there is no duration and no completion, only a chase, so there is no handle to leak. The
+  tests pin it to the hand-written idiom over a table of values, which is what makes the port safe.
+
 - **runner: a third level, and the ground is the pressure.** Level 3 (`level.ts`, 78 columns)
   keeps one long straight and spends the rest on places where holding right kills you: spikes on
   the ground line in front of a one-tile step (columns 10-11), spikes on the platform you land on
