@@ -65,7 +65,7 @@ test("the coyote window lets a jump one step after the ledge", () => {
 
 test("a jump pressed just before landing is remembered", () => {
   const body = createBody(0, FLOOR_Y - 28, 20, 28);
-  body.buffer = JUMP_BUFFER_SECONDS;
+  body.jumpBuffer = JUMP_BUFFER_SECONDS;
   body.grounded = true;
   stepBody(body, { left: false, right: false, jumpPressed: false, jumpHeld: true }, 1 / 60, floor);
   assert.ok(body.vy < 0, "the buffered jump did not fire");
