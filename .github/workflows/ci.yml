@@ -61,3 +61,15 @@ jobs:
       # browser download). Assertions are made in simulated time, so the run
       # takes longer on a slow machine but reaches the same verdict.
       - run: pnpm e2e:demo
+
+      # 9. The runner slice's acceptance: the three things only a browser can
+      # settle — ① you survive the first second of running (grounded stays
+      # true, the camera moves into the world), ② a death puts you back on
+      # ground within the spec's 0.6 s and obeys the spike/pit rule, ③ the
+      # touch pads move you exactly as fast as the keyboard. It reads
+      # `window.__runnerState` and asserts the shipped constants still equal
+      # the spec (760 / 2600 / 0.09 / 0.09), so a relaxed number fails here
+      # instead of passing quietly. Offline, same as step 8. While
+      # `examples/runner/dist` does not exist it reports PEND lines — pending
+      # is counted separately from passing, never as one.
+      - run: pnpm e2e:runner
