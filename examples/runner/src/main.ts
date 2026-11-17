@@ -9,7 +9,7 @@ import { createActions } from "@fogrexon/glyph-arena-actions";
 import { createInput } from "@fogrexon/glyph-arena-input";
 import { createLoop } from "@fogrexon/glyph-arena-loop";
 
-import { TILE, isHazardTile, isSolidTile, levelColumns, levelRows, spawnPoint } from "./level";
+import { TILE, currentLevel, goalLineX, isHazardTile, isSolidTile, levelColumns, levelCount, levelRows, loadLevel, spawnPoint } from "./level";
 import { GRAVITY, createBody, jumpHeight, stepBody, type Body } from "./physics";
 
 type Phase = "title" | "play" | "dead" | "goal";
@@ -40,6 +40,9 @@ type RunnerState = {
   cameraX: number;
   goalX: number;
   worldWidth: number;
+  /** 1-based level number and how many there are, so a harness can see a clear happen. */
+  level: number;
+  levelCount: number;
   /** Milliseconds of play in this run, so J1-J4 can be measured against it. */
   simMs: number;
   /** Jump physics, published so a harness can pin the feel without reading the source. */
@@ -97,10 +100,14 @@ function hazardAt(body: Body): boolean {
   return false;
 }
 
-const spawn = spawnPoint();
-const goal = { x: (levelColumns() - 2) * TILE, y: 0 };
-const worldWidth = levelColumns() * TILE;
-const worldHeight = levelRows() * TILE;
+let spawn = spawnPoint();
+let goal = { x: goalLineX(), y: 0 };
+let worldWidth = levelColumns() * TILE;
+let worldHeight = levelRows() * TILE;
+/** 0-based index of the level being played. `levelCount()` comes from level.ts. */
+let level = currentLevel();
+/** Seconds the "LEVEL 2" banner stays up after a clear, so the transition is visible. */
+let levelBannerSeconds = 0;
 
 let phase: Phase = "title";
 let body = createBody(spawn.x + 6, spawn.y - 28, 20, 28);
@@ -152,6 +159,24 @@ function play(blip: Blip): void {
 }
 
 // ---------------------------------------------------------------- run state
+
+/**
+ * Load a level and put the runner on it. One function, because "which level is the game on"
+ * is exactly the kind of state that drifts when half of it is set in a goal handler.
+ */
+function loadLevelAt(index: number): void {
+  loadLevel(index);
+  level = index;
+  spawn = spawnPoint();
+  goal = { x: goalLineX(), y: 0 };
+  worldWidth = levelColumns() * TILE;
+  worldHeight = levelRows() * TILE;
+  enemy = makeEnemy(index);
+  body = createBody(spawn.x + 6, spawn.y - 28, 20, 28);
+  safe = { x: body.x, y: body.y };
+  cameraX = 0;
+  levelBannerSeconds = index === 0 ? 0 : 1.6;
+}
 
 function respawn(atSafe: boolean): void {
   const x = atSafe ? safe.x : spawn.x + 6;
@@ -315,18 +340,26 @@ function drawLevel(): void {
 
 /** A patrolling walker: touching it is death, so the level has a second verb. */
 type Enemy = { x: number; y: number; w: number; h: number; minX: number; maxX: number; dir: number; speed: number };
-const enemy: Enemy = {
-  x: 40 * TILE + 5,
-  y: 10 * TILE + 2,
-  w: 24,
-  h: 26,
-  minX: 38 * TILE,
-  maxX: 45 * TILE,
-  dir: 1,
-  speed: 55,
-};
+
+/** The walker only exists where a level places one; level 2's new verb is height, not pursuit. */
+function makeEnemy(index: number): Enemy | null {
+  if (index !== 0) return null;
+  return {
+    x: 40 * TILE + 5,
+    y: 10 * TILE + 2,
+    w: 24,
+    h: 26,
+    minX: 38 * TILE,
+    maxX: 45 * TILE,
+    dir: 1,
+    speed: 55,
+  };
+}
+
+let enemy: Enemy | null = makeEnemy(currentLevel());
 
 function stepEnemy(dt: number): void {
+  if (enemy === null) return;
   enemy.x += enemy.dir * enemy.speed * dt;
   if (enemy.x < enemy.minX) {
     enemy.x = enemy.minX;
@@ -338,6 +371,7 @@ function stepEnemy(dt: number): void {
 }
 
 function drawEnemy(): void {
+  if (enemy === null) return;
   const s = scale();
   const offsetY = (LOGICAL_HEIGHT - worldHeight) * 0.5;
   const x = (enemy.x - cameraX) * s;
@@ -470,6 +504,19 @@ function draw(): void {
     ctx.fillStyle = PALETTE.hud;
     ctx.font = `${14 * s}px system-ui, sans-serif`;
     ctx.fillText(`deaths: ${deaths}`, 24 * s, canvas.height - 24 * s);
+    if (level > 0) {
+      ctx.fillText(`level ${level + 1} / ${levelCount()}`, 24 * s, canvas.height - 46 * s);
+    }
+    if (levelBannerSeconds > 0) {
+      // The clear has to be *visible*: running into a level that looks like the last one is
+      // how a player concludes the game looped instead of advanced.
+      ctx.fillStyle = PALETTE.scarf;
+      ctx.font = `${26 * s}px system-ui, sans-serif`;
+      ctx.fillText(`LEVEL ${level + 1}`, canvas.width * 0.38, canvas.height * 0.2);
+      ctx.fillStyle = PALETTE.hud;
+      ctx.font = `${14 * s}px system-ui, sans-serif`;
+      ctx.fillText("climb the step, clear the spikes", canvas.width * 0.38, canvas.height * 0.2 + 26 * s);
+    }
   }
   if (phase === "goal") {
     ctx.fillStyle = "rgba(13, 22, 38, 0.6)";
@@ -527,6 +574,8 @@ function publish(): void {
     cameraX,
     goalX: goal.x,
     worldWidth,
+    level: level + 1,
+    levelCount: levelCount(),
     simMs: Math.round(simSeconds * 1000),
     jumpHeight: jumpHeight(),
     gravity: GRAVITY,
@@ -582,8 +631,9 @@ const loop = createLoop({
         ensureAudio();
         phase = "play";
         simSeconds = 0;
-        body = createBody(spawn.x + 6, spawn.y - 28, 20, 28);
-        safe = { x: body.x, y: body.y };
+        // A new run always starts at level 1, even if the last one died on level 2.
+        loadLevelAt(0);
+        levelBannerSeconds = 0;
       }
       publish();
       draw();
@@ -642,7 +692,11 @@ const loop = createLoop({
       }
 
       const hitEnemy =
-        body.x < enemy.x + enemy.w && body.x + body.w > enemy.x && body.y < enemy.y + enemy.h && body.y + body.h > enemy.y;
+        enemy !== null &&
+        body.x < enemy.x + enemy.w &&
+        body.x + body.w > enemy.x &&
+        body.y < enemy.y + enemy.h &&
+        body.y + body.h > enemy.y;
       // The cause is recorded, not just the fact: "died 3 times" says nothing about the level,
       // "died twice at x 1280 in the pit" says where to put the next platform.
       if (hazardAt(body)) {
@@ -652,8 +706,15 @@ const loop = createLoop({
       } else if (body.y > worldHeight + 240) {
         die("pit");
       } else if (body.x + body.w > goal.x) {
-        phase = "goal";
+        // Clearing a level runs straight into the next one: the run is the unit, not the level.
+        if (level + 1 < levelCount()) {
+          loadLevelAt(level + 1);
+        } else {
+          phase = "goal";
+        }
       }
+
+      levelBannerSeconds = Math.max(0, levelBannerSeconds - dt);
 
       const target = Math.max(0, Math.min(worldWidth - viewWidth(), body.x - viewWidth() * 0.33 + body.vx * 0.12));
       cameraX += (target - cameraX) * Math.min(1, dt * 8);
