@@ -8,6 +8,15 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Added
 
+- `examples/parry`: the wave table is generated now (`waveAt(index)` / `waveShapeAt(index)`) instead of being
+  a fixed 20-row script. The first twenty waves are byte-for-byte the script players learn on; past it the
+  same twenty angles turn one step further every lap (so lap two is not lap one memorised) and the speed
+  keeps climbing to `MAX_SPEED` 220. Deterministic on purpose - no RNG - so a score can be compared between
+  runs. No player-visible change yet; this is the seam an endless run needs (demo-only; no package API
+  change; `index-*.js` changes)
+
+### Added
+
 - `examples/parry`: the result screen now shows the session's **best** - most parries, most lives left,
   and the fastest clear - and turns amber when the run that just ended moved one of the three. Each
   record stands on its own, so a slow clear can still hold the parry record and a failed run can still
