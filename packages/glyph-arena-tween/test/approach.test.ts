@@ -91,4 +91,17 @@ describe("approach", () => {
       );
     }
   });
+
+  // Both ends of the dial, fixed here so a later change to how `dt` is applied has to notice them.
+  // `rate` is the reciprocal of a smoothing time constant `t`: the design note asks for "t = 0
+  // lands in one frame, t = ∞ does not move", which on this dial is rate = ∞ and rate = 0.
+  it("lands on the aim in one frame when the rate is unbounded", () => {
+    for (const dt of [1 / 60, 0.5, 10]) {
+      assert.equal(
+        approach(0, 1000, dt, { rate: Number.POSITIVE_INFINITY }),
+        1000,
+        `an unbounded rate must land on the aim in one frame, dt ${dt}`,
+      );
+    }
+  });
 });

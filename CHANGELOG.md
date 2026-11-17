@@ -25,6 +25,18 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Fixed
 
+- **`I14` asserted the bot's skill, not the game.** The parry end-to-end run played until wave 21 to
+  prove "the run does not stop at twenty waves". That is a property of `waveShapeAt()` — a pure
+  function with no RNG, already covered for indices 20..199 by `examples/parry/test/waves.test.ts` —
+  and re-testing it by playing meant the check passed at "wave 21, score 1150" and failed at
+  "wave 20, lives 0" on identical code. It now asserts what only a browser can show: that an enemy
+  wrapping around the arena does not jump the nearest enemy's contact clock. The first version of
+  that assertion was wrong too — it paired samples by `threat.id`, and the demo reports `id 0` for an
+  enemy whose identity is not allocated yet, so two different enemies looked like one that had
+  teleported (4104 ms -> 1189 ms at wave 15). Samples with `id 0` are skipped, the jump is bounded by
+  the wall time between samples instead of a fixed 900 ms, and the run stops as soon as a wrap has
+  been seen.
+
 - **a respawn is never within 96 px of what killed you.** On levels 2 and 3 the spikes sit at
   standing height, so "grounded" and "safe" were not the same thing: the safe spot was recorded
   before the hazard check, and the tile you died on became the tile you came back to. QA measured
