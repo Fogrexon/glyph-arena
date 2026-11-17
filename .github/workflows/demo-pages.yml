@@ -4,27 +4,13 @@ on:
   push:
     branches: [main]
     paths:
-      - "examples/pickup-demo/**"
-      - "examples/parry/**"
-      - "examples/runner/**"
+      # Not a list of packages: the hand-kept one went stale the day `glyph-arena-body` landed and
+      # that package alone would not have redeployed the site.
+      - "examples/**"
+      - "packages/**"
+      - "scripts/**"
       - "docs/**"
       - "README.md"
-      - "scripts/render-docs.mjs"
-      - "scripts/docs/**"
-      - "packages/glyph-arena-actions/**"
-      - "packages/glyph-arena-assets/**"
-      - "packages/glyph-arena-audio/**"
-      - "packages/glyph-arena-camera/**"
-      - "packages/glyph-arena-collide/**"
-      - "packages/glyph-arena-draw/**"
-      - "packages/glyph-arena-ecs/**"
-      - "packages/glyph-arena-gamepad/**"
-      - "packages/glyph-arena-input/**"
-      - "packages/glyph-arena-loop/**"
-      - "packages/glyph-arena-scene/**"
-      - "packages/glyph-arena-timer/**"
-      - "packages/glyph-arena-transform/**"
-      - "packages/glyph-arena-tween/**"
       - "pnpm-lock.yaml"
       - ".github/workflows/demo-pages.yml"
   workflow_dispatch:
@@ -111,7 +97,7 @@ jobs:
           name: github-pages
           path: pages-artifact
 
-      - run: mkdir -p pages && tar -xzf pages-artifact/artifact.tar -C pages
+      - run: mkdir -p pages && tar -xf pages-artifact/artifact.tar -C pages
 
       - name: compare the built bundles with what the site serves
         run: node scripts/check-served-bundles.mjs --site=pages --timeout=180 --interval=15
