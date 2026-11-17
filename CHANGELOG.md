@@ -19,11 +19,6 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
   game uses — and `__runnerState` gains **`safe`**. The distance is deliberately *not* published:
   the e2e measures it from the level grid and the unit test measures it directly, and a second
   copy would be a second thing that can go green on its own.
-  `e2e:runner` **R11** now measures what QA reproduced: **R11a** the contract's `safe` has 96 px of
-  clear ground, **R11b** *holding right* after a respawn is never a death loop, with the gap taken
-  in **`simMs`** — real time would add the 0.6 s death pause and let a 17 ms trap pass a 300 ms bar.
-  Against the bundle that was live (`index-D6Z1lqPf.js`): 17 ms, both checks red. With the fix:
-  `safe (940, 324)`, no second death in three seconds of holding right.
 
 ### Added
 
