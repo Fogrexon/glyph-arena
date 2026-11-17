@@ -14,6 +14,16 @@ import { GRAVITY, createBody, jumpHeight, stepBody, type Body } from "./physics"
 
 type Phase = "title" | "play" | "dead" | "goal";
 
+/** How a run ended. `enemy` is the walker; the slice's spikes and pits are the other two. */
+type DeathCause = "pit" | "spike" | "enemy";
+
+/**
+ * One death, as a level-designer reads it: where in the world, what killed you, how far into
+ * the run. "Where did the player die" is the question that decides whether the next unit adds a
+ * second level or lengthens the first, and a memory of the answer is not data.
+ */
+type DeathRecord = { x: number; cause: DeathCause; simMs: number };
+
 /** Read-only mirror of the run, so a harness never has to guess from the pixels. */
 type RunnerState = {
   phase: Phase;
@@ -23,6 +33,8 @@ type RunnerState = {
   vy: number;
   grounded: boolean;
   deaths: number;
+  /** Every death this page session, oldest first. `deaths` is still the count. */
+  deathLog: DeathRecord[];
   /** Milliseconds left in the death pause; 0 outside it. */
   respawnInMs: number;
   cameraX: number;
@@ -94,6 +106,8 @@ let phase: Phase = "title";
 let body = createBody(spawn.x + 6, spawn.y - 28, 20, 28);
 let cameraX = 0;
 let deaths = 0;
+/** Every death this page session, oldest first — read by the result screen and the harness. */
+const deathLog: DeathRecord[] = [];
 let respawnSeconds = 0;
 let clock = 0;
 let simSeconds = 0;
@@ -154,8 +168,9 @@ function respawn(atSafe: boolean): void {
   }
 }
 
-function die(): void {
+function die(cause: DeathCause): void {
   deaths += 1;
+  deathLog.push({ x: Math.round(body.x), cause, simMs: Math.round(simSeconds * 1000) });
   phase = "dead";
   respawnSeconds = RESPAWN_SECONDS;
   play("death");
@@ -465,10 +480,18 @@ function draw(): void {
     ctx.fillStyle = "#e8eaed";
     ctx.font = `${16 * s}px system-ui, sans-serif`;
     ctx.fillText(`deaths: ${deaths} \u00b7 R to run it again`, canvas.width * 0.42, canvas.height * 0.44 + 34 * s);
+    ctx.font = `${13 * s}px system-ui, sans-serif`;
+    ctx.fillStyle = PALETTE.hud;
+    ctx.fillText(lastDeathLine(), canvas.width * 0.42, canvas.height * 0.44 + 58 * s);
   }
   if (phase === "dead") {
     ctx.fillStyle = `rgba(224, 80, 96, ${Math.min(0.5, respawnSeconds / RESPAWN_SECONDS) * 0.8})`;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // The report the player reads without opening anything: "x 1280 / pit" is the whole answer
+    // to "where did I die", and it is the same string the harness reads from the log.
+    ctx.fillStyle = "#f4f6f8";
+    ctx.font = `${13 * s}px system-ui, sans-serif`;
+    ctx.fillText(lastDeathLine(), canvas.width * 0.42, canvas.height * 0.44);
   }
   drawTouch();
 }
@@ -480,6 +503,16 @@ const touchState = { left: false, right: false, jump: false };
 let previousPointers = new Set<number>();
 let touchJumpPressed = false;
 
+/**
+ * The one line the result screen shows and a harness can read back: where the last death was,
+ * what caused it, and how far into the run. A function so the screen and the log cannot drift.
+ */
+function lastDeathLine(): string {
+  const last = deathLog.at(-1);
+  if (last === undefined) return "no deaths yet";
+  return `x ${last.x} / ${last.cause} \u00b7 ${(last.simMs / 1000).toFixed(1)}s`;
+}
+
 function publish(): void {
   (window as typeof window & { __runnerState?: RunnerState }).__runnerState = {
     phase,
@@ -489,6 +522,7 @@ function publish(): void {
     vy: body.vy,
     grounded: body.grounded,
     deaths,
+    deathLog: deathLog.map((entry) => ({ ...entry })),
     respawnInMs: Math.round(respawnSeconds * 1000),
     cameraX,
     goalX: goal.x,
@@ -609,8 +643,14 @@ const loop = createLoop({
 
       const hitEnemy =
         body.x < enemy.x + enemy.w && body.x + body.w > enemy.x && body.y < enemy.y + enemy.h && body.y + body.h > enemy.y;
-      if (hazardAt(body) || hitEnemy || body.y > worldHeight + 240) {
-        die();
+      // The cause is recorded, not just the fact: "died 3 times" says nothing about the level,
+      // "died twice at x 1280 in the pit" says where to put the next platform.
+      if (hazardAt(body)) {
+        die("spike");
+      } else if (hitEnemy) {
+        die("enemy");
+      } else if (body.y > worldHeight + 240) {
+        die("pit");
       } else if (body.x + body.w > goal.x) {
         phase = "goal";
       }
