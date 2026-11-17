@@ -44,7 +44,7 @@ const PLAYER_CONFIG: BodyConfig = {
 const ENEMY_CONFIG: BodyConfig = { ...PLAYER_CONFIG, runSpeed: 74, runAccel: 900, airAccel: 500, jumpVelocity: -520 };
 
 const PLAYER_STATS = { hearts: 3, invulnerableMs: 900, contactKnockback: 320 };
-const ENEMY_STATS = { hp: 10, sightPx: 260, contactDamage: 1 };
+const ENEMY_STATS = { hp: 4, sightPx: 260, contactDamage: 1 };
 
 const canvas = document.querySelector("canvas");
 if (canvas === null) {
@@ -225,6 +225,18 @@ function stepWorld(dt: number, dtMs: number, moveLeft: boolean, moveRight: boole
     }
   }
 
+  invulnerableMs = Math.max(0, invulnerableMs - dtMs);
+  if (phase === "play" && invulnerableMs === 0) {
+    for (const enemy of enemies) {
+      // Only the commit hurts. Brushing past a walking enemy is not a hit — the lunge is the
+      // threat, and it is the only thing you have to answer.
+      if (enemy.alive && enemy.mode === "lunge" && overlaps(boxOf(player), boxOf(enemy.body))) {
+        hurtPlayer(player.x < enemy.body.x ? -1 : 1);
+        break;
+      }
+    }
+  }
+
   // Bodies do not push each other in the library (it has no body-vs-body), and without this the
   // first thing a player does — walk into the enemy — passes straight through it. The enemy is
   // the heavier of the two, so only the player is moved, and only if the push does not put them in
@@ -240,16 +252,6 @@ function stepWorld(dt: number, dtMs: number, moveLeft: boolean, moveRight: boole
     const nextX = player.x + push;
     if (!solidAt(nextX, player.y, nextX + player.w, player.y + player.h)) {
       player.x = nextX;
-    }
-  }
-
-  invulnerableMs = Math.max(0, invulnerableMs - dtMs);
-  if (phase === "play" && invulnerableMs === 0) {
-    for (const enemy of enemies) {
-      if (enemy.alive && overlaps(boxOf(player), boxOf(enemy.body))) {
-        hurtPlayer(player.x < enemy.body.x ? -1 : 1);
-        break;
-      }
     }
   }
 
@@ -350,6 +352,7 @@ type CampState = {
   blade: string;
   hitstopMs: number;
   enemy: { x: number; y: number; hp: number; alive: boolean; mode: string } | null;
+  enemies: Array<{ x: number; y: number; hp: number; alive: boolean; mode: string }>;
   cameraX: number;
 };
 
@@ -366,6 +369,7 @@ function publish(): void {
     blade: attackPhase(attack.elapsedMs),
     hitstopMs: Math.round(hitstopMs),
     enemy: first === undefined ? null : { x: first.body.x, y: first.body.y, hp: first.hp, alive: first.alive, mode: first.mode },
+    enemies: enemies.map((each) => ({ x: each.body.x, y: each.body.y, hp: each.hp, alive: each.alive, mode: each.mode })),
     cameraX,
   };
 }
