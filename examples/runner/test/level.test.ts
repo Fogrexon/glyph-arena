@@ -11,6 +11,7 @@ import {
   levelCount,
   levelRows,
   chaseSightLane,
+  chaseSpawnLane,
   loadLevel,
   patrolRange,
   spawnPoint,
@@ -138,4 +139,27 @@ test("level 3 keeps one straight of at least 180 px, and its walker comes at you
   assert.ok(patrol !== null, "level 3 has no walker");
   assert.equal(patrol.dir, -1, "level 3's walker has to walk back at the runner, not away from them");
   assert.ok(patrol.minX > 0 && patrol.maxX > patrol.minX, "the walker's lane is empty");
+});
+
+test("level 3 keeps the pursuit enemy's columns flat and clear", () => {
+  loadLevel(2);
+  const lane = chaseSpawnLane();
+  assert.ok(lane !== null, "level 3 has no lane for the pursuit enemy");
+  for (let x = lane.startX; x < lane.endX; x += TILE) {
+    const column = Math.floor(x / TILE);
+    let surface = -1;
+    for (let row = 0; row < levelRows(); row += 1) {
+      if (isSolidTile(column, row)) {
+        surface = row;
+        break;
+      }
+    }
+    assert.ok(surface >= 0, `the pursuit lane has no floor at column ${column}`);
+    // The enemy stands one tile above the floor: a step or a spike here is a wall for it, and the
+    // enemy would start inside the terrain instead of on it.
+    assert.ok(
+      !isSolidTile(column, surface - 1) && !isHazardTile(column, surface - 1) && !isHazardTile(column, surface - 2),
+      `the pursuit lane is blocked at column ${column}: the enemy would start inside the level`,
+    );
+  }
 });
