@@ -9,7 +9,7 @@ import { createActions } from "@fogrexon/glyph-arena-actions";
 import { createInput } from "@fogrexon/glyph-arena-input";
 import { createLoop } from "@fogrexon/glyph-arena-loop";
 
-import { TILE, chaseSpawnLane, currentLevel, goalLineX, hazardWithin, isHazardTile, isSolidTile, levelColumns, levelCount, levelRows, loadLevel, patrolRange, spawnPoint } from "./level";
+import { TILE, chaseSpawnLane, currentLevel, goalLineX, hazardWithin, isHazardTile, isSolidTile, levelColumns, levelCount, levelRows, loadLevel, patrolRange, solidAt, spawnPoint, surfaceBelow } from "./level";
 import { CHASE, keepsChasing, startsChasing } from "./enemy";
 import { GRAVITY, createBody, jumpHeight, stepBody, type Body } from "./physics";
 
@@ -107,16 +107,6 @@ if (context2d === null) {
   throw new Error("no 2d context");
 }
 const ctx: CanvasRenderingContext2D = context2d;
-
-/** Every solid tile the rectangle touches. Outside the level is empty sky. */
-function solidAt(left: number, top: number, right: number, bottom: number): boolean {
-  for (let row = Math.floor(top / TILE); row <= Math.floor((bottom - 0.001) / TILE); row += 1) {
-    for (let column = Math.floor(left / TILE); column <= Math.floor((right - 0.001) / TILE); column += 1) {
-      if (isSolidTile(column, row)) return true;
-    }
-  }
-  return false;
-}
 
 function hazardAt(body: Body): boolean {
   return hazardWithin(body.x, body.y, body.w, body.h);
@@ -447,22 +437,11 @@ let enemies: Enemy[] = makeEnemies();
  * How far the ground one pixel ahead of an enemy's feet is from its own feet: `0` flat,
  * `+TILE` a lip, `-TILE` a drop, `Infinity` a hole. This is the number `keepsChasing()` reads.
  */
-function surfaceRowAt(column: number, fromRow: number): number {
-  // The body floats a few px above its floor, so "the row under its feet" is not `bottom / TILE`:
-  // scan down a couple of rows for the first solid tile instead of trusting the arithmetic.
-  for (let row = fromRow; row <= fromRow + 2; row += 1) {
-    if (isSolidTile(column, row)) return row;
-  }
-  return Number.POSITIVE_INFINITY;
-}
-
 function stepAhead(enemy: Enemy): number {
   const aheadX = enemy.dir > 0 ? enemy.x + enemy.w + 1 : enemy.x - 1;
-  const aheadColumn = Math.floor(aheadX / TILE);
-  const centreColumn = Math.floor((enemy.x + enemy.w / 2) / TILE);
-  const fromRow = Math.floor((enemy.y + enemy.h) / TILE);
-  const here = surfaceRowAt(centreColumn, fromRow);
-  const ahead = surfaceRowAt(aheadColumn, fromRow);
+  const footY = enemy.y + enemy.h;
+  const here = surfaceBelow(enemy.x + enemy.w / 2, footY);
+  const ahead = surfaceBelow(aheadX, footY);
   if (!Number.isFinite(here) || !Number.isFinite(ahead)) {
     return Number.POSITIVE_INFINITY; // a hole: no floor to compare against
   }
