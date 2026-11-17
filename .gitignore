@@ -3,3 +3,6 @@ dist/
 *.tsbuildinfo
 examples/pickup-demo/public/docs/
 examples/parry/public/parry.wav
+
+# the local mirror of the Pages layout (see demo-pages.yml); built, never committed
+/site/
