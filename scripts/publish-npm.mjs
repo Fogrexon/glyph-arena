@@ -63,6 +63,12 @@ try {
 if (published[version]) die(`${PKG}@${version} is already on npm — bump the version`);
 ok(`npm has no ${version} yet`);
 
+// 3b) The umbrella README is frozen into the tarball: npm shows it until the next version, so a
+// stale one cannot be fixed without a release. The check derives the module list from packages/.
+try { sh(process.execPath, [join(ROOT, "scripts", "check-umbrella-readme.mjs")], { stdio: "inherit" }); }
+catch { die("the umbrella README does not match the code — fix packages/glyph-arena/README.md first (it is frozen into the tarball)"); }
+ok("umbrella README matches packages/");
+
 // 4) Build and pack; the checks read the tarball, never the tree.
 console.log("\nbuilding…");
 try { sh("pnpm", ["--filter", PKG, "build"]); } catch (e) { die(`build failed:\n${e.stdout ?? ""}${e.stderr ?? ""}`); }
