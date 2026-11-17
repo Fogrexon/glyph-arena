@@ -10,6 +10,7 @@ import {
   surfaceRowBelow,
   tagsAt,
   tileAt,
+  visibleColumns,
 } from "../src/index.js";
 import type { TileMapConfig } from "../src/index.js";
 
@@ -118,5 +119,60 @@ describe("surfaceRowBelow", () => {
     const pit = createTileMap(["#..........#", "#..........#", "#..........#"], CONFIG);
 
     assert.equal(surfaceRowBelow(pit, 64, 0, "solid", { maxRows: 3 }), undefined);
+  });
+});
+
+describe("visibleColumns", () => {
+  it("is exactly the columns the view touches, with no margin", () => {
+    // 12 columns of 32px. A 320px view from 0 covers columns 0..9: x = 320 is the left edge of
+    // column 10, and the range is half open, so column 10 is not in it.
+    assert.deepEqual(visibleColumns(map, 0, 320), { first: 0, end: 10 });
+    assert.deepEqual(visibleColumns(map, 100, 64), { first: 3, end: 6 });
+    assert.deepEqual(visibleColumns(map, 40, 1), { first: 1, end: 2 });
+  });
+
+  it("widens by the margin the caller asks for, and clamps to the map", () => {
+    assert.deepEqual(visibleColumns(map, 0, 320, { margin: 1 }), { first: 0, end: 11 });
+    assert.deepEqual(visibleColumns(map, 100, 64, { margin: 1 }), { first: 2, end: 7 });
+    // Both ends run into the map and stop there.
+    assert.deepEqual(visibleColumns(map, 0, 4000, { margin: 3 }), { first: 0, end: 12 });
+  });
+
+  it("covers every cell the view touches, for any camera position", () => {
+    // The property the two samples need from it: a column that was drawn before is still drawn.
+    for (let left = -200; left <= 600; left += 7) {
+      const touched = {
+        first: Math.max(0, Math.floor(left / 32)),
+        end: Math.min(12, Math.ceil((left + 320) / 32)),
+      };
+      if (touched.end <= touched.first) continue; // nothing on the map is visible from there
+
+      const range = visibleColumns(map, left, 320, { margin: 1 });
+      assert.ok(range.first <= touched.first, `first ${range.first} misses column ${touched.first} at ${left}`);
+      assert.ok(range.end >= touched.end, `end ${range.end} misses column ${touched.end - 1} at ${left}`);
+    }
+  });
+
+  it("says 'nothing is visible' with no column numbers outside the map", () => {
+    // Past the right edge: the old hand-written formula returned `first: 12` here, a column that
+    // does not exist. A caller indexing `columns[first]` would read undefined, not an empty range.
+    assert.deepEqual(visibleColumns(map, 400, 64), { first: 0, end: 0 });
+    assert.deepEqual(visibleColumns(map, -200, 64), { first: 0, end: 0 });
+
+    // Zero width is not "one column": nothing is visible.
+    assert.deepEqual(visibleColumns(map, 40, 0), { first: 0, end: 0 });
+    assert.deepEqual(visibleColumns(map, 40, -10), { first: 0, end: 0 });
+
+    // A map with no columns has nothing to show.
+    assert.deepEqual(visibleColumns(createTileMap("", CONFIG), 0, 320), { first: 0, end: 0 });
+  });
+
+  it("draws exactly the columns it names", () => {
+    const range = visibleColumns(map, 100, 64);
+
+    const drawn = [];
+    for (let column = range.first; column < range.end; column += 1) drawn.push(column);
+
+    assert.deepEqual(drawn, [3, 4, 5]);
   });
 });
