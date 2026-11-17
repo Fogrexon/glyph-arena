@@ -537,9 +537,14 @@ const loop = createLoop({
       const local = toCanvas(point);
       return inside(local, buttons.jump);
     });
+    // The title screen is one button, not the jump pad. A first-time phone user reads
+    // "Tap — start" and taps the middle of the screen; asking them to find the pad in the
+    // corner first is a dead first move (QA measured exactly that). The pad still starts it,
+    // because a tap on the pad is also a tap on the screen.
+    const tappedAnywhere = freshTaps.length > 0;
 
     if (phase === "title") {
-      if (query.pressed("jump") || tapped) {
+      if (query.pressed("jump") || tappedAnywhere) {
         ensureAudio();
         phase = "play";
         simSeconds = 0;
