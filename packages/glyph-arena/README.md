@@ -37,9 +37,10 @@ npm install @fogrexon/glyph-arena
 ## What is inside
 
 Every workspace module is bundled into this package and its value exports are re-exported flat, so a
-game writes one import instead of one per module. The docs site lists the modules and their exports,
-and **the umbrella's export table is generated from the sources when the docs are built** — it is not
-a list typed here that goes stale the day a module is added.
+game writes one import instead of one per module: actions, assets, audio, body, camera, collide, draw,
+ecs, gamepad, input, loop, scene, tilemap, timer, transform, tween. The docs site lists each one's
+exports, and **the umbrella's export table is generated from the sources when the docs are built** — it
+is not a table typed here that goes stale the day a module is added.
 
 - Docs: <https://fogrexon.github.io/glyph-arena/docs/>
 - One game in 30 minutes: <https://fogrexon.github.io/glyph-arena/docs/tutorial.html>
