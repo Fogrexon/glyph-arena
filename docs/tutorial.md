@@ -8,6 +8,11 @@ and take minutes, steps 4-8 are the game and are each a few lines.
 
 ## 1. A project
 
+**Before the commands:** Node 22 and its `npm`. Check with `node --version`; `v22.x` is the version
+this project is built and shipped with, and the one every step below was run on. (`npm create vite`
+also accepts Node 20.19+, but nothing here is tested below 22.) Nothing else has to be installed — no
+bundler config, no TypeScript setup, no asset tooling.
+
 ```bash
 npm create vite@latest my-game -- --template vanilla-ts
 cd my-game
@@ -17,9 +22,19 @@ npm install @fogrexon/glyph-arena
 One package is all you install. The modules the docs describe per package are bundled inside it and
 are re-exported flat, so there is no second import to add later.
 
-If npm does not have `0.2.0` yet (see the [umbrella page](api-glyph-arena.html)'s Availability), build
-and install the tarball from the repository instead: `pnpm --filter @fogrexon/glyph-arena pack`, then
-`npm install ./packages/glyph-arena/glyph-arena-0.2.0.tgz`. The rest of this page is unchanged.
+If you are offline, or you want the repository's own sources instead of the published package, the
+checkout works too. It is a pnpm workspace, so it needs one `pnpm install` (pnpm 10) before it can be
+packed; the package's `prepack` then runs the build, so the tarball it produces has `dist/` inside it:
+
+```bash
+git clone https://github.com/Fogrexon/glyph-arena
+cd glyph-arena
+pnpm install
+pnpm --filter @fogrexon/glyph-arena pack     # writes fogrexon-glyph-arena-0.2.0.tgz in this directory
+npm install /path/to/glyph-arena/fogrexon-glyph-arena-0.2.0.tgz
+```
+
+The rest of this page is unchanged either way.
 
 ## 2. A canvas
 
