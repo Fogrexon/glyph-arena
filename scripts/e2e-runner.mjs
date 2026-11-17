@@ -447,15 +447,25 @@ async function runDesktop(browser, baseUrl, errors) {
           "R4: the respawn countdown is the spec's 0.6s",
           `__runnerState said ${countdown}ms (wall clock ${wallClock}ms, inside polling slop)`,
         );
-        const verdict = judgeRespawn({ deathX: lastAlive.x, respawnX: back.x, grounded: back.grounded });
+        // The first play frame after a respawn is still in the air: `respawn()`
+        // builds the body at the safe spot and the next physics step is what
+        // makes it grounded. Sampling that frame and calling it "not on ground"
+        // is the check being early, not the game being wrong — wait for the
+        // landing, and fail if it never lands.
+        const landed = await until(page, (s) => s.phase === "play" && s.deaths > 0 && s.grounded, {
+          timeoutMs: 900,
+          poll: 20,
+        });
+        const settled = landed.samples.at(-1) ?? back;
+        const verdict = judgeRespawn({ deathX: lastAlive.x, respawnX: settled.x, grounded: settled.grounded });
         check(
           verdict.ok,
           "R4: the respawn point obeys the rule for the way you died",
           verdict.ok
-            ? `${verdict.kind} — ${lastAlive.x.toFixed(0)} → ${back.x.toFixed(0)} px (${verdict.retreat.toFixed(0)})`
-            : verdict.why,
+            ? `${verdict.kind} — ${lastAlive.x.toFixed(0)} → ${settled.x.toFixed(0)} px (${verdict.retreat.toFixed(0)})`
+            : `${verdict.why}${landed.hit ? "" : " — it never landed within 900ms of the respawn"}`,
         );
-        check(back.deaths === 1, "R4: one death is counted once", `deaths ${back.deaths}`);
+        check(settled.deaths === 1, "R4: one death is counted once", `deaths ${settled.deaths}`);
       }
     }
     if (process.env.E2E_KEEP) await page.screenshot({ path: join(ROOT, "e2e-runner.png") });
