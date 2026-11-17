@@ -1,4 +1,0 @@
-    "build": "vite build && tsc -p tsconfig.build.json && node scripts/write-entry-dts.mjs",
-    "prepack": "pnpm build",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test test/**/*.test.ts"
