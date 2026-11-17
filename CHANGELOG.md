@@ -8,6 +8,14 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Changed
 
+- `examples/parry`: **the first enemy of every run comes from where the player is looking.** The opening
+  used to spawn at a fixed angle while the player faced a different way, so the one enemy that has to
+  teach "dash into it" arrived behind them. `spawnWave(0)` now takes its angle from the player's facing
+  (which starts up, on every run, including a restart); every later wave keeps the scripted angle
+  (demo-only; no package API change; `index-*.js` changes)
+
+### Changed
+
 - `examples/parry` is an **endless run** now. The fixed 20-wave script is gone: waves come from
   `waveAt(index)` and never run out, a parry scores **100**, dodging keeps you alive but scores nothing,
   and the run ends on the **third hit** instead of reaching wave 20. Every 30 s the enemies move 10%

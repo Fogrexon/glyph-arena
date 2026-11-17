@@ -918,6 +918,23 @@ async function runParry(browser, errors) {
     await page.goto(`http://127.0.0.1:${PARRY_PORT}/?parry=1`, { waitUntil: "load" });
     await page.waitForTimeout(600);
     await hold(page, "Space", 160);
+    // The opening enemy has to arrive where the player is looking: it is the one that teaches
+    // "dash into it", and a fixed angle put it behind them.
+    let opening = null;
+    const openingDeadline = Date.now() + 12000;
+    while (Date.now() < openingDeadline) {
+      const s = await page.evaluate(() => window.__parryState);
+      if (s && s.phase === "play" && s.pressMs !== null) {
+        opening = s;
+        break;
+      }
+      await page.waitForTimeout(30);
+    }
+    check(
+      opening !== null && opening.contactDirY < -0.9 && Math.abs(opening.contactDirX) < 0.2,
+      "I15: the first enemy comes from where the player is looking",
+      `contactDir (${opening?.contactDirX}, ${opening?.contactDirY}), wave ${opening?.wave}`,
+    );
     const beforePress = await pressFromState(12000);
     await page.waitForTimeout(300);
     const afterPress = await page.evaluate(() => window.__parryState);
