@@ -10,6 +10,7 @@
     "smoke:pack-install": "node scripts/smoke-pack-install.mjs",
     "docs:render": "node scripts/render-docs.mjs",
     "e2e:demo": "node scripts/e2e-demo.mjs",
+    "e2e:runner": "node scripts/e2e-runner.mjs",
     "check:deployed": "node scripts/check-deployed-bundles.mjs",
     "measure:parry-run": "node scripts/measure-parry-run.mjs"
   },
