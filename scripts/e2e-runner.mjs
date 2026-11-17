@@ -396,8 +396,8 @@ async function runDesktop(browser, baseUrl, errors) {
         `cameraX ${shape.cameraX}, goalX ${shape.goalX}, worldWidth ${shape.worldWidth}`,
       );
       check(
-        shape.levelCount === 2 && shape.level === 1,
-        "R0: the run starts on level 1 of 2 (a clear runs straight into the next level)",
+        shape.levelCount === 3 && shape.level === 1,
+        "R0: the run starts on level 1 of 3 (a clear runs straight into the next level)",
         `level ${shape.level} / ${shape.levelCount}`,
       );
       const viewportWidth = await page.evaluate(() => window.innerWidth);
