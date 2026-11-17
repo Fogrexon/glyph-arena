@@ -116,6 +116,42 @@ export function solidInRect(
 }
 
 /**
+ * The columns a view covers, as a half-open range `[first, end)` — the same shape as
+ * `solidInRect`, because two shapes in one package is how the next person loses a column.
+ *
+ * `leftPx` and `widthPx` are pixels, like everywhere else here: the caller does not divide, so it
+ * cannot read the column beside the one it means. Both ends are clamped to the map, so a camera
+ * before the world starts yields `first: 0`.
+ *
+ * `margin` widens the range by that many columns on each side, and it is the caller's number, not
+ * this package's: a loop that draws whole tiles wants one extra column so a tile half off the edge
+ * is still drawn, while a loop that counts what is *visible* wants none. With `margin: 0` the range
+ * is exactly the cells the view touches.
+ *
+ * Nothing is visible in three cases — the view is past either end of the map, `widthPx` is zero or
+ * less, or the map has no columns — and they all answer `{ first: 0, end: 0 }` rather than a column
+ * number outside the map. `end <= first` is the test, and a loop `for (c = first; c < end; c++)`
+ * then draws nothing instead of one wrong column.
+ */
+export function visibleColumns(
+  map: TileMap,
+  leftPx: number,
+  widthPx: number,
+  options: { margin: number } = { margin: 0 },
+): { first: number; end: number } {
+  if (map.columns === 0 || widthPx <= 0) return { first: 0, end: 0 };
+
+  const first = Math.max(0, Math.floor(leftPx / map.cell) - options.margin);
+  const end = Math.min(map.columns, Math.ceil((leftPx + widthPx) / map.cell) + options.margin);
+
+  // `first` may be at or past `end` (the view is off the map): the caller gets an empty range, not
+  // a column number that does not exist.
+  if (end <= first) return { first: 0, end: 0 };
+
+  return { first, end };
+}
+
+/**
  * The first row at or below the pixel point `(xPx, yPx)` whose tile carries `tag`, or `undefined`.
  *
  * Both arguments are pixels and the columns and rows are computed here, because the caller getting
