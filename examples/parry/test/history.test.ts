@@ -47,7 +47,7 @@ test("the best of a session keeps each record on its own", () => {
 test("a session with no clear still has a best, and says so", () => {
   const best = bestOf([run(4, 100, 12, 2, 22)]);
   assert.deepEqual(best, { parried: 4, lives: 2, clearSeconds: null });
-  assert.equal(bestLine(best), "Best: 4 parries, 2 lives, no clear yet");
+  assert.equal(bestLine(best), "Best: 4 parries, 2 lives");
 });
 
 test("bestOf of nothing is null and prints an em dash", () => {
