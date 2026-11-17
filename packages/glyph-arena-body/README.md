@@ -13,6 +13,7 @@ const config = {
   coyoteSeconds: 0.09, jumpBufferSeconds: 0.12,
   runSpeed: 320, runAccel: 2600, airAccel: 1700,
   groundFriction: 2400, airFriction: 400,
+  jumpCutFactor: 0.35,
 };
 
 const body = createBody({ x: 70, y: 200, w: 20, h: 28 }, config);
@@ -46,8 +47,11 @@ is computed from the same config `stepBody` uses instead of being written down t
 
 ## What it deliberately does not have
 
-- **No numbers of its own** — no default gravity, no tile size, no preset. `760 / 2600` is one
-  game's feel; a default here would silently become the next game's.
+- **No numbers of its own** — no default gravity, no tile size, no preset, and `jumpCutFactor` is
+  required rather than defaulted to `0.35`. `760 / 2600 / 0.09 / 0.12 / 0.35` is one game's feel; a
+  default here would silently become the next game's. `test/no-numbers.test.ts` enforces it: with
+  comments stripped, the only numeric literals allowed in the source are `0`, `1` and `2` (the clamp
+  ends and the `v² / 2g` coefficient), and every `BodyConfig` field must be required.
 - **No grid inside** — the body knows only `solid()`. The tile size stays in the game.
 - **No fixed timestep** — a fixed step is a separate concern; this package promises "the same `dt`
   sequence gives the same result", nothing about frame-rate independence.

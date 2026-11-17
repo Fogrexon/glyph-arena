@@ -38,10 +38,10 @@ export type BodyConfig = {
   /** Deceleration with no horizontal input in the air, in px/s². */
   airFriction: number;
   /**
-   * What is left of an upward velocity when the jump is released early, as a fraction.
-   * Default `0.35` — a variable jump, so holding the button is worth more height.
+   * What is left of an upward velocity when the jump is released early, as a fraction. Required:
+   * how much a short hop is worth is this game's feel, and a default here would be the next game's.
    */
-  jumpCutFactor?: number;
+  jumpCutFactor: number;
 };
 
 /** One frame of intent. `jump` is the press (an edge), `jumpHeld` is whether it is still down. */
@@ -88,8 +88,6 @@ export type StepOptions = {
 };
 
 export type Box = { x: number; y: number; w: number; h: number };
-
-const DEFAULT_JUMP_CUT = 0.35;
 
 const clampToZero = (value: number): number => (value < 0 ? 0 : value);
 
@@ -182,7 +180,7 @@ export function stepBody(
   if (!wasHeld && body.jumpHeld) {
     // fresh press; nothing to cut
   } else if (!body.jumpHeld && body.vy < 0 && wasHeld) {
-    body.vy *= config.jumpCutFactor ?? DEFAULT_JUMP_CUT;
+    body.vy *= config.jumpCutFactor;
   }
 
   // Horizontal: accelerate toward the run speed, or decelerate with no input.

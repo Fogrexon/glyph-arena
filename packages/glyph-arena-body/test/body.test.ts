@@ -15,6 +15,7 @@ const CONFIG: BodyConfig = {
   airAccel: 1700,
   groundFriction: 2400,
   airFriction: 400,
+  jumpCutFactor: 0.35,
 };
 
 const FLOOR = 300;

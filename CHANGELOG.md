@@ -8,6 +8,16 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Changed
 
+- **`body` no longer carries a game's feel.** `jumpCutFactor` was optional and defaulted to `0.35`
+  — how much of a rise a released jump keeps is the runner's feel, and the package's own first
+  paragraph says a default there becomes the next game's. It is now **required**, the value lives in
+  `examples/runner/src/physics.ts` beside `760 / 2600`, and `test/no-numbers.test.ts` enforces the
+  rule mechanically: with comments stripped, the only numeric literals allowed in the source are
+  `0`, `1` and `2` (a clamp's ends, and the `v² / 2g` coefficient), and every `BodyConfig` field must
+  be required. QA's point was that a gate looking for `760` would let `0.35` through — this one does
+  not: putting the default back turned two tests red (`a number that belongs to a game is in the
+  package: 0.35`, `optional config fields are defaults in disguise`).
+
 - **runner: the body is the library's body now.** `examples/runner/src/physics.ts` went from 110
   hand-written lines to **75 (36 of them code)**: gravity, acceleration, the jump with coyote and
   buffer, and axis-separated resolution now come from `@fogrexon/glyph-arena-body` (its charter:
