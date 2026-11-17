@@ -59,6 +59,15 @@ function createMockContext(
       alphaAtLastDraw = globalAlpha;
       calls.push({ method: "drawImage", args });
     },
+    save: () => {
+      calls.push({ method: "save", args: [] });
+    },
+    restore: () => {
+      calls.push({ method: "restore", args: [] });
+    },
+    setTransform: (...args: unknown[]) => {
+      calls.push({ method: "setTransform", args });
+    },
   };
 
   return {
@@ -75,8 +84,13 @@ describe("createDraw", () => {
 
     draw.clear();
 
+    // The identity transform goes on first: `clearRect` is affected by the current transform, and
+    // `clear` promises "the full canvas".
     assert.deepEqual(calls, [
+      { method: "save", args: [] },
+      { method: "setTransform", args: [1, 0, 0, 1, 0, 0] },
       { method: "clearRect", args: [0, 0, 640, 480] },
+      { method: "restore", args: [] },
     ]);
   });
 
@@ -87,8 +101,11 @@ describe("createDraw", () => {
     draw.clear("#112233");
 
     assert.deepEqual(calls, [
+      { method: "save", args: [] },
+      { method: "setTransform", args: [1, 0, 0, 1, 0, 0] },
       { method: "fillStyle", args: ["#112233"] },
       { method: "fillRect", args: [0, 0, 320, 240] },
+      { method: "restore", args: [] },
     ]);
   });
 
@@ -235,5 +252,28 @@ describe("createDraw", () => {
     assert.doesNotMatch(source, /@fogrexon\/glyph-arena-input/);
     assert.doesNotMatch(source, /@fogrexon\/glyph-arena-timer/);
     assert.doesNotMatch(source, /@fogrexon\/glyph-arena-assets/);
+  });
+});
+
+describe("clear under a camera", () => {
+  it("resets the transform before clearing, so a camera does not leave the edges behind", () => {
+    const { calls, context } = createMockContext(320, 240);
+    const draw = createDraw({ context });
+
+    // The order the game loop uses: draw through the camera, then clear at the top of the frame.
+    draw.setView({ a: 1, b: 0, c: 0, d: 1, e: 50, f: 40 });
+    calls.length = 0;
+    draw.clear();
+
+    const clears = calls.findIndex((call) => call.method === "clearRect");
+    const reset = calls.findIndex(
+      (call) => call.method === "setTransform" && (call.args as number[]).join() === "1,0,0,1,0,0",
+    );
+
+    assert.notEqual(clears, -1, "clear must still clear");
+    assert.notEqual(reset, -1, "the transform must be reset before clearing");
+    assert.ok(reset < clears, "the reset has to come before the clearRect, not after");
+    // And the caller's camera is still what it was: this is a borrow, not a change.
+    assert.equal(calls.filter((call) => call.method === "restore").length, 1);
   });
 });
