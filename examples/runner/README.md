@@ -71,7 +71,8 @@ of it is `R`.
 ## Measured on the published build
 
 All of the below was measured on <https://fogrexon.github.io/glyph-arena/runner/> on 2026-11-17, against
-`assets/index-CN4uAbEF.js` — the bundle `docs/bundles.json` records for `runner`.
+`assets/index-CN4uAbEF.js`, the bundle `/runner/` served when this was measured (`docs/bundles.json` records
+what each page ships now, which moves whenever the demo is rebuilt).
 
 - **Start**: a held `Space` goes `title → play`, while a 0 ms `press("Space")` leaves it on the title; `R` returns to `title`, and starting from the title always begins at level 1.
 - **Run and jump**: `ArrowRight` for 0.5 s moved the body `x 70 → 217.6`; `Space` from a standing start lifted `y 324 → 219.2`, a **104.8 px** rise against the 111 px apex the physics publishes.
@@ -116,8 +117,8 @@ pixels. The field set below is what the published build actually carries:
 | `simMs` | milliseconds of play in this run |
 | `jumpHeight` | the apex the physics gives (111) |
 | `gravity` | px/s2 (2600) |
-| `enemies` | every walker on the level, always an array: `{ x, y, w, h, dir, mode, speed, minX, maxX }` |
+| `enemies` | every enemy on the level, always an array: `{ x, y, w, h, dir, mode, speed, minX, maxX }`; `mode` is `patrol` or `chase`, so a walker and a pursuer are the same shape |
 
-A `deathLog` entry carries its cause as `pit`, `spike` or `enemy` — `enemy` is the walker, because calling
-that one a spike would make the data lie. The death screen and the log print the same line from the same
-function, so the number a player reads and the number a harness reads cannot drift.
+A `deathLog` entry carries its cause as `pit`, `spike` or `enemy` — `enemy` is the walker or the pursuer,
+because calling either a spike would make the data lie. The death screen and the log print the same line
+from the same function, so the number a player reads and the number a harness reads cannot drift.
