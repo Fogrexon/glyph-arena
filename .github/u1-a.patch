@@ -1,0 +1,90 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 5038782..93762fe 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -6,6 +6,18 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
+ 
+ ## [Unreleased]
+ 
++### Changed
++
++- `examples/parry` is an **endless run** now. The fixed 20-wave script is gone: waves come from
++  `waveAt(index)` and never run out, a parry scores **100**, dodging keeps you alive but scores nothing,
++  and the run ends on the **third hit** instead of reaching wave 20. Every 30 s the enemies move 10%
++  faster and one more arrives at a time (`endless.ts`, capped at 4 at once and 320 px/s). An enemy that
++  leaves the arena **wraps to the opposite side** instead of disappearing, so running away never clears
++  the field - the old despawn would have made dodging the safe way to play. The HUD leads with
++  `Score`, then `Lives`, then `Wave \u00b7 parried/attempts`; the title carries the one-line purpose.
++  `window.__parryState` gains **`score`** and **`attempts`** (demo-only; no package API change;
++  `index-*.js` changes)
++
+ ### Added
+ 
+ - `examples/parry`: the wave table is generated now (`waveAt(index)` / `waveShapeAt(index)`) instead of being
+diff --git a/examples/parry/src/endless.ts b/examples/parry/src/endless.ts
+new file mode 100644
+index 0000000..2b974a4
+--- /dev/null
++++ b/examples/parry/src/endless.ts
+@@ -0,0 +1,61 @@
++/**
++ * The endless run's policy, kept apart from the drawing and the loop so it can
++ * be read and tested on its own.
++ *
++ * A run has no finish line. It gets harder on a clock: every `RAMP_SECONDS` the
++ * enemies arrive 10% faster and one more of them arrives at a time. Both stop at
++ * a cap, because past it the player cannot read one arrival before the next --
++ * and a run that ends in a blur is not a run anybody wants to repeat.
++ *
++ * No RNG anywhere: the run is the same run at the same second.
++ */
++
++/** How often the run steps up. */
++export const RAMP_SECONDS = 30;
++
++/** How much faster each step is. */
++export const SPEED_STEP = 0.1;
++
++/** How many enemies arrive per slot at most. */
++export const MAX_CONCURRENT = 4;
++
++/** No enemy moves faster than this, however long the run goes. */
++export const MAX_ENEMY_SPEED = 320;
++
++/** What one parry is worth. */
++export const PARRY_SCORE = 100;
++
++/** A parry this close to the contact instant is a "clean" one and earns a little more. */
++export const PRECISE_PARRY_MS = 40;
++export const PRECISE_BONUS = 50;
++
++/** Every `STREAK_LENGTH` parries in a row (no hit in between) pay a bonus. */
++export const STREAK_LENGTH = 5;
++export const STREAK_BONUS = 50;
++
++/** Seconds -> speed multiplier. 1 for the first 30 s, then 1.1, 1.2, ... */
++export function speedRampAt(seconds: number): number {
++  return 1 + SPEED_STEP * Math.floor(Math.max(0, seconds) / RAMP_SECONDS);
++}
++
++/** Seconds -> how many enemies arrive together. One more every step, up to the cap. */
++export function concurrentAt(seconds: number): number {
++  return Math.min(1 + Math.floor(Math.max(0, seconds) / RAMP_SECONDS), MAX_CONCURRENT);
++}
++
++/**
++ * Where a point reappears once it has left the arena.
++ *
++ * The run cannot afford to delete enemies (a missing enemy is a safe run) and it
++ * cannot afford to leave them outside either (nothing would ever come back), so
++ * an enemy that leaves one side enters from the opposite one at the same margin.
++ */
++export function wrapAxis(value: number, size: number, margin: number): number {
++  if (value < -margin) {
++    return size + margin;
++  }
++  if (value > size + margin) {
++    return -margin;
++  }
++  return value;
++}
