@@ -9,7 +9,7 @@ import { createActions } from "@fogrexon/glyph-arena-actions";
 import { createInput } from "@fogrexon/glyph-arena-input";
 import { createLoop } from "@fogrexon/glyph-arena-loop";
 
-import { TILE, currentLevel, goalLineX, isHazardTile, isSolidTile, levelColumns, levelCount, levelRows, loadLevel, patrolRange, spawnPoint } from "./level";
+import { TILE, currentLevel, goalLineX, hazardWithin, isHazardTile, isSolidTile, levelColumns, levelCount, levelRows, loadLevel, patrolRange, spawnPoint } from "./level";
 import { GRAVITY, createBody, jumpHeight, stepBody, type Body } from "./physics";
 
 type Phase = "title" | "play" | "dead" | "goal";
@@ -46,10 +46,11 @@ type RunnerState = {
   /** Milliseconds of play in this run, so J1-J4 can be measured against it. */
   simMs: number;
   /**
-   * Where a death sends you back to. Published because the only rule that matters about it —
-   * "a respawn is never inside, or right next to, what killed you" — cannot be checked from
-   * outside unless the value the rule uses is visible. QA had to infer it from `x` and found a
-   * 4.2 px overlap that no one could see.
+   * Where a death sends you back to. Published because the rule about it — "a respawn is never
+   * within 96 px of what killed you" — cannot be checked from outside while the value it uses is
+   * invisible (QA had to infer it from `x` and found a 4.2 px overlap nobody could see). The
+   * distance is not published: the e2e measures it from the level grid and the unit test measures
+   * it directly, and a second copy here would be a second thing that can go green alone.
    */
   safe: { x: number; y: number };
   /** Jump physics, published so a harness can pin the feel without reading the source. */
@@ -114,18 +115,8 @@ function solidAt(left: number, top: number, right: number, bottom: number): bool
   return false;
 }
 
-/** Any hazard tile a rectangle touches. Split out of `hazardAt` so the safe rule can widen it. */
-function hazardsIn(x: number, y: number, w: number, h: number): boolean {
-  for (let row = Math.floor(y / TILE); row <= Math.floor((y + h - 0.001) / TILE); row += 1) {
-    for (let column = Math.floor(x / TILE); column <= Math.floor((x + w - 0.001) / TILE); column += 1) {
-      if (isHazardTile(column, row)) return true;
-    }
-  }
-  return false;
-}
-
 function hazardAt(body: Body): boolean {
-  return hazardsIn(body.x, body.y, body.w, body.h);
+  return hazardWithin(body.x, body.y, body.w, body.h);
 }
 
 let spawn = spawnPoint();
@@ -146,14 +137,17 @@ const deathLog: DeathRecord[] = [];
 let respawnSeconds = 0;
 let clock = 0;
 let simSeconds = 0;
-/**
- * How much clear ground a respawn point needs around it: 300 ms of running at 320 px/s.
- * A death that returns you 5 px from the thing that killed you is the same trap, just slower.
- */
-const SAFE_CLEARANCE = 96;
-
 /** The last place the runner stood safely: a death returns there. */
 let safe = { x: body.x, y: body.y };
+
+/**
+ * How much clear ground a respawn point needs around it: 300 ms of running at 320 px/s. A death
+ * that returns you 5 px from the thing that killed you is the same trap, just slower to reach.
+ * The rule lives here and in `hazardWithin` (level.ts) so the unit test can check it without a
+ * browser; it is deliberately not published — the e2e measures it from the level grid instead, so
+ * there is one place where "96 px" is true.
+ */
+const SAFE_CLEARANCE = 96;
 
 // ---------------------------------------------------------------- sound
 
@@ -765,12 +759,13 @@ const loop = createLoop({
       //
       // Asking only `!hazardAt(body)` stops standing *on* a spike from becoming the respawn point,
       // but leaves the respawn 0.8 px from one — and at 5.33 px per frame, holding right killed the
-      // player again on the next frame. The interval between deaths stretched from 17 ms to 600 ms
-      // and the trap stayed exactly where it was.
+      // player on the next frame anyway. The interval between deaths stretched from 17 ms to
+      // 600 ms and the trap stayed exactly where it was.
       //
-      // 96 px is 300 ms of running at MOVE_SPEED (320 px/s): enough time to see the hazard, choose,
-      // and act. A spot with less than that around it is not somewhere a death may return you.
-      if (body.grounded && body.vy === 0 && hazardsIn(body.x - SAFE_CLEARANCE, body.y, body.w + SAFE_CLEARANCE * 2, body.h) === false) {
+      // 96 px of clear ground is 300 ms at MOVE_SPEED (320 px/s): enough to see the hazard, choose
+      // and act. Until the runner has stood somewhere that clear, the safe spot stays where it was
+      // (the level's spawn, set at load) — which is the "fall back to the spawn" half of the rule.
+      if (body.grounded && body.vy === 0 && hazardWithin(body.x, body.y, body.w, body.h, SAFE_CLEARANCE) === false) {
         safe = { x: body.x, y: body.y };
       }
       if (!wasGrounded && body.grounded) {
