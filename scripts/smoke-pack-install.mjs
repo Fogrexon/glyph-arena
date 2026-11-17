@@ -177,6 +177,23 @@ try {
   }
 
   cpSync(join(REPO, "scripts/smoke/consumer.mts"), join(projectDir, "consumer.mts"));
+
+  // One namespace import per packed package, generated from the tarballs rather than written by
+  // hand: S3 asks every tarball's declaration to be the one TypeScript selected, so a package that
+  // nobody imports here would fail the check the day it is added. `consumer.mts` stays hand-written
+  // because its point is the *named* types; this file's point is coverage.
+  const identifiers = [...tarballs.keys()].map((name) => name.replace(/[^A-Za-z0-9]/g, "_"));
+  writeFileSync(
+    join(projectDir, "all-packages.mts"),
+    [
+      ...[...tarballs.keys()].map(
+        (name, index) => `import * as ${identifiers[index]} from ${JSON.stringify(name)};`,
+      ),
+      "",
+      `export const packages = { ${identifiers.map((id) => `["${id}"]: ${id}`).join(", ")} };`,
+      "",
+    ].join("\n"),
+  );
   writeFileSync(
     join(projectDir, "tsconfig.json"),
     `${JSON.stringify(
@@ -190,7 +207,7 @@ try {
           skipLibCheck: true,
           lib: ["ES2022", "DOM", "DOM.Iterable"],
         },
-        include: ["consumer.mts"],
+        include: ["consumer.mts", "all-packages.mts"],
       },
       null,
       2,
