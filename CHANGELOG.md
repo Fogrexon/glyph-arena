@@ -6,6 +6,19 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+### Changed
+
+- **runner: the body is the library's body now.** `examples/runner/src/physics.ts` went from 110
+  hand-written lines to **75 (36 of them code)**: gravity, acceleration, the jump with coyote and
+  buffer, and axis-separated resolution now come from `@fogrexon/glyph-arena-body` (its charter:
+  no numbers, no grid). The numbers live in one `CONFIG`, and the tile size is passed as `grid`
+  instead of being written `32` in three places. The old export names are kept
+  (`createBody/stepBody/jumpHeight/GRAVITY/...`) so `main.ts` and the tests read the same functions
+  — a refactor that renames call sites hides whether the behaviour survived.
+  **Measured in a Pod (Chromium 156), one run through all three levels: `phase "goal"`, level 3 of
+  3, deaths 0, 28.0 s, console errors 0**, with the same scripted take-off points as before.
+  `e2e:runner` green.
+
 ### Added
 
 - **runner: level 3 has a pursuer.** It notices you within **224 px**, waits out the level's first
