@@ -331,6 +331,22 @@ async function runDesktop(browser, baseUrl, errors) {
   });
   page.on("pageerror", (error) => errors.push(`runner: ${error.message}`));
 
+  // R8's eye: every string the canvas draws, recorded from inside the renderer. The HUD lives on
+  // a canvas, so `textContent` cannot see it and a source grep is wrong (a TS `"\u2014"` is a
+  // correct escape that compiles to the character). Only what is actually painted can be wrong.
+  await page.addInitScript(() => {
+    const drawn = [];
+    const proto = CanvasRenderingContext2D.prototype;
+    for (const name of ["fillText", "strokeText"]) {
+      const original = proto[name];
+      proto[name] = function (text, ...rest) {
+        if (typeof text === "string") drawn.push(text);
+        return original.call(this, text, ...rest);
+      };
+    }
+    Object.defineProperty(window, "__runnerDrawnText", { value: drawn });
+  });
+
   try {
     await page.goto(`${baseUrl}/`, { waitUntil: "load" });
 
@@ -358,6 +374,7 @@ async function runDesktop(browser, baseUrl, errors) {
       vy: "number",
       grounded: "boolean",
       deaths: "number",
+      deathLog: "object",
       respawnInMs: "number",
       cameraX: "number",
       goalX: "number",
@@ -420,7 +437,19 @@ async function runDesktop(browser, baseUrl, errors) {
       // ground: both are airborne frames that say nothing about "the ground holds while you
       // run". Land first — with a bound, so a spawn that never settles still fails here
       // instead of being averaged away.
-      const startSettled = await until(page, (s) => s.grounded && s.vy === 0, { timeoutMs: 1500 });
+      //
+      // Landing once is not enough: the start press is held for 160 ms and the jump buffer
+      // remembers it for 0.12 s, so a *second* jump can fire a few frames after the landing and
+      // land inside the measured second (that is the 88% run). Wait for the ground to still
+      // hold after the buffer must have expired.
+      let startSettled = { hit: false, samples: [] };
+      for (let attempt = 0; attempt < 6 && !startSettled.hit; attempt += 1) {
+        const landed = await until(page, (s) => s.grounded && s.vy === 0, { timeoutMs: 1500 });
+        if (!landed.hit) break;
+        await page.waitForTimeout(200);
+        const after = await state(page);
+        startSettled = { hit: after !== null && after.grounded && after.vy === 0, samples: landed.samples };
+      }
       check(
         startSettled.hit,
         "R2: the start settles on the ground",
@@ -554,8 +583,52 @@ async function runDesktop(browser, baseUrl, errors) {
             : `${verdict.why}${landed.hit ? "" : " — it never landed within 900ms of the respawn"}`,
         );
         check(settled.deaths === 1, "R4: one death is counted once", `deaths ${settled.deaths}`);
+
+        // The log is what turns "died three times" into "died here, like this": it is the
+        // number the next level is designed from, so its shape is part of the contract.
+        const log = settled.deathLog;
+        const entry = Array.isArray(log) ? log.at(-1) : null;
+        check(
+          Array.isArray(log) && log.length === settled.deaths,
+          "R4: every death is in the log",
+          Array.isArray(log) ? `${log.length} entr(ies) for deaths ${settled.deaths}` : `deathLog is ${typeof log}`,
+        );
+        check(
+          entry !== null && entry.cause === "pit" && entry.x >= lastAlive.x - 8 && entry.simMs > 0,
+          "R4: the log says where and how",
+          entry
+            ? `x ${entry.x} / ${entry.cause} at ${entry.simMs}ms (last grounded at ${lastAlive.x.toFixed(0)})`
+            : "no entry for the death",
+        );
       }
     }
+
+    // ---- R8: the strings the canvas paints, read from inside the renderer ----
+    const drawnText = await page.evaluate(() => [...(window.__runnerDrawnText ?? [])]);
+    const distinct = [...new Set(drawnText)];
+    const escapedDrawn = distinct.filter((text) => /\\u[0-9a-fA-F]{4}/.test(text));
+    // Observability is not a string count: the recorder has to have seen all three screens the
+    // title sequence goes through, or the "no escape" line below would pass on an empty array.
+    const painted = (needle) => distinct.some((text) => text.includes(needle));
+    const screens = [
+      ["title", painted("Runner")],
+      ["hud", painted("deaths:")],
+      ["death result", painted("/ pit") || painted("/ spike") || painted("/ enemy")],
+    ];
+    const missing = screens.filter(([, seen]) => !seen).map(([name]) => name);
+    check(
+      missing.length === 0,
+      "R8: the canvas text is observable on every screen",
+      missing.length === 0
+        ? `${distinct.length} distinct string(s) over ${drawnText.length} draw call(s) — title, HUD, death`
+        : `never saw: ${missing.join(", ")} (${distinct.length} distinct)`,
+    );
+    check(
+      escapedDrawn.length === 0,
+      "R8: no string the canvas draws carries a raw escape",
+      escapedDrawn.slice(0, 3).join(" | ") || "title, HUD and death screen all clean",
+    );
+
     if (process.env.E2E_KEEP) await page.screenshot({ path: join(ROOT, "e2e-runner.png") });
   } finally {
     await context.close();
@@ -688,6 +761,7 @@ async function main() {
       "R4 (②): death and the respawn rule",
       "R5 (③): touch pads match the keyboard",
       "R6: no escape sequence and a linked favicon reach the browser",
+      "R8: no string the canvas paints carries a raw escape",
       "R7 (①): a tap in the middle of the title screen starts the run",
     ];
     for (const label of labels) pend(label, `no built runner at ${DIST}`);
