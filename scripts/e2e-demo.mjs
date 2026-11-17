@@ -1171,9 +1171,15 @@ async function runParry(browser, errors) {
       `restarted ${restarted}, first best parried ${firstBest?.parried}, second best parried ${secondBest?.parried}, lives ${secondBest?.lives}, clearMs ${secondBest?.clearMs}`,
     );
 
-    // I14 (G1 + the wrap guard): the run does not stop at twenty waves, and wrapping never makes
-    // `contactMs` jump. A wrapped enemy teleports across the arena, so on that one frame its
-    // projected contact time is a lie; the frame is skipped, and this check is the proof.
+    // I14 (the wrap guard, browser side): a wrapped enemy teleports across the arena, so on that
+    // one frame its projected contact time is a lie. This plays until a wrap has happened and
+    // asserts the contact clock never jumped across one.
+    //
+    // "The run does not stop at twenty waves" is *not* asserted here any more. It is a property of
+    // `waveShapeAt()` — a pure function with no RNG — and `examples/parry/test/waves.test.ts`
+    // already proves it for indices 20..199. Asserting it again by playing until wave 21 meant
+    // asserting the *bot's skill*: the same check passed at "wave 21, score 1150" and failed at
+    // "wave 20, lives 0" on identical code, which is the one thing a gate must never do.
     await page.goto(`http://127.0.0.1:${PARRY_PORT}/?i14=1`, { waitUntil: "load" });
     await page.waitForTimeout(600);
     await hold(page, "Space", 160);
@@ -1182,8 +1188,9 @@ async function runParry(browser, errors) {
     let fightState = null;
     let fightPressUntil = 0;
     let previous = null;
+    let previousAt = 0;
     let spike = null;
-    let pastTwenty = false;
+    let samples = 0;
     while (Date.now() - fightStart < 45000) {
       const s = await page.evaluate(() => window.__parryState);
       if (!s) {
@@ -1192,15 +1199,25 @@ async function runParry(browser, errors) {
       }
       fightState = s;
       const head = s.threats && s.threats[0] ? s.threats[0] : null;
+      const sampledAt = Date.now();
+      const elapsedSincePrevious = sampledAt - previousAt;
       if (
         previous !== null &&
         head !== null &&
+        // `id 0` means "this enemy has not been given an identity yet" (`enemyIds.get(entity) ?? 0`
+        // in the demo). Two different enemies then share the number 0, so pairing them reports a
+        // contact-clock jump that is really one enemy being swapped for another — the first run of
+        // this check failed exactly that way (4104 ms -> 1189 ms at wave 15, wrapCount 1).
+        head.id !== 0 &&
         previous.threatId === head.id &&
-        previous.wrapCount === s.wrapCount
+        previous.wrapCount === s.wrapCount &&
+        // Only judge samples that are close together: a page that stalled for a second makes the
+        // contact clock move by a second with nothing wrong, and that is not a wrap jump.
+        elapsedSincePrevious <= 300
       ) {
         // The same enemy, one sample apart: its projected contact time can only move by the time
         // that passed. A jump means its position moved without it travelling.
-        if (Math.abs(head.ms - previous.threatMs) > 900) {
+        if (Math.abs(head.ms - previous.threatMs) > elapsedSincePrevious + 250) {
           spike = { from: previous.threatMs, to: head.ms, wave: s.wave };
         }
       }
@@ -1209,11 +1226,11 @@ async function runParry(browser, errors) {
         threatId: head === null ? null : head.id,
         threatMs: head === null ? null : head.ms,
       };
+      previousAt = sampledAt;
+      samples += 1;
       if (s.phase === "result") break;
-      if (s.phase === "play" && s.wave > 20) {
-        pastTwenty = true;
-        break;
-      }
+      // A wrap is what this check needs; how far the run gets is the bot's skill, not the game's.
+      if (s.wrapCount >= 1 && samples >= 20) break;
       if (s.phase !== "play") {
         await page.waitForTimeout(80);
         continue;
@@ -1244,10 +1261,10 @@ async function runParry(browser, errors) {
     }
     for (const key of fightHeld) await page.keyboard.up(key);
     check(
-      pastTwenty && (fightState?.wrapCount ?? 0) >= 1,
-      "I14: the run continues past twenty waves",
-      `wave ${fightState?.wave}, lives ${fightState?.lives}, score ${fightState?.score}, parried ${fightState?.parried}, wraps ${fightState?.wrapCount}` +
-        (spike === null ? "" : ` (nearest-enemy jump seen: ${spike.from}->${spike.to}ms at wave ${spike.wave}, not asserted)`),
+      spike === null && (fightState?.wrapCount ?? 0) >= 1,
+      "I14: a wrap does not jump the nearest enemy's contact clock",
+      `wraps ${fightState?.wrapCount}, samples ${samples}, wave ${fightState?.wave}, lives ${fightState?.lives}` +
+        (spike === null ? "" : ` — contact clock jumped ${spike.from}->${spike.to}ms at wave ${spike.wave}`),
     );
 
     // G12/G13: standing still has to lose, and fighting has to beat standing still.
