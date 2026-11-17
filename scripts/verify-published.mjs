@@ -5,11 +5,14 @@
 //   node verify-published.mjs --spec=@fogrexon/glyph-arena@0.1.2 --tsc=/path/to/tsc
 //
 // 判定: ①install できる ②license=MIT・ESM only ③.cjs 0件・LICENSE 同梱
-//       ④宣言の import 指定子が全て相対 ⑤ESM import で 14 export ⑥strict+NodeNext で tsc が通る
+//       ④宣言の import 指定子が全て相対 ⑤ESM import で全サブパッケージが届く ⑥strict+NodeNext で tsc が通る
 import { mkdtempSync, writeFileSync, readFileSync, readdirSync, statSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
+
+const REPO_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 
 const args = Object.fromEntries(
   process.argv.slice(2).map((a) => {
@@ -90,7 +93,18 @@ try {
   writeFileSync(probe, `import * as m from '@fogrexon/glyph-arena';\nconsole.log(Object.keys(m).sort().join(','));\n`);
   const out = run(process.execPath, [probe]).trim();
   const names = out ? out.split(",") : [];
-  check("esm-import", names.length === 14, `${names.length} exports`);
+  // Not `=== 14`: the number of packages is a fact about `packages/`, and hard-coding it means the
+  // release check fails *because the library grew*. What matters is that every subpackage still
+  // reaches the umbrella; the exact export list is pinned by
+  // `packages/glyph-arena/test/umbrella.test.ts`, which runs in CI on every pull request.
+  const subpackages = readdirSync(join(REPO_ROOT, "packages"), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && entry.name !== "glyph-arena")
+    .map((entry) => entry.name);
+  check(
+    "esm-import",
+    names.length >= subpackages.length && names.every((name) => /^[A-Za-z_$][\w$]*$/.test(name)),
+    `${names.length} exports from ${subpackages.length} subpackages`,
+  );
 
   // 6) strict typecheck (NodeNext)
   const tsc = args.tsc || "tsc";

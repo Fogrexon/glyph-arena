@@ -5,8 +5,9 @@ import * as api from "../src/index.js";
 
 /**
  * The value exports the flat re-export must expose — one per module (collide
- * exports `overlaps`, tween exports `approach` beside its factory, the rest
- * export a `create*` factory). Type-only exports
+ * exports `overlaps`, tween exports `approach` beside its factory, body exports
+ * its step and its height beside `createBody`, the rest export a `create*`
+ * factory). Type-only exports
  * are checked by `pnpm typecheck:public-api` instead, which imports `Matrix2D`
  * by name from this package and compiles against the emitted declaration.
  *
@@ -17,6 +18,7 @@ import * as api from "../src/index.js";
 const expectedValueExports = [
   "approach",
   "createActions",
+  "createBody",
   "createAssets",
   "createAudio",
   "createCamera",
@@ -29,7 +31,9 @@ const expectedValueExports = [
   "createTransform",
   "createTween",
   "createWorld",
+  "jumpHeightOf",
   "overlaps",
+  "stepBody",
 ] as const;
 
 describe("@fogrexon/glyph-arena", () => {

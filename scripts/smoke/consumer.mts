@@ -10,6 +10,7 @@
 import { createActions } from "@fogrexon/glyph-arena-actions";
 import { createAssets } from "@fogrexon/glyph-arena-assets";
 import { createAudio } from "@fogrexon/glyph-arena-audio";
+import { createBody } from "@fogrexon/glyph-arena-body";
 import { createCamera } from "@fogrexon/glyph-arena-camera";
 import { overlaps } from "@fogrexon/glyph-arena-collide";
 import { createDraw } from "@fogrexon/glyph-arena-draw";
@@ -25,6 +26,7 @@ import { createTween } from "@fogrexon/glyph-arena-tween";
 import type { Actions } from "@fogrexon/glyph-arena-actions";
 import type { Assets } from "@fogrexon/glyph-arena-assets";
 import type { Audio } from "@fogrexon/glyph-arena-audio";
+import type { BodyConfig, Box } from "@fogrexon/glyph-arena-body";
 import type { Camera } from "@fogrexon/glyph-arena-camera";
 import type { Aabb } from "@fogrexon/glyph-arena-collide";
 import type { Draw } from "@fogrexon/glyph-arena-draw";
@@ -45,6 +47,7 @@ export const factories = {
   assets: createAssets,
   audio: createAudio,
   camera: createCamera,
+  body: createBody,
   collide: overlaps,
   draw: createDraw,
   ecs: createWorld,
@@ -62,6 +65,8 @@ export type Types = {
   assets: Assets;
   audio: Audio;
   camera: Camera;
+  body: BodyConfig;
+  bodyBox: Box;
   collide: Aabb;
   draw: Draw;
   ecs: World;
@@ -76,7 +81,7 @@ export type Types = {
 
 /**
  * The single package intended for npm: its packed tarball must import and
- * typecheck on its own, without the 14 sibling packages installed.
+ * typecheck on its own, without the sibling packages installed.
  */
 export const umbrellaFactories = {
   ecs: createWorldFromUmbrella,

@@ -51,6 +51,20 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Added
 
+- **`@fogrexon/glyph-arena-body` — the physics every sample was writing by hand.** Gravity, a run
+  with acceleration, a jump with coyote time and an input buffer, and axis-separated collision
+  against a `solid()` test the caller supplies. `examples/runner` spent 110 lines on exactly this
+  (`physics.ts`), and the same numbers had to be kept in sync with the spec by hand. The package has
+  **no numbers of its own**: no default gravity, no preset, no `TILE` — `760 / 2600 / 0.09 / 0.12`
+  are the caller's, and `jumpHeightOf(config)` computes the height from that same config so a spec
+  and a test cannot disagree. It also has **no grid**: pass `{ grid }` to `stepBody` and a blocked
+  move snaps to the cell boundary, omit it and the move is reverted. Two bugs found while writing
+  it, both in my own work: the grid snap took its boundary from the position the body *left* rather
+  than the one it was heading for, which teleported a landing 13 px up through the floor it was
+  falling toward; and `createBody` took `width/height` while `Body` exposed `w/h`, which is the same
+  "one thing, two names" that cost an hour on `stepAhead()`. Both are fixed, and the first has a
+  test that lands a body on a 32 px grid and asserts the exact cell edge.
+
 - **`approach(current, aim, dt)` in `@fogrexon/glyph-arena-tween`.** Every game in this repository
   wrote the same two lines to ease a value toward a moving aim — `value + (aim - value) *
   Math.min(1, dt * 8)` — and `examples/runner` still does, for its camera. The package now owns

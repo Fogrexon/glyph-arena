@@ -156,6 +156,8 @@ importers:
 
   packages/glyph-arena-audio: {}
 
+  packages/glyph-arena-body: {}
+
   packages/glyph-arena-camera: {}
 
   packages/glyph-arena-collide: {}

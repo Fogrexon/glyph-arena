@@ -28,11 +28,13 @@ import { createForest } from "@fogrexon/glyph-arena-scene";
 import { createTimer } from "@fogrexon/glyph-arena-timer";
 import { createTransform } from "@fogrexon/glyph-arena-transform";
 import { approach, createTween } from "@fogrexon/glyph-arena-tween";
+import { createBody } from "@fogrexon/glyph-arena-body";
 
 import type { Actions } from "@fogrexon/glyph-arena-actions";
 import type { Assets } from "@fogrexon/glyph-arena-assets";
 import type { Audio } from "@fogrexon/glyph-arena-audio";
 import type { Camera } from "@fogrexon/glyph-arena-camera";
+import type { BodyConfig, Box } from "@fogrexon/glyph-arena-body";
 import type { Aabb } from "@fogrexon/glyph-arena-collide";
 import type { Draw } from "@fogrexon/glyph-arena-draw";
 import type { World } from "@fogrexon/glyph-arena-ecs";
@@ -63,6 +65,7 @@ export const publicFactories = {
   timer: createTimer,
   transform: createTransform,
   tween: createTween,
+  body: createBody,
   // Not just the factory: a second value export proves the package surface reaches consumers.
   tweenApproach: approach,
 } satisfies Record<string, unknown>;
@@ -83,6 +86,8 @@ export type PublicTypes = {
   timer: Timer;
   transform: Transform;
   tween: Tween;
+  body: BodyConfig;
+  bodyBox: Box;
 };
 
 /**
