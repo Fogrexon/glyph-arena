@@ -18,15 +18,23 @@ const ROOT = resolve(import.meta.dirname ?? new URL(".", import.meta.url).pathna
 const RECORD = join(ROOT, "docs", "bundles.json");
 const BASE = process.env.GLYPH_ARENA_BASE ?? "https://fogrexon.github.io/glyph-arena";
 
-const pages = { root: `${BASE}/`, parry: `${BASE}/parry/` };
+const pages = { root: `${BASE}/`, parry: `${BASE}/parry/`, runner: `${BASE}/runner/` };
 const recorded = JSON.parse(readFileSync(RECORD, "utf8"));
 const write = process.argv.includes("--write");
 const detected = {};
 let failed = 0;
 
 for (const [name, url] of Object.entries(pages)) {
+  // Cache-buster: otherwise the CDN in front of Pages can serve the previous
+  // release for a while and this check reports a name that no longer exists.
+  const expected = recorded[name];
   const response = await fetch(`${url}?cb=${Date.now()}`);
   if (!response.ok) {
+    // A page that is not deployed yet is recorded as null; that is not drift.
+    if (expected === null && response.status === 404) {
+      if (!write) console.log(`ok   ${name}: not deployed yet (recorded null)`);
+      continue;
+    }
     console.error(`FAIL ${name}: ${url} returned ${response.status}`);
     failed += 1;
     continue;
@@ -34,10 +42,15 @@ for (const [name, url] of Object.entries(pages)) {
 
   const html = await response.text();
   const unique = [...new Set([...html.matchAll(/index-[A-Za-z0-9_-]+\.js/g)].map((m) => m[0]))];
-  const expected = recorded[name];
 
   if (unique.length !== 1) {
     console.error(`FAIL ${name}: expected exactly one index-*.js, found ${unique.length}${unique.length ? ` (${unique.join(", ")})` : ""}`);
+    failed += 1;
+    continue;
+  }
+
+  if (expected === null && !write) {
+    console.error(`FAIL ${name}: serving ${unique[0]} but the record is null \u2014 run \`pnpm check:deployed --write\` and commit docs/bundles.json`);
     failed += 1;
     continue;
   }
