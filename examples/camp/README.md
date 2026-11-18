@@ -21,7 +21,7 @@ tuned number that is not re-written here turns the gate red instead of the page 
 
 | verb | keys | cost | what it buys |
 | --- | --- | --- | --- |
-| swing | `J` / `X` | 300 ms locked in place (windup 60 + active 90 + recovery 150) | the only way to remove a body |
+| swing | `J` / `X` | 300 ms locked in place (windup 60 + active 90 + recovery 150) — **this lockout is the price of the fight**: at 110 ms bold stops bleeding (measured 11-18: 4 hits → 1, and the enemies stop committing at all: lunges 5 → 1) | the only way to remove a body |
 | jump | `Space` / `Up` / `W` / `Z` | you cannot steer in the air | crossing a lunge, but you land where you land |
 | roll | `Shift` / `L` | 180 ms locked, 420 ms before the next one | crossing a commit **inside** its 140 ms invulnerable window |
 
@@ -103,6 +103,11 @@ A machine that plays is the acceptance harness: a number is a rerun, not a rewri
   lockout. That is the next thing to explain — record where the body stood when it happens.
 - **The roll is never required.** In the shipped fight the careful bot rolls zero times: standing
   and swinging still answers everything. The third verb exists, the third *decision* does not.
+- **The swing's lockout is what makes bold bleed, and it cannot be shortened.** At 110 ms the four
+  recovery hits became zero — and the fight got *easier*, not different: bold cleared in 10.9 s with
+  4 of 5 hearts and the enemies only committed once in the whole run (5 → 1 lunges), because a
+  faster swing cancels the tell before it completes. Shortening a commitment does not move the
+  damage somewhere else, it removes the thing the damage was paying for.
 - **`restMs` was measured, and 450 stands.** 380 was tried on 11-18 and the careful bot died in the
   first room in **6 of 6** runs (`hearts 0`, 8–12 tells, 0–1 kills): the window is what keeps the
   careful answer alive, so it cannot be shortened to make a room harder. The second room is longer
