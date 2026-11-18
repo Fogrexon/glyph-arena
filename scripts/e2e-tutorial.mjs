@@ -44,11 +44,16 @@ import { join, resolve } from "node:path";
 
 import { chromium } from "playwright-core";
 
+import { requireFresh } from "./lib/build-stamp.mjs";
 import { serveDist } from "./lib/static-server.mjs";
 
 const HERE = import.meta.dirname ?? new URL(".", import.meta.url).pathname;
 const ROOT = resolve(HERE, "..");
 const DIST = join(ROOT, "fixtures", "tutorial", "dist");
+
+// The fixture is extracted from docs/tutorial.md at build time: a gate run without that build
+// would test the previous program and still say PASS (QA hit exactly that).
+requireFresh("tutorial", ROOT, { dist: DIST, label: "e2e:tutorial" });
 const PORT = Number(process.env.E2E_TUTORIAL_PORT ?? 4321);
 
 const CLEAR = [13, 22, 38]; // "#0d1626"
