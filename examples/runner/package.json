@@ -16,6 +16,7 @@
     "@fogrexon/glyph-arena-body": "workspace:*",
     "@fogrexon/glyph-arena-input": "workspace:*",
     "@fogrexon/glyph-arena-loop": "workspace:*",
+    "@fogrexon/glyph-arena-screen": "workspace:*",
     "@fogrexon/glyph-arena-tilemap": "workspace:*",
     "@fogrexon/glyph-arena-touch": "workspace:*"
   },

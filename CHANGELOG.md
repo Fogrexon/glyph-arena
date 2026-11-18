@@ -8,6 +8,23 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Changed
 
+- **`screen`: one place that knows the CSS box, the bitmap, and the ratio between them.**
+  `@fogrexon/glyph-arena-screen` is the 19th package, and it exists because two samples wrote the
+  same conversion and three wrote the same resize. `toCanvasPoint(point, box, size)` is the
+  pointer conversion — including the `rect.width === 0 ? 1` guard, which both copies had and which
+  only matters while the page is hidden (a zero box otherwise turns every later coordinate into
+  `NaN`, and a game does not recover from that). `fitToWindow(canvas, window, { onResize })` sets
+  the bitmap to the window, listens for `resize`, and runs `onResize` **after** the new size is in
+  place — which is where a touch pad belongs, because its zones are geometry in canvas pixels and
+  rebuilding them on the frame would drop a press in flight. `touch`'s header said the conversion
+  "belongs to a screen-space package"; this is that package, and `touch` / `input` stay DOM-free.
+  Nothing imports `HTMLCanvasElement` or `Window`: every function takes the smallest structural
+  shape, so the maths is tested with numbers (10 tests, including one that proves a zero box scales
+  by 1 and one that a point outside the box stays outside, sign and all). Reverse check: dropping
+  the zero-box guard turns exactly that one test red. Adding the package also turned two of the
+  "you forgot something" gates red, both correctly: `docs:render` named the missing
+  `docs/api-screen.md`, and the three samples' builds named the missing workspace dependency.
+
 - **`camp`: the fight is a choice, and it is measured.** Three numbers moved and each one has a
   measurement behind it. The lunge range went **110 -> 70 px**: the commit covers 138 px, so a
   110 px trigger meant every place you could stand was a place the lunge reached and there was no
