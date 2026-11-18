@@ -17,9 +17,9 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
   version is the published one that is the gate: red, naming the export that is missing. When the
   workspace is ahead, a release is staged, and the check prints the version it waits for instead of
   blocking every pull request until that release ships — a named `PEND` with the version and the
-  error, not a silent pass. `packages/glyph-arena` moves to **0.3.1** so that state is explicit.
+  error, not a silent pass. `packages/glyph-arena` moves to **0.4.0** so that state is explicit.
   Reverse check: with the version put back to 0.3.0 the gate fails (`FAIL P6 … has no exported member
-  'tagIn'`, exit 1); with 0.3.1 it is the named wait.
+  'tagIn'`, exit 1); with 0.4.0 it is the named wait.
 
 - **`tagIn(map, tag)` — the tag written once, and the four questions it answers.** A platformer asks
   about its floor three ways — one cell, a box, and the ground under a foot — and all three samples
