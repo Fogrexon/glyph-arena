@@ -135,6 +135,34 @@ describe("the hold", () => {
   });
 });
 
+describe("presence, which the hold must not extend", () => {
+  it("releases `down` on the frame the finger lifts, while `held` keeps counting", () => {
+    // The runner's d-pad: a direction must stop when the thumb lifts, or the runner walks the last
+    // 150 ms into the pit it was stopping for. The jump pad next to it wants the opposite.
+    const pad = createTouchControls(CONFIG);
+
+    pad.update([at(1, 118, 320)], FRAME); // a thumb on the right pad
+    assert.equal(pad.down("right"), true);
+
+    pad.update([], FRAME); // lifted
+    assert.equal(pad.down("right"), false, "a direction has to stop the frame the thumb lifts");
+    assert.equal(pad.held("right"), true, "the press is still inside its hold, for a button-like reader");
+  });
+
+  it("is false for a press that only survives inside the hold window", () => {
+    const pad = createTouchControls(CONFIG);
+
+    pad.update([at(1, 620, 320)], FRAME); // the frame the tap landed
+    assert.equal(pad.down("jump"), true);
+
+    for (let frame = 0; frame < 8; frame += 1) {
+      pad.update([], FRAME); // inside the 150 ms hold, but no finger is there
+      assert.equal(pad.down("jump"), false, `presence outlived the finger, frame ${frame}`);
+      assert.equal(pad.held("jump"), true);
+    }
+  });
+});
+
 describe("the stick", () => {
   it("reads a direction, normalised, with the dead zone the zone declares", () => {
     const pad = createTouchControls(CONFIG);

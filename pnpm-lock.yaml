@@ -84,6 +84,9 @@ importers:
       '@fogrexon/glyph-arena-timer':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-timer
+      '@fogrexon/glyph-arena-touch':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-touch
       '@fogrexon/glyph-arena-transform':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-transform
@@ -167,6 +170,9 @@ importers:
       '@fogrexon/glyph-arena-tilemap':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-tilemap
+      '@fogrexon/glyph-arena-touch':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-touch
     devDependencies:
       typescript:
         specifier: ^5.8.3
@@ -215,6 +221,8 @@ importers:
   packages/glyph-arena-tilemap: {}
 
   packages/glyph-arena-timer: {}
+
+  packages/glyph-arena-touch: {}
 
   packages/glyph-arena-transform: {}
 

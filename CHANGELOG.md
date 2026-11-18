@@ -6,6 +6,34 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+### Changed
+
+- **both samples: the on-screen pads are the library's.** `examples/parry/src/main.ts` and
+  `examples/runner/src/main.ts` each carried their own hit test, their own "which pointer is on the
+  pad" lookup and their own idea of what a press is. Both now call `createTouchControls` from
+  `@fogrexon/glyph-arena-touch`. The DOM-to-canvas conversion stays in the sample — the package
+  deliberately has no opinion about what units its zones are in — and the pads are rebuilt on
+  `resize` rather than per frame, because a rebuild drops a press in flight.
+
+  The measurement procedure lost the hold with it. `e2e:demo` and `e2e:runner` no longer press and
+  sleep 150–160 ms so that a frame can see the finger: every touch check below is **one animation
+  frame of finger, then up**, in Chromium 156.
+  - parry: a one-frame tap starts the run, and a one-frame tap on DASH at the published `pressMs`
+    parries (`parried 0 -> 1`, score 100, wave 5).
+  - runner: a one-frame tap starts the run from the middle of the title screen and from the jump
+    pad, and a one-frame tap on the jump pad jumps (`minVy -717 px/s`) — the press a 150 ms hold
+    used to be needed for.
+
+### Added
+
+- **`touch`: `down(name)` — a finger in the zone now, with no hold.** Using `held` for a direction
+  was wrong: the runner's right pad still answered for `holdMs` after the thumb lifted, so the
+  runner walked 48 px further than the player asked (150 ms at 320 px/s, one and a half tiles) —
+  over the edge they were stopping for. `e2e:runner` caught it as the pad moving 1.19x the keyboard.
+  `down` is presence, `held` is a press that survives the gap between frames, `pressed` is the edge;
+  the samples use `down` for movement and `held`/`pressed` for jump and dash. Two tests fix the
+  difference from both sides — swapping `down` for `held` turns both red.
+
 ## [0.2.0] - 2026-11-17
 
 The version the first npm publication carries: `@fogrexon/glyph-arena@0.2.0`. Nothing under this repository's `@fogrexon/glyph-arena-*` names is published on its own.

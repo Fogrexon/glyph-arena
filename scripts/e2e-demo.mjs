@@ -1362,6 +1362,89 @@ async function runParry(browser, errors) {
       "G13: fighting beats standing still",
       `idle hits ${idleHits.join("/")} vs fight hits ${fightHits.join("/")} (parried ${fightOne.state?.parried}/${fightTwo.state?.parried})`,
     );
+
+    // P8: the pad is `createTouchControls`, and the whole point of that package is the hold — a tap
+    // that lands and lifts between two frames still counts. So these are ONE FRAME of finger and no
+    // 150 ms sleep: if the procedure still had to hold, the hold would not be in the library.
+    const touchContext = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      deviceScaleFactor: 3,
+      hasTouch: true,
+      isMobile: true,
+      userAgent:
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+    });
+    await touchContext.addInitScript(PROBE);
+    const touchPage = await touchContext.newPage();
+    withConsoleErrors(touchPage, errors, "parry-touch");
+    const touchPointer = (type, x, y) =>
+      touchPage.evaluate(
+        ([kind, clientX, clientY]) => {
+          window.dispatchEvent(
+            new PointerEvent(kind, {
+              pointerId: 1,
+              pointerType: "touch",
+              isPrimary: true,
+              bubbles: true,
+              clientX,
+              clientY,
+            }),
+          );
+        },
+        [type, x, y],
+      );
+    const oneFrameTap = async (x, y) => {
+      await touchPointer("pointerdown", x, y);
+      await touchPage.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve(true))));
+      await touchPointer("pointerup", x, y);
+    };
+    try {
+      const dashX = 390 - 104; // main.ts: TOUCH_CONTROL_INSET, canvas pixels == viewport pixels here
+      const dashY = 844 - 104;
+      await touchPage.goto(`http://127.0.0.1:${PARRY_PORT}/?touch=1`, { waitUntil: "load" });
+      await touchPage.waitForTimeout(600);
+      await oneFrameTap(195, 420);
+      // Read it the frame after, not the instant the finger lifts: `__parryState` is published once
+      // per frame, so the frame that starts the run still carries the title it replaced.
+      let opened = null;
+      const openDeadline = Date.now() + 4000;
+      while (Date.now() < openDeadline) {
+        const s = await touchPage.evaluate(() => window.__parryState);
+        if (s && s.phase === "play") {
+          opened = s;
+          break;
+        }
+        await touchPage.waitForTimeout(25);
+      }
+      check(
+        opened !== null,
+        "P8 (③): a one-frame tap starts the parry run on a phone",
+        `phase ${opened?.phase ?? "title"}`,
+      );
+
+      // Same recipe as the keyboard side, aimed by the state: wait for the window, then one frame
+      // of DASH. The opening enemy comes from where the player faces, so no stick input is needed.
+      let beforeTap = null;
+      const tapDeadline = Date.now() + 12000;
+      while (Date.now() < tapDeadline) {
+        const s = await touchPage.evaluate(() => window.__parryState);
+        if (s && s.phase === "play" && s.pressMs !== null && s.pressMs <= s.windowMs + s.dashMs) {
+          beforeTap = s;
+          await oneFrameTap(dashX, dashY);
+          break;
+        }
+        await touchPage.waitForTimeout(20);
+      }
+      await touchPage.waitForTimeout(400);
+      const afterTap = await touchPage.evaluate(() => window.__parryState);
+      check(
+        Boolean(afterTap) && afterTap.parried >= 1,
+        "P8 (③): a one-frame tap on DASH parries — the hold lives in the pad, not the procedure",
+        `parried ${beforeTap?.parried} -> ${afterTap?.parried}, score ${afterTap?.score}, wave ${afterTap?.wave}`,
+      );
+    } finally {
+      await touchContext.close();
+    }
   } finally {
     await context.close();
     server.close();
