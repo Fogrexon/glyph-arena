@@ -35,7 +35,7 @@ input.dispose();
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `keys` | `ReadonlySet<string>` | Held `KeyboardEvent.code` values |
+| `keys` | `ReadonlySet<string>` | Down now, or pressed since the previous `snapshot()` (the latch) |
 | `pointers` | `readonly PointerState[]` | Active pointers |
 
 ### `PointerState`
@@ -53,10 +53,18 @@ input.dispose();
 - Attaching the **same** target again is a no-op.
 - When not attached, `snapshot()` returns empty keys and pointers.
 
+### The press latch
+
+A loop samples once per frame, so a `keydown` and `keyup` that both land between two samples used to
+be invisible, and every mechanical test had to hold a key for 150 ms. A press that ends before the
+frame runs is now reported for that one frame, so `actions.pressed()` still sees the edge. It is one
+frame, not a hold: `snapshot()` consumes the latch, so call it once per frame. Auto-repeat is not a
+second press.
+
 ### State clearing
 
-- **`detach()`** clears keys and pointers.
-- **`blur`** on the attached target clears keys and pointers.
+- **`detach()`** clears keys, the latch and pointers.
+- **`blur`** on the attached target clears keys, the latch and pointers.
 - Without `blur`, keys can remain held after focus loss.
 
 ### `dispose()`

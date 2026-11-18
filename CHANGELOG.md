@@ -8,6 +8,21 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Changed
 
+- **`input`: a press that lands and lifts between two frames is no longer lost.** `snapshot().keys`
+  now means "down now **or** pressed since the previous snapshot", for exactly one frame. The
+  keyboard had the same frame-boundary hole the touch pads had: a `keydown`+`keyup` inside one frame
+  was invisible, so every mechanical test held the key for 150 ms first — `hold(page, "Space", 160)`
+  eight times over, which is a property of the harness and not of the game. It is **one frame, not a
+  hold**: a keyboard is discrete events, and nothing needs a key to stay down after the player let
+  go. Auto-repeat is not a second press, and `snapshot()` consumes the latch, so call it once per
+  frame as the loop does.
+
+  Measured in a Pod (Chromium 156) with every start, restart and dash press cut to **one frame**:
+  `e2e:demo` green — the parry chain reads `parried 1 -> 2`, then five waves defended, and every
+  `Shift`/`Space` in that run was one frame — and `e2e:runner` green. The holds that remain are the
+  ones whose duration *is* the point: the 97 px pit needs the full 460 ms of a variable jump, and a
+  dodge has to keep moving.
+
 - **both samples: the on-screen pads are the library's.** `examples/parry/src/main.ts` and
   `examples/runner/src/main.ts` each carried their own hit test, their own "which pointer is on the
   pad" lookup and their own idea of what a press is. Both now call `createTouchControls` from

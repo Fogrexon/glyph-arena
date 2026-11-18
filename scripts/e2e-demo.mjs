@@ -308,11 +308,26 @@ async function waitForRoundTimeBelow(page, target, timeoutMs = 15000) {
   return false;
 }
 
+/**
+ * Hold a key for a while. Reserved for the presses whose *duration* is the point — a jump whose
+ * height is the variable, a dodge that has to keep moving. Anything that only asks "did the player
+ * press it" belongs in `pressOnce`.
+ */
 async function hold(page, keyName, ms) {
-  // The demo polls held keys once per frame, so a press+release inside one
-  // frame would be invisible: hold for a few frames.
   await page.keyboard.down(keyName);
   await page.waitForTimeout(ms);
+  await page.keyboard.up(keyName);
+}
+
+/**
+ * One frame of key, then up — the shortest press a frame can see. `input` latches a press that
+ * lands and lifts between two samples for exactly one frame, so this is enough for a start, a
+ * restart or a dash; before the latch every one of these had to be held 160 ms so a frame could
+ * notice it, which is a property of the harness and not of the game.
+ */
+async function pressOnce(page, keyName) {
+  await page.keyboard.down(keyName);
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve(true))));
   await page.keyboard.up(keyName);
 }
 
@@ -332,7 +347,7 @@ async function restartRound(page) {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const before = await pickupState(page);
     const beforeTime = before && before.roundTime !== null ? before.roundTime : null;
-    await hold(page, "KeyR", 220);
+    await pressOnce(page, "KeyR");
     const started = Date.now();
     while (Date.now() - started < 3000) {
       const state = await pickupState(page);
@@ -526,7 +541,7 @@ async function runDesktop(browser, baseUrl, errors) {
     "title offers Space / Enter only",
   );
 
-  await hold(page, "Space", 160);
+  await pressOnce(page, "Space");
   check(await waitForText(page, "Lives: 3", 10000), "start: Space begins the round");
 
   // ---- I3: the 3 s hazard grace ------------------------------------------
@@ -873,11 +888,9 @@ async function runParry(browser, errors) {
   const page = await context.newPage();
   withConsoleErrors(page, errors, "parry");
 
-  const pressAt = async () => {
-    await page.keyboard.down("ShiftLeft");
-    await page.waitForTimeout(140);
-    await page.keyboard.up("ShiftLeft");
-  };
+  // One frame of Shift. A dash is edge-triggered and `input` latches the press, so the 140 ms
+  // sleep that used to be here was for the sampler, not for the game.
+  const pressAt = async () => pressOnce(page, "ShiftLeft");
 
   // A press aimed by the state, not by a stopwatch: turn to the soonest threat, hold that
   // direction while the window opens, press once `pressMs` says so. This is the recipe a player
@@ -922,7 +935,7 @@ async function runParry(browser, errors) {
     }
     await page.goto(`http://127.0.0.1:${PARRY_PORT}/?parry=1`, { waitUntil: "load" });
     await page.waitForTimeout(600);
-    await hold(page, "Space", 160);
+    await pressOnce(page, "Space");
     // The opening enemy has to arrive where the player is looking: it is the one that teaches
     // "dash into it", and a fixed angle put it behind them.
     let opening = null;
@@ -1004,7 +1017,7 @@ async function runParry(browser, errors) {
     // not do when two enemies arrive together.
     await page.goto(`http://127.0.0.1:${PARRY_PORT}/?i11=1`, { waitUntil: "load" });
     await page.waitForTimeout(600);
-    await hold(page, "Space", 160);
+    await pressOnce(page, "Space");
     const defenceStart = Date.now();
     let heldArrows = [];
     let defenceState = null;
@@ -1066,7 +1079,7 @@ async function runParry(browser, errors) {
     // fallen behind the number of waves spawned. With the old code it never does.
     await page.goto(`http://127.0.0.1:${PARRY_PORT}/?i12=1`, { waitUntil: "load" });
     await page.waitForTimeout(600);
-    await hold(page, "Space", 160);
+    await pressOnce(page, "Space");
     const drainDeadline = Date.now() + 15000;
     let drainState = null;
     let drained = false;
@@ -1095,7 +1108,7 @@ async function runParry(browser, errors) {
     // result screen reads the same numbers, so this is the record the player is asked to beat.
     await page.goto(`http://127.0.0.1:${PARRY_PORT}/?i13=1`, { waitUntil: "load" });
     await page.waitForTimeout(600);
-    await hold(page, "Space", 160);
+    await pressOnce(page, "Space");
     const firstEnd = Date.now() + 25000;
     let firstBest = null;
     while (Date.now() < firstEnd) {
@@ -1110,8 +1123,8 @@ async function runParry(browser, errors) {
       }
       await page.waitForTimeout(100);
     }
-    // Held, not tapped: the action layer samples key state per frame, so a one-frame tap can be missed.
-    await hold(page, "KeyR", 160);
+    // One frame is enough: `input` latches a press that ends between two frames.
+    await pressOnce(page, "KeyR");
     // Wait for the restart to take, so a missed key is not read as "the second run parried nothing".
     const restartDeadline = Date.now() + 5000;
     let restarted = false;
@@ -1187,7 +1200,7 @@ async function runParry(browser, errors) {
     // "wave 20, lives 0" on identical code, which is the one thing a gate must never do.
     await page.goto(`http://127.0.0.1:${PARRY_PORT}/?i14=1`, { waitUntil: "load" });
     await page.waitForTimeout(600);
-    await hold(page, "Space", 160);
+    await pressOnce(page, "Space");
     const fightStart = Date.now();
     const fightHeld = [];
     let fightState = null;
@@ -1292,7 +1305,7 @@ async function runParry(browser, errors) {
     const playRun = async (seconds, fight) => {
       await page.goto(`http://127.0.0.1:${PARRY_PORT}/?run=${seconds}-${fight ? "fight" : "idle"}`, { waitUntil: "load" });
       await page.waitForTimeout(500);
-      await hold(page, "Space", 160);
+      await pressOnce(page, "Space");
       const started = Date.now();
       const held = [];
       let state = null;

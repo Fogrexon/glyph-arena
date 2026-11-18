@@ -233,3 +233,44 @@ describe("createInput", () => {
     assert.equal(snapshot.pointers.length, 0);
   });
 });
+
+describe("the press latch", () => {
+  it("keeps a press that went down and up between two frames, for exactly one frame", () => {
+    // The keyboard's version of the touch pad's hold: a loop samples once per frame, so a
+    // keydown and keyup that both land between samples used to be invisible — which is why every
+    // mechanical test held a key for 150 ms before letting go.
+    const input = createInput();
+    const target = new TestTarget();
+    input.attach(target);
+
+    dispatchKey(target, "keydown", "Space");
+    dispatchKey(target, "keyup", "Space");
+
+    assert.equal(input.snapshot().keys.has("Space"), true, "the press is not lost to the frame boundary");
+    assert.equal(input.snapshot().keys.has("Space"), false, "and it is spent: one frame, not a hold");
+  });
+
+  it("does not turn auto-repeat into a second press", () => {
+    const input = createInput();
+    const target = new TestTarget();
+    input.attach(target);
+
+    dispatchKey(target, "keydown", "Space");
+    dispatchKey(target, "keydown", "Space"); // the OS repeating while the key is held
+    dispatchKey(target, "keyup", "Space");
+
+    assert.equal(input.snapshot().keys.has("Space"), true);
+    assert.equal(input.snapshot().keys.has("Space"), false, "one press, one frame");
+  });
+
+  it("still reports a held key on every frame", () => {
+    const input = createInput();
+    const target = new TestTarget();
+    input.attach(target);
+    dispatchKey(target, "keydown", "KeyA");
+
+    for (let frame = 0; frame < 5; frame += 1) {
+      assert.equal(input.snapshot().keys.has("KeyA"), true, `lost a held key on frame ${frame}`);
+    }
+  });
+});

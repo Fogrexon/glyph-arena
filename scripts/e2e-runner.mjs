@@ -242,12 +242,25 @@ function pointer(page, type, x, y) {
   );
 }
 
+/**
+ * Hold a key for a while. Reserved for presses whose *duration* is the point — the 97 px pit needs
+ * the whole 460 ms of a variable jump. Anything that only asks "did the player press it" belongs in
+ * `pressOnce`.
+ */
 async function pressAndRelease(page, keyName, ms) {
-  // Keyboard state is a set the loop reads once a frame, so a keydown+keyup inside
-  // one frame is invisible: hold for a few. (Taps on the pads do not need this —
-  // `createTouchControls` holds a press for the game, see `oneFrameTap`.)
   await page.keyboard.down(keyName);
   await page.waitForTimeout(ms);
+  await page.keyboard.up(keyName);
+}
+
+/**
+ * One frame of key, then up — the shortest press a frame can see. `input` latches a press that lands
+ * and lifts between two samples for exactly one frame, so a start or a restart does not need to be
+ * held 160 ms for a frame to notice it.
+ */
+async function pressOnce(page, keyName) {
+  await page.keyboard.down(keyName);
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve(true))));
   await page.keyboard.up(keyName);
 }
 
@@ -409,7 +422,7 @@ async function startPlaying(page) {
   const located = await until(page, (s) => s.phase === "play", { timeoutMs: 4000 });
   if (located.hit) return true;
   // Title: Space starts it, and the pads tap the same action.
-  await pressAndRelease(page, "Space", 160);
+  await pressOnce(page, "Space");
   return (await until(page, (s) => s.phase === "play", { timeoutMs: 6000 })).hit;
 }
 
@@ -909,7 +922,7 @@ async function runTouch(browser, baseUrl, errors) {
         `phase ${centred.samples.at(-1)?.phase}`,
       );
       // Back to the title so the pad-start check below still proves the pad, not this tap.
-      await pressAndRelease(page, "KeyR", 120);
+      await pressOnce(page, "KeyR");
       await until(page, (s) => s.phase === "title", { timeoutMs: 2000 });
       await oneFrameTap(page, pads.jump.x, pads.jump.y);
     } else {
