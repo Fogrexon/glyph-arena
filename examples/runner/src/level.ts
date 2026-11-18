@@ -67,8 +67,16 @@ export function loadLevel(index: number): void {
   current = index;
 }
 
-function map(): TileMap {
+/**
+ * The loaded map, for callers that need the map itself — which columns a view covers is a question
+ * for `visibleColumns`, and it takes the map, not a count.
+ */
+export function currentMap(): TileMap {
   return MAPS[current] as TileMap;
+}
+
+function map(): TileMap {
+  return currentMap();
 }
 
 function level(): LevelData {
