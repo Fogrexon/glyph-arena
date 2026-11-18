@@ -8,6 +8,15 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Changed
 
+- **`input`: a click or a tap that ends between two frames is no longer lost.** `snapshot().pointers`
+  now means "down now **or** landed since the previous snapshot", for exactly one frame, carrying the
+  position it landed at. This is the third path with the hole the keyboard had: `pointerdown` +
+  `pointerup` inside one frame were never down, so the title screen did not start and a menu item did
+  not fire. A pointer that is still down answers with its live position and is listed once. Three
+  paths, one definition — `touch`'s `down`/`held`/`pressed`, the keyboard latch, and this one.
+  Verified in a Pod (Chromium 156): `e2e:runner` drives a real `page.mouse.click` (down and up with
+  no delay, the exact case that used to vanish) and the run starts; `e2e:demo` unchanged and green.
+
 - **both platformers draw the library's columns.** `examples/runner/src/main.ts` and
   `examples/camp/src/main.ts` each wrote `Math.max(0, Math.floor(x / TILE) - 1)` /
   `Math.min(columns - 1, Math.floor((x + width) / TILE) + 1)` by hand. Both now call

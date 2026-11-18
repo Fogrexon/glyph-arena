@@ -234,6 +234,52 @@ describe("createInput", () => {
   });
 });
 
+describe("the pointer press latch", () => {
+  it("keeps a click that landed and lifted between two frames, with where it landed", () => {
+    // The third path with the same hole as the keys: a click that ends before the frame runs used
+    // to be invisible, so the title screen never started and a menu item never fired.
+    const input = createInput();
+    const target = new TestTarget();
+    input.attach(target);
+
+    dispatchPointer(target, "pointerdown", { pointerId: 1, clientX: 10, clientY: 20, buttons: 1 });
+    dispatchPointer(target, "pointerup", { pointerId: 1, clientX: 10, clientY: 20, buttons: 0 });
+
+    const frame = input.snapshot();
+    assert.equal(frame.pointers.length, 1, "the press survives to the next frame");
+    assert.equal(frame.pointers[0]?.x, 10, "at the position it landed at");
+    assert.equal(frame.pointers[0]?.buttons, 1, "and with the buttons it landed with");
+    assert.equal(input.snapshot().pointers.length, 0, "spent: one frame, not a hold");
+  });
+
+  it("lists a pointer that is still down once, with its live position", () => {
+    const input = createInput();
+    const target = new TestTarget();
+    input.attach(target);
+
+    dispatchPointer(target, "pointerdown", { pointerId: 1, clientX: 10, clientY: 20, buttons: 1 });
+    dispatchPointer(target, "pointermove", { pointerId: 1, clientX: 30, clientY: 40, buttons: 1 });
+
+    const frame = input.snapshot();
+    assert.equal(frame.pointers.length, 1, "the latch must not duplicate the pointer that is still down");
+    assert.equal(frame.pointers[0]?.x, 30, "a finger that is still there answers with where it is now");
+
+    assert.equal(input.snapshot().pointers.length, 1, "and it stays for as long as it is down");
+  });
+
+  it("drops the latch on blur, like the keys", () => {
+    const input = createInput();
+    const target = new TestTarget();
+    input.attach(target);
+
+    dispatchPointer(target, "pointerdown", { pointerId: 1, clientX: 10, clientY: 20, buttons: 1 });
+    dispatchPointer(target, "pointerup", { pointerId: 1, clientX: 10, clientY: 20, buttons: 0 });
+    target.dispatchEvent(new Event("blur"));
+
+    assert.equal(input.snapshot().pointers.length, 0, "a press from a window that lost focus is not a press");
+  });
+});
+
 describe("the press latch", () => {
   it("keeps a press that went down and up between two frames, for exactly one frame", () => {
     // The keyboard's version of the touch pad's hold: a loop samples once per frame, so a

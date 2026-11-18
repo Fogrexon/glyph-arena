@@ -19,6 +19,17 @@ export type InputSnapshot = {
    * as the loop does.
    */
   keys: ReadonlySet<string>;
+  /**
+   * Pointers that are down now, **plus** every press that landed since the previous `snapshot()`.
+   *
+   * The same latch the keys get, and for the same reason: a click or a tap that lands and lifts
+   * between two frames was never down at all, so the frame that would have acted on it never saw
+   * it — the title screen does not start and a menu item does not fire. A press that is already
+   * gone still answers here for one frame, carrying the position it landed at.
+   *
+   * A pointer that is still down wins: its entry is the live position, not the position it landed
+   * at. `snapshot()` consumes the latch — call it once per frame, as the loop does.
+   */
   pointers: readonly PointerState[];
 };
 
@@ -39,11 +50,14 @@ export function createInput(): Input {
   /** Keys that went down since the last snapshot: the press survives to the next frame, once. */
   const latch = new Set<string>();
   const pointers = new Map<number, PointerState>();
+  /** Presses that landed since the last snapshot: the pointer's version of the key latch. */
+  const pressLatch = new Map<number, PointerState>();
 
   const clearState = () => {
     keys.clear();
     latch.clear();
     pointers.clear();
+    pressLatch.clear();
   };
 
   const onKeyDown = (event: Event) => {
@@ -64,12 +78,15 @@ export function createInput(): Input {
 
   const onPointerDown = (event: Event) => {
     if (event instanceof PointerEvent) {
-      pointers.set(event.pointerId, {
+      const landed: PointerState = {
         id: event.pointerId,
         x: event.clientX,
         y: event.clientY,
         buttons: event.buttons,
-      });
+      };
+      pointers.set(event.pointerId, landed);
+      // Where it landed, not where it was when the frame finally ran.
+      pressLatch.set(event.pointerId, landed);
     }
   };
 
@@ -163,9 +180,17 @@ export function createInput(): Input {
       }
       latch.clear();
 
+      // Down now first: a pointer that is still there answers with its live position, and the
+      // latch only fills in the presses that ended before this frame. The latch is spent here.
+      const pressed = Array.from(pointers.values());
+      for (const [id, landed] of pressLatch) {
+        if (!pointers.has(id)) pressed.push(landed);
+      }
+      pressLatch.clear();
+
       return {
         keys: frame,
-        pointers: Array.from(pointers.values()),
+        pointers: pressed,
       };
     },
 

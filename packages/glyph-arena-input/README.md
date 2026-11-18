@@ -20,7 +20,11 @@ input.dispose();
 - `keys` — `KeyboardEvent.code` values that are **down now, or went down since the previous
   `snapshot()`**. The second half is the latch: a press that ends between two frames still answers
   for that one frame, so `actions.pressed()` sees the edge instead of losing it.
-- `pointers` — active pointers with `{ id, x, y, buttons }` (raw `clientX`/`clientY`)
+- `pointers` — pointers that are **down now, or landed since the previous `snapshot()`**, with the
+  position they landed at (raw `clientX`/`clientY`). The same latch the keys get, and for the same
+  reason: a click that ends between two frames used to be invisible, so the title screen never
+  started and a menu item never fired. A pointer that is still down answers with its live position
+  and is listed once.
 
 ### The press latch
 
@@ -32,6 +36,11 @@ for that one frame.
 It is **one frame, not a hold**: a keyboard is discrete events and nothing needs a key to stay down
 after the player let go. `snapshot()` consumes the latch, so call it once per frame — as the loop
 does.
+
+Pointers latch the same way. A click or tap that ends inside one frame still appears in `pointers`
+for the frame that would have acted on it, at the position it landed at, so `createTouchControls`
+and a menu handler both see the press. Three paths, one definition: a press that ends before the
+frame runs is not lost.
 
 ### Behavior
 
