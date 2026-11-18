@@ -42,3 +42,19 @@ test("the world is closed on its left edge", () => {
   assert.equal(isSolidTile(0, row), true, "a body cannot walk out of the world on the left");
   assert.equal(isSolidTile(0, row + 1), true, "and it cannot be knocked out under it either");
 });
+
+test("the right side of the world is closed by rock, not by luck", () => {
+  // The left edge needed a wall built out of the map's first column, because nothing was there. The
+  // right edge needs no wall: the rock line stands on the ground row past the last enemy, so a body
+  // has nothing to walk through. That is a property of the level, so it is asserted here — if the
+  // rocks ever move, this fails before someone measures a fall that nobody can explain.
+  const spawn = spawnPoint();
+  const row = spawn.y / TILE;
+  const columns = levelColumns();
+  const lastEnemyColumn = Math.max(...enemySpawns().map((point) => Math.floor(point.x / TILE)));
+  const open = [];
+  for (let column = lastEnemyColumn + 1; column < columns; column += 1) {
+    if (!isSolidTile(column, row) && !isSolidTile(column, row + 1)) open.push(column);
+  }
+  assert.deepEqual(open, [], `a body can walk out through column(s) ${open.join(", ")} past the last enemy at ${lastEnemyColumn}`);
+});
