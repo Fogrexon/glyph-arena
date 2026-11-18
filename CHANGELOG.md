@@ -32,6 +32,23 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Changed
 
+- **`pickup-demo`: the last hand-written pad is the library's, and it took a bug with it.** The
+  oldest sample still carried its own hit test — `Math.hypot` against `TOUCH_PAD_RADIUS * 2.5` and a
+  per-axis dead zone — and, more importantly, it read `snapshot.pointers[0]`: **whichever finger
+  landed first**. On a phone that is usually the thumb resting somewhere else, so the d-pad was dead
+  while the thumb on it did nothing. `createTouchControls` owns the hit test, the dead zone and
+  "which finger is this stick following" now, and the numbers that were unexplained are named:
+  `TOUCH_PAD_REACH` is `2.5x` the drawn disc **because the thumb covers the disc it is aiming at**,
+  and `TOUCH_HOLD_MS` is the hold `touch` asks for as a required value.
+
+  Measured in a Pod (Chromium 156, `e2e:demo`, iPhone user agent, DPR 3): the four directions still
+  move (`left 111 / right 45 / up 108 / down 108 px`) and the new case passes —
+  **`a second thumb resting elsewhere does not steal the d-pad` (108 px)** with a finger held at the
+  top-right for the whole press. The old code cannot pass that line: `input` builds its pointer list
+  with `Array.from(pointers.values())`, a `Map` in arrival order, so the resting finger *is*
+  `pointers[0]` — a coordinate 160 px from the pad, which is no direction at all.
+
+
 - **the gallery's pages come from their own declarations, so a new sample cannot ship
   unreachable.** CAMP was built, deployed, and linked from **zero** pages: the nav was four
   hand-written `<a>` lines copied into three `index.html` files, and the deploy carried four

@@ -28,6 +28,7 @@
     "@fogrexon/glyph-arena-scene": "workspace:*",
     "@fogrexon/glyph-arena-screen": "workspace:*",
     "@fogrexon/glyph-arena-timer": "workspace:*",
+    "@fogrexon/glyph-arena-touch": "workspace:*",
     "@fogrexon/glyph-arena-transform": "workspace:*",
     "@fogrexon/glyph-arena-tween": "workspace:*"
   },
