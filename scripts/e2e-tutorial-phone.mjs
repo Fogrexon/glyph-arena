@@ -38,11 +38,16 @@ import { join, resolve } from "node:path";
 import { chromium } from "playwright-core";
 
 import { writeFailureArtifacts } from "./lib/e2e-artifacts.mjs";
+import { requireFresh } from "./lib/build-stamp.mjs";
 import { serveDist } from "./lib/static-server.mjs";
 
 const HERE = import.meta.dirname ?? new URL(".", import.meta.url).pathname;
 const ROOT = resolve(HERE, "..");
 const DIST = join(ROOT, "fixtures", "tutorial", "dist");
+
+// The fixture is extracted from docs/tutorial.md at build time: a gate run without that build
+// would test the previous program and still say PASS (QA hit exactly that).
+requireFresh("tutorial", ROOT, { dist: DIST, label: "e2e:tutorial-phone" });
 const PORT = Number(process.env.E2E_TUTORIAL_PHONE_PORT ?? 4322);
 
 const CLEAR = [13, 22, 38]; // "#0d1626"
@@ -63,6 +68,9 @@ function check(ok, name, detail) {
   } else {
     failures.push(`${name}${detail ? ` — ${detail}` : ""}`);
     console.log(`FAIL ${name}${detail ? ` — ${detail}` : ""}`);
+    // An annotation is what a reader sees without opening the job log; this gate had none, so a red
+    // here still cost somebody the log (2026-11-18).
+    console.error(`::error::${name}${detail ? ` — ${detail}` : ""}`);
   }
 }
 

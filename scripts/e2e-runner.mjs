@@ -50,12 +50,21 @@ import { join, resolve, sep } from "node:path";
 
 import { chromium } from "playwright-core";
 
+import { requireFresh } from "./lib/build-stamp.mjs";
+
 const HERE = import.meta.dirname ?? new URL(".", import.meta.url).pathname;
 const ROOT = resolve(HERE, "..");
 const RUNNER_SRC = join(ROOT, "examples", "runner", "src");
 const DIST = process.env.RUNNER_DIST
   ? resolve(process.env.RUNNER_DIST)
   : join(ROOT, "examples", "runner", "dist");
+
+// An external dist is the caller's choice and has no stamp; a checkout build must prove it is current.
+requireFresh("runner", ROOT, {
+  dist: join(ROOT, "examples", "runner", "dist"),
+  external: process.env.RUNNER_DIST,
+  label: "e2e:runner",
+});
 const PORT = Number(process.env.RUNNER_PORT ?? 4319);
 
 /**

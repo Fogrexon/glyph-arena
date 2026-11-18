@@ -28,11 +28,15 @@ import { join, resolve } from "node:path";
 
 import { chromium } from "playwright-core";
 
+import { requireFresh } from "./lib/build-stamp.mjs";
 import { serveDist } from "./lib/static-server.mjs";
 
 const HERE = import.meta.dirname ?? new URL(".", import.meta.url).pathname;
 const ROOT = resolve(HERE, "..");
 const DIST = join(ROOT, "fixtures", "readme", "dist");
+
+// Extracted from the umbrella README at build time: same rule as the tutorial gate.
+requireFresh("readme", ROOT, { dist: DIST, label: "e2e:readme" });
 const PORT = Number(process.env.E2E_README_PORT ?? 4322);
 
 const CLEAR = [13, 22, 38]; // "#0d1626"

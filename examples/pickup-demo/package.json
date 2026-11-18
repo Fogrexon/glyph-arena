@@ -8,7 +8,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node ../../scripts/render-docs.mjs && vite build",
+    "build": "node ../../scripts/render-docs.mjs && vite build && node ../../scripts/stamp-dist.mjs pickup-demo",
     "build:pages": "node ../../scripts/render-docs.mjs && GLYPH_BASE=/glyph-arena/ vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",

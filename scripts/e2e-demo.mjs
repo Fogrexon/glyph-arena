@@ -33,9 +33,14 @@ import { join, resolve, sep } from "node:path";
 
 import { chromium } from "playwright-core";
 
+import { requireFresh } from "./lib/build-stamp.mjs";
+
 const HERE = import.meta.dirname ?? new URL(".", import.meta.url).pathname;
 const ROOT = resolve(HERE, "..");
 const DIST = join(ROOT, "examples", "pickup-demo", "dist");
+
+// A gate that serves a build must know the build is current (see lib/build-stamp.mjs).
+requireFresh("pickup-demo", ROOT, { dist: DIST, label: "e2e:demo (pickup)" });
 const PORT = Number(process.env.E2E_PORT ?? 4317);
 
 const PLAYER_SIZE = 28;
@@ -905,6 +910,7 @@ function parryPressTime() {
  */
 async function runParry(browser, errors) {
   const PARRY_DIST = join(ROOT, "examples/parry/dist");
+  requireFresh("parry", ROOT, { dist: PARRY_DIST, label: "e2e:demo (parry)" });
   const PARRY_PORT = PORT + 1;
   if (!existsSync(join(PARRY_DIST, "index.html"))) {
     throw new Error(`no built parry demo at ${PARRY_DIST} — run \`pnpm -r build\` first`);
