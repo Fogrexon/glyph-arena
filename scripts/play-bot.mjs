@@ -110,7 +110,9 @@ async function playCamp(page, strategy) {
         let lunges = 0;
         let lastPress = -999;
         // Read, not written: the game's own starting health, or the first hit is not a change.
-        let lastHearts = Number.POSITIVE_INFINITY;
+        let lastHearts = -1;
+        let dodges = 0;
+        let lastDodge = -999;
         let frame = 0;
         const lost = [];
         const arrivals = [];
@@ -142,7 +144,7 @@ async function playCamp(page, strategy) {
           const s = window.__campState;
           resolve({
             phase: s.phase, hearts: s.hearts, hits: s.hits, kills: s.kills, simMs: s.simMs,
-            presses, tells, lunges, arrivals, lost,
+            presses, tells, lunges, arrivals, lost, dodges,
             camps: [...camps.values()].sort((a, b) => a.camp - b.camp),
           });
         };
@@ -154,6 +156,7 @@ async function playCamp(page, strategy) {
           if (s.phase !== "play") return finish();
           // A run that never ends is a measurement that lies: stop it and say so.
           if (s.simMs > 60000) return finish();
+          if (lastHearts < 0) lastHearts = s.hearts;
           if (s.hearts < lastHearts) {
             // A hit is only useful as a number if it says what the bot was doing: locked in its own
             // swing, in the air, or free and simply in the wrong place.
@@ -161,8 +164,12 @@ async function playCamp(page, strategy) {
               .filter((enemy) => enemy.alive)
               .map((enemy) => ({ mode: enemy.mode, gap: Math.round(Math.abs(enemy.x + 10 - (s.x + 10)) - 20) }))
               .sort((a, b) => a.gap - b.gap);
+            // The game only damages on a *lunging* overlap, so the culprit is a lunging enemy —
+            // not the nearest one. Blaming the nearest dropped a hit whenever the offender died on
+            // the same frame: measured, five hits and four attributed.
             const blame = s.enemies
-              .map((enemy, index) => ({ index, gap: Math.abs(enemy.x + 10 - (s.x + 10)) }))
+              .map((enemy, index) => ({ index, enemy, gap: Math.abs(enemy.x + 10 - (s.x + 10)) }))
+              .filter((entry) => entry.enemy.mode === "lunge")
               .sort((a, b) => a.gap - b.gap)[0];
             const blameCamp = blame === undefined ? undefined : campOf.get(blame.index);
             if (blameCamp !== undefined) stat(blameCamp).heartsLost += lastHearts - s.hearts;
@@ -255,7 +262,7 @@ async function playCamp(page, strategy) {
             }
 
             if (mode === "bold") {
-              // Bold: mash. Kept exactly as measured on 11-17 so the two strategies stay comparable.
+              // Bold: mash.
               if (gap > 40) advance();
               else {
                 stop();
@@ -273,7 +280,8 @@ async function playCamp(page, strategy) {
               // window, so it swings late and the next tell finds it locked. Run for the first two
               // thirds, then stand, and the lunge ends a blade away with the feet already under the
               // body. Jumping is deliberately not here: every hit this bot took while jumping was
-              // `grounded false`, caught in the air by the commit at gap 0.
+              // `grounded false`, caught in the air by the commit at gap 0. The roll is not here
+              // either — see the CHANGELOG: every policy that used it measured worse.
               if (lungeAge < LUNGE_RUN_FRAMES || gap < LUNGE_GAP) retreat();
               else stop();
             } else if (target.mode === "rest") {
@@ -456,7 +464,7 @@ async function main() {
       if (game === "camp") {
         console.log(
           `run ${r.run}  ${r.phase}  hearts ${r.hearts}  hits ${r.hits}  kills ${r.kills}  ${r.simMs} ms  ` +
-            `tells ${r.tells}  lunges ${r.lunges}  presses ${r.presses}  arrived ${JSON.stringify(r.arrivals)}  ` +
+            `tells ${r.tells}  lunges ${r.lunges}  presses ${r.presses}  dodges ${r.dodges}  arrived ${JSON.stringify(r.arrivals)}  ` +
             `errors ${r.consoleErrors.length}  ${r.bundle}`,
         );
         console.log(`   camps ${JSON.stringify(r.camps)}`);

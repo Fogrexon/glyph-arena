@@ -17,7 +17,22 @@ import { createLoop } from "@fogrexon/glyph-arena-loop";
 import { visibleColumns } from "@fogrexon/glyph-arena-tilemap";
 import { approach } from "@fogrexon/glyph-arena-tween";
 
-import { ATTACK, attackBox, attackPhase, beginAttack, overlaps, stepAttack, type Attack } from "./combat";
+import {
+  ATTACK,
+  DODGE,
+  attackBox,
+  attackPhase,
+  beginAttack,
+  beginDodge,
+  dodgeInvulnerable,
+  dodgeReady,
+  dodgeRolling,
+  overlaps,
+  stepAttack,
+  stepDodge,
+  type Attack,
+  type Dodge,
+} from "./combat";
 import { ENEMY_AI, canInterrupt, type EnemyMode } from "./enemy";
 import { TILE, currentMap, enemySpawns, isSolidTile, levelColumns, levelRows, solidAt, spawnPoint } from "./level";
 
@@ -71,6 +86,7 @@ actions.bind("left", ["ArrowLeft", "KeyA"]);
 actions.bind("right", ["ArrowRight", "KeyD"]);
 actions.bind("jump", ["Space", "ArrowUp", "KeyW", "KeyZ"]);
 actions.bind("attack", ["KeyJ", "KeyX"]);
+actions.bind("dodge", ["ShiftLeft", "ShiftRight", "KeyL"]);
 actions.bind("retry", ["KeyR"]);
 
 type Phase = "play" | "clear" | "down";
@@ -88,6 +104,7 @@ type Enemy = {
 let player: Body = createBody({ x: 0, y: 0, w: 20, h: 28 }, PLAYER_CONFIG);
 let enemies: Enemy[] = [];
 let attack: Attack = { elapsedMs: -1, hasHit: false, facing: 1 };
+let dodge: Dodge = { elapsedMs: -1, cooldownMs: 0, facing: 1 };
 let facing: 1 | -1 = 1;
 
 let phase: Phase = "play";
@@ -169,13 +186,28 @@ function stepWorld(dt: number, dtMs: number, moveLeft: boolean, moveRight: boole
   // The swing commits: while the blade is out (windup, active, recovery) you cannot steer. That is
   // what makes "attack" a cost instead of a free cancel — without it a player who holds attack wins
   // every exchange, which is exactly what the first measurement showed.
-  const committed = attack.elapsedMs >= 0;
+  stepDodge(dodge, dtMs);
+  const rolling = dodgeRolling(dodge.elapsedMs);
+  // The swing commits and so does the roll: while either is out you cannot steer. The roll is
+  // *only* that — a fixed direction at a fixed speed, so spending it early is a real mistake.
+  const committed = attack.elapsedMs >= 0 || rolling;
   const left = moveLeft && !committed;
   const right = moveRight && !committed;
   const direction = (right ? 1 : 0) - (left ? 1 : 0);
   if (direction !== 0) facing = direction > 0 ? 1 : -1;
 
-  stepBody(player, { left, right, jump: jumpPressed, jumpHeld }, dt, solidAt, { grid: TILE });
+  if (rolling) {
+    // Moved by hand: `stepBody` accelerates toward the config's run speed and has no way to be
+    // told "this frame is faster", and a roll that is merely a run is not a dodge.
+    const next = player.x + dodge.facing * DODGE.speedPxPerSecond * dt;
+    if (!solidAt(next, player.y, next + player.w, player.y + player.h)) {
+      player.x = next;
+    }
+    player.vx = 0;
+    stepBody(player, {}, dt, solidAt, { grid: TILE });
+  } else {
+    stepBody(player, { left, right, jump: jumpPressed, jumpHeld }, dt, solidAt, { grid: TILE });
+  }
 
   for (const enemy of enemies) {
     if (!enemy.alive) continue;
@@ -232,7 +264,7 @@ function stepWorld(dt: number, dtMs: number, moveLeft: boolean, moveRight: boole
   }
 
   invulnerableMs = Math.max(0, invulnerableMs - dtMs);
-  if (phase === "play" && invulnerableMs === 0) {
+  if (phase === "play" && invulnerableMs === 0 && !dodgeInvulnerable(dodge.elapsedMs)) {
     for (const enemy of enemies) {
       // Only the commit hurts. Brushing past a walking enemy is not a hit — the lunge is the
       // threat, and it is the only thing you have to answer.
@@ -330,13 +362,21 @@ function draw(): void {
     for (let i = 0; i < enemy.hp; i += 1) ctx.fillRect(x + i * 5, enemy.body.y - 7, 4, 3);
   }
 
+  if (dodgeRolling(dodge.elapsedMs)) {
+    ctx.fillStyle = "rgba(110, 168, 254, 0.28)";
+    ctx.fillRect(player.x - fromX - dodge.facing * 18, player.y + 2, 14, player.h - 4);
+  }
+
+  const rolling = dodgeRolling(dodge.elapsedMs);
   const blinking = invulnerableMs > 0 && Math.floor(simMs / 90) % 2 === 0;
+  if (rolling) ctx.globalAlpha = dodgeInvulnerable(dodge.elapsedMs) ? 0.55 : 0.9;
   if (!blinking) {
     ctx.fillStyle = "#6ea8fe";
     ctx.fillRect(player.x - fromX, player.y, player.w, player.h);
     ctx.fillStyle = "#dbe9ff";
     ctx.fillRect(facing === 1 ? player.x - fromX + player.w - 7 : player.x - fromX + 3, player.y + 6, 4, 4);
   }
+  ctx.globalAlpha = 1;
 
   const bladePhase = attackPhase(attack.elapsedMs);
   if (bladePhase === "windup" || bladePhase === "active") {
@@ -358,6 +398,7 @@ type CampState = {
   kills: number;
   simMs: number;
   blade: string;
+  dodge: "roll" | "idle" | "cooldown";
   hitstopMs: number;
   enemy: { x: number; y: number; hp: number; alive: boolean; mode: string } | null;
   enemies: Array<{ x: number; y: number; hp: number; alive: boolean; mode: string }>;
@@ -376,6 +417,7 @@ function publish(): void {
     kills,
     simMs: Math.round(simMs),
     blade: attackPhase(attack.elapsedMs),
+    dodge: dodgeRolling(dodge.elapsedMs) ? "roll" : dodgeReady(dodge) ? "idle" : "cooldown",
     hitstopMs: Math.round(hitstopMs),
     enemy: first === undefined ? null : { x: first.body.x, y: first.body.y, hp: first.hp, alive: first.alive, mode: first.mode },
     enemies: enemies.map((each) => ({ x: each.body.x, y: each.body.y, hp: each.hp, alive: each.alive, mode: each.mode })),
@@ -400,6 +442,9 @@ const loop = createLoop({
     if (phase === "play") {
       if (query.pressed("attack") && attack.elapsedMs < 0) {
         beginAttack(attack, facing);
+      }
+      if (query.pressed("dodge") && dodgeReady(dodge)) {
+        beginDodge(dodge, facing);
       }
       if (hitstopMs > 0) {
         // Contact freeze: the world stops, the clock does not, so the hit reads as impact.

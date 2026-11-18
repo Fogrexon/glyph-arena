@@ -126,6 +126,42 @@ has been on `main` since that publication.
 
 ### Changed
 
+- **`camp`: a third verb — a roll with a window it cannot be hit in.** Attack answers "hit it" and
+  jump answers "leave"; neither answers "it is already on me". The roll is a **commitment**: 180 ms
+  at 520 px/s (the run is 300), steering locked for its whole length, 420 ms before another, and the
+  window where the commit cannot touch you is **140 ms — shorter than the roll**, because you are
+  buying the crossing, not immunity.
+
+  Keys: `Shift` or `L`. The state publishes `dodge: "idle" | "roll" | "cooldown"` so a test can ask
+  "may I roll" instead of counting frames, and the harness now prints `dodges` per run.
+
+- **`camp`: the acceptance for it is not met, and the level was put back.** The plan was three
+  enemies in the second camp, with the roll as the answer. Measured, on the three-enemy level
+  (`index-Cf3pZXIV.js`):
+
+  ```
+  careful, rolling at every tell   33 dodges, 0 kills, 60 s cap
+  careful, rolling at gap < 45     7 dodges, 1-3 hits, 0 kills, 60 s cap (3/3)
+  bold, no roll                    3/3 down at 12.1 s with four of five kills
+  bold, rolling at gap < 45        1/3 clear, 2/3 down
+  ```
+
+  The roll fires — the counter proves the press reaches the game — but **no policy for using it
+  found a window**: rolling costs 180 ms of steering, and with three commits in flight there is
+  always another one when the roll ends. So the level stays at the accepted state (two camps of two)
+  and this ships the verb, not the fight.
+
+  On the shipped level the measured lines are **unchanged**, which is the check that matters:
+  `bold 10.56 / 10.65 s, hearts 1, clear 2/2` and `careful 39.3 / 40.7 s, hearts 5 (0), clear 2/2`,
+  with `dodges 0` in both — the bot does not use the verb, so the acceptance that was measured on
+  11-18 still holds.
+
+- **`play-bot.mjs`: a hit is blamed on the enemy that can actually hurt you.** `camps` summed to
+  four hits on a run that ended at zero hearts from five: the blame went to the *nearest* enemy, and
+  the offender is only the **lunging** one (the game damages on a lunging overlap and nothing else).
+  It also read `lastHearts = 3` as a constant; it now takes the game's own number on the first frame.
+
+
 - **`camp`: the harness reports per camp, and it answered the question it was built for.** Two camps
   made a run twice as long, but "the second camp is a different fight" was a claim about *the second
   camp* and every number was a total. `pnpm camp:bot` now prints one line per camp — tells, lunges,

@@ -1,7 +1,21 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { ATTACK, attackBox, attackPhase, beginAttack, overlaps, stepAttack } from "../src/combat.ts";
+import {
+  ATTACK,
+  DODGE,
+  attackBox,
+  attackPhase,
+  beginAttack,
+  beginDodge,
+  dodgeInvulnerable,
+  dodgeReady,
+  dodgeRolling,
+  overlaps,
+  stepAttack,
+  stepDodge,
+  type Dodge,
+} from "../src/combat.ts";
 import { ENEMY_AI, canInterrupt, modeRemainingMs, wantsLunge } from "../src/enemy.ts";
 
 const TOTAL = ATTACK.windupMs + ATTACK.activeMs + ATTACK.recoveryMs;
@@ -70,4 +84,35 @@ test("a hit cancels the tell or the lunge, and nothing else", () => {
   assert.equal(canInterrupt("rest", 0), false);
   assert.equal(modeRemainingMs("windup", 100), ENEMY_AI.windupMs - 100);
   assert.equal(modeRemainingMs("walk", 9999), 0);
+});
+
+test("a roll covers ground, and the window that makes it a dodge is shorter than the roll", () => {
+  const dodge: Dodge = { elapsedMs: -1, cooldownMs: 0, facing: 1 };
+  assert.equal(dodgeReady(dodge), true, "idle and off cooldown");
+
+  beginDodge(dodge, -1);
+  assert.equal(dodge.facing, -1, "it rolls where you were pointing");
+  assert.equal(dodgeReady(dodge), false, "the cooldown starts on the press, not on the landing");
+  assert.equal(dodgeRolling(0), true);
+  assert.equal(dodgeInvulnerable(0), true);
+  assert.equal(dodgeInvulnerable(DODGE.invulnerableMs - 1), true);
+  assert.equal(dodgeInvulnerable(DODGE.invulnerableMs), false, "the last part of the roll can be caught");
+  assert.equal(dodgeRolling(DODGE.durationMs - 1), true);
+  assert.equal(dodgeRolling(DODGE.durationMs), false);
+
+  // The two properties that make it an answer rather than a free pass.
+  assert.ok(DODGE.invulnerableMs < DODGE.durationMs, "you buy the crossing, not immunity");
+  assert.ok(DODGE.speedPxPerSecond > 300, "faster than the run: it crosses a commit, it does not walk");
+  assert.ok(DODGE.invulnerableMs > 0 && DODGE.cooldownMs > DODGE.durationMs, "a roll cannot be spammed");
+});
+
+test("a roll runs out and the cooldown ends, on the game's own clock", () => {
+  const dodge: Dodge = { elapsedMs: -1, cooldownMs: 0, facing: 1 };
+  beginDodge(dodge, 1);
+  const step = 16;
+  for (let ms = 0; ms < DODGE.durationMs + step; ms += step) stepDodge(dodge, step);
+  assert.equal(dodgeRolling(dodge.elapsedMs), false, "the roll is over");
+  assert.equal(dodgeReady(dodge), false, "but the cooldown is not");
+  for (let ms = 0; ms < DODGE.cooldownMs; ms += step) stepDodge(dodge, step);
+  assert.equal(dodgeReady(dodge), true);
 });
