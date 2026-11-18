@@ -75,7 +75,7 @@ one strategy must not be free.
 Same level, same bundle (`index-D6_5OA_7.js`). Two bodies only:
 
 | bot | clears | time | hearts left | commits apart (min) |
-| --- | --- | --- | --- |
+| --- | --- | --- | --- | --- |
 | bold | 2/2 | 10.4 s | 2 | 733 ms |
 | careful | 34 s (1 of 2 runs stalled — that was the open left edge) | | 5 | 1033 ms |
 
