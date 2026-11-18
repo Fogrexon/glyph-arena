@@ -120,6 +120,13 @@ async function main() {
 
   try {
     // ---- P1: pack the umbrella exactly as npm receives it --------------------
+    // `pack` runs the umbrella's `prepack`, which rebuilds `dist` from `packages/*/src` — that is
+    // what keeps the tarball current, and it is the whole reason this gate cannot test a stale
+    // build. Deleting `dist` first makes that a live test instead of an assumption: a fresh clone
+    // has no `dist`, so a package whose `prepack` disappeared packs an empty shell here, rather
+    // than silently shipping whatever `dist` happened to be lying around (which would still pass
+    // P1 and then run old code in P4).
+    rmSync(join(UMBRELLA, "dist"), { recursive: true, force: true });
     const packed = run("pnpm", ["pack", "--pack-destination", tarballDir], UMBRELLA);
     const tarball = packed
       .split("\n")
@@ -133,7 +140,11 @@ async function main() {
       listing.includes(file),
     );
     check(shipped, "P1: the tarball ships dist/index.js and dist/index.d.ts", tarball);
-    if (!shipped) throw new Error("the tarball is not a usable package; stopping before install");
+    if (!shipped)
+      throw new Error(
+        "the tarball is not a usable package: `pack` did not rebuild dist/ from packages/*/src " +
+          "(is the umbrella's `prepack` still there?); stopping before install",
+      );
 
     // ---- P2: install it into an empty project, offline ----------------------
     writeFileSync(
