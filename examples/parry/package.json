@@ -8,7 +8,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node -e \"require('node:fs').copyFileSync('../pickup-demo/public/pickup.wav','public/parry.wav')\" && vite build",
+    "build": "node -e \"require('node:fs').copyFileSync('../pickup-demo/public/pickup.wav','public/parry.wav')\" && vite build && node ../../scripts/stamp-dist.mjs parry",
     "build:pages": "node -e \"require('node:fs').copyFileSync('../pickup-demo/public/pickup.wav','public/parry.wav')\" && vite build",
     "preview": "vite preview",
     "test": "tsx --test test/**/*.test.ts",
