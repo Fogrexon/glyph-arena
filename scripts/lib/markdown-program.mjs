@@ -70,6 +70,37 @@ export function fogrexonImports(code) {
 }
 
 /**
+ * Every `ts` block in one section, in document order, with the line each starts on.
+ *
+ * The tutorial's phone section is four snippets that get spliced into the program above, not one
+ * file: three of them are inserts into code that already exists. That makes them impossible to
+ * concatenate, but one of them — the `createTouchControls` one — is self-contained, and it is the
+ * one a size constant can break (three 120 px squares need 432 px, so below that the right zone and
+ * the jump zone overlap). The tutorial fixture extracts that block and the browser gate probes its
+ * zones at several widths.
+ *
+ * An empty list is not an error here; the caller decides what it needs and says so.
+ */
+export function sectionBlocks(markdown, { heading, source = "document.md" }) {
+  const lines = markdown.split(/\r?\n/);
+  const at = lines.findIndex((line) => line.trimEnd() === heading);
+
+  if (at === -1) {
+    throw new Error(`${source}: no "${heading}" heading — the check has nothing to compile`);
+  }
+
+  let end = lines.length;
+  for (let scan = at + 1; scan < lines.length; scan += 1) {
+    if (/^#{1,2}\s/.test(lines[scan])) {
+      end = scan;
+      break;
+    }
+  }
+
+  return fencedBlocks(lines, at + 1, end, source).filter((block) => TS_LANGUAGES.has(block.info));
+}
+
+/**
  * The program one document tells people to copy, plus where it starts, so a compiler error can be
  * reported against the Markdown instead of a generated file nobody edits.
  *
