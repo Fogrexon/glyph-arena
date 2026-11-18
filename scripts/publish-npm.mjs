@@ -101,6 +101,14 @@ try {
   const token = process.env.NPM_TOKEN_PUBLISH || process.env.DSH_SECRET_NPM_TOKEN_PUBLISH
     || process.env.NPM_TOKEN || process.env.DSH_SECRET_NPM_TOKEN;
   if (!token) die("no publish token (set NPM_TOKEN_PUBLISH — the account has 2FA, so the token must bypass it)");
+
+  // 5a) Look once more, right before the irreversible step. The check at 3) reads the packument, and
+  // a packument lags: on 2026-11-18 it still said "no 0.3.0" while 0.3.0 had just been published, so
+  // a second run hit `E409 Cannot publish over…` instead of stopping with a clear message.
+  try {
+    const again = await fetch(`https://registry.npmjs.org/${encodeURIComponent(PKG)}/${version}`);
+    if (again.ok) die(`${PKG}@${version} is on npm and a version cannot be published twice — bump it`);
+  } catch { /* the registry being unreachable is what the publish below will report */ }
   const npmrc = join(packDir, ".npmrc");
   writeFileSync(npmrc, `//registry.npmjs.org/:_authToken=${token}\n`);
   chmodSync(npmrc, 0o600);
@@ -109,16 +117,22 @@ try {
     sh("npm", ["publish", tarball, "--access", "public", "--userconfig", npmrc, "--no-audit", "--no-fund"]);
   } finally { rmSync(npmrc, { force: true }); }
   ok("published");
-  // 6) Verify what npm serves, not what we built. The registry can lag for a few seconds.
+  // 6) Verify what npm serves, not what we built. The registry lags, and it lags in two stages: the
+  // manifest can answer at once while the tarball still 404s. On 2026-11-18 a 60-second window
+  // declared a successful publish a failure — the worst kind of red, because the next move it
+  // invites is publishing again.
   console.log("\nverifying the registry copy…");
+  const startedAt = Date.now();
+  const elapsed = () => `${Math.round((Date.now() - startedAt) / 1000)}s`;
   let good = false;
-  for (let i = 0; i < 12 && !good; i += 1) {
+  for (let i = 0; i < 30 && !good; i += 1) {
     try { verify(`--spec=${PKG}@${version}`); good = true; } catch {
-      info(`registry not ready (${i + 1}/12), retrying in 5s…`);
-      await new Promise((r) => setTimeout(r, 5000));
+      info(`registry not ready (${i + 1}/30, ${elapsed()}), retrying in 10s…`);
+      await new Promise((r) => setTimeout(r, 10000));
     }
   }
-  if (!good) die("published, but the registry copy failed verification");
+  if (!good) die(`published, but the registry copy still failed after ${elapsed()}. Check https://www.npmjs.com/package/${PKG}/v/${version} before doing anything: a version that exists cannot be published again.`);
+  ok(`registry copy verified after ${elapsed()}`);
   console.log(`\nDONE  https://www.npmjs.com/package/${PKG}/v/${version}`);
   if (!onOrigin) console.log(`now the tag, which is local only:  git push origin ${tag}`);
 } finally { rmSync(packDir, { recursive: true, force: true }); }
