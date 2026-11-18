@@ -31,7 +31,30 @@ export const ENEMY_AI = {
    * has to outlast the commitment it asks for.
    */
   restMs: 450,
+  /**
+   * No two enemies begin a commit inside this window of each other.
+   *
+   * The constraint was never the average. Measured with three in sight: the interval between one
+   * lunge starting and the next was median 1900 ms but **min 116 ms**, and 116 ms is shorter than
+   * the 180 ms the roll locks steering for — so no verb could answer the second one. That is not a
+   * hard fight, it is an unanswerable one. Spacing the commits moves the second tell far enough
+   * that the answer exists again; it is the queue, not the individual enemy, that was unfair.
+   *
+   * Read by the game through `canCommit`; the value belongs to this game, not to a library.
+   */
+  commitSpacingMs: 300,
 } as const;
+
+/**
+ * Is the way clear to begin a commit? One enemy may start a tell only if nobody else started one
+ * inside `commitSpacingMs`.
+ *
+ * `lastCommitMs` is the clock reading of the most recent commit by anyone (the game starts it at
+ * `-Infinity`, so the first enemy is always free). Pure, so the rule can be tested without a fight.
+ */
+export function canCommit(nowMs: number, lastCommitMs: number): boolean {
+  return nowMs - lastCommitMs >= ENEMY_AI.commitSpacingMs;
+}
 
 /** Should a walking enemy stop and start the tell? */
 export function wantsLunge(mode: EnemyMode, modeMs: number, distancePx: number, grounded: boolean): boolean {
