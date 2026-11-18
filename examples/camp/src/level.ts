@@ -43,6 +43,14 @@ const TEXT: readonly string[] = [
 
 const MAP: TileMap = createTileMap(TEXT, { legend: LEGEND, cell: TILE });
 
+/**
+ * The map, for callers that need the map itself — which columns a view covers is a question for
+ * `visibleColumns`, and it takes the map, not a count.
+ */
+export function currentMap(): TileMap {
+  return MAP;
+}
+
 export function levelColumns(): number {
   return mapColumns(MAP);
 }

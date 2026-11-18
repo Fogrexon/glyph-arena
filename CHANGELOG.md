@@ -8,6 +8,16 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Changed
 
+- **both platformers draw the library's columns.** `examples/runner/src/main.ts` and
+  `examples/camp/src/main.ts` each wrote `Math.max(0, Math.floor(x / TILE) - 1)` /
+  `Math.min(columns - 1, Math.floor((x + width) / TILE) + 1)` by hand. Both now call
+  `visibleColumns(map, leftPx, widthPx, { margin: 1 })` — the same ±1 column of slack, written
+  once, in the package that owns the px→column conversion. The ranges are the same numbers: with
+  `margin: 1` the library's half-open `[first, end)` covers exactly the columns the old inclusive
+  loop drew, which is why this is a refactor and not a change of picture.
+  Verified in a Pod (Chromium 156): `e2e:runner` green, and camp still paints a full-width band of
+  tiles (2460 tiles over the viewport, one margin column outside each edge, 0 page errors).
+
 - **`input`: a press that lands and lifts between two frames is no longer lost.** `snapshot().keys`
   now means "down now **or** pressed since the previous snapshot", for exactly one frame. The
   keyboard had the same frame-boundary hole the touch pads had: a `keydown`+`keyup` inside one frame

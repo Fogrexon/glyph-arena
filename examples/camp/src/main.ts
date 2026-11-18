@@ -14,11 +14,12 @@ import { createActions } from "@fogrexon/glyph-arena-actions";
 import { createBody, stepBody, type Body, type BodyConfig } from "@fogrexon/glyph-arena-body";
 import { createInput } from "@fogrexon/glyph-arena-input";
 import { createLoop } from "@fogrexon/glyph-arena-loop";
+import { visibleColumns } from "@fogrexon/glyph-arena-tilemap";
 import { approach } from "@fogrexon/glyph-arena-tween";
 
 import { ATTACK, attackBox, attackPhase, beginAttack, overlaps, stepAttack, type Attack } from "./combat";
 import { ENEMY_AI, canInterrupt, type EnemyMode } from "./enemy";
-import { TILE, enemySpawns, isSolidTile, levelColumns, levelRows, solidAt, spawnPoint } from "./level";
+import { TILE, currentMap, enemySpawns, isSolidTile, levelColumns, levelRows, solidAt, spawnPoint } from "./level";
 
 const VIEW_W = 640;
 const VIEW_H = 360;
@@ -262,10 +263,11 @@ function stepWorld(dt: number, dtMs: number, moveLeft: boolean, moveRight: boole
 }
 
 function drawTiles(fromX: number): void {
-  const firstColumn = Math.max(0, Math.floor(fromX / TILE) - 1);
-  const lastColumn = Math.min(levelColumns() - 1, Math.floor((fromX + VIEW_W) / TILE) + 1);
+  // The one column of slack at each edge is this drawing's number (`margin`), not the library's
+  // default — the same call the runner makes, so both samples ask the question in one place.
+  const view = visibleColumns(currentMap(), fromX, VIEW_W, { margin: 1 });
   for (let row = 0; row < levelRows(); row += 1) {
-    for (let column = firstColumn; column <= lastColumn; column += 1) {
+    for (let column = view.first; column < view.end; column += 1) {
       if (!isSolidTile(column, row)) continue;
       const above = row > 0 && isSolidTile(column, row - 1);
       ctx.fillStyle = above ? "#39414f" : "#4a5468";

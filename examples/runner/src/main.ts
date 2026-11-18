@@ -8,9 +8,10 @@
 import { createActions } from "@fogrexon/glyph-arena-actions";
 import { createInput } from "@fogrexon/glyph-arena-input";
 import { createLoop } from "@fogrexon/glyph-arena-loop";
+import { visibleColumns } from "@fogrexon/glyph-arena-tilemap";
 import { createTouchControls, type TouchZone } from "@fogrexon/glyph-arena-touch";
 
-import { TILE, chaseSpawnLane, currentLevel, goalLineX, hazardWithin, isHazardTile, isSolidTile, levelColumns, levelCount, levelRows, loadLevel, patrolRange, solidAt, spawnPoint, surfaceBelow } from "./level";
+import { TILE, chaseSpawnLane, currentLevel, currentMap, goalLineX, hazardWithin, isHazardTile, isSolidTile, levelColumns, levelCount, levelRows, loadLevel, patrolRange, solidAt, spawnPoint, surfaceBelow } from "./level";
 import { CHASE, keepsChasing, startsChasing } from "./enemy";
 import { GRAVITY, createBody, jumpHeight, stepBody, type Body } from "./physics";
 
@@ -348,10 +349,11 @@ function drawParallax(): void {
 
 function drawLevel(): void {
   const s = scale();
-  const firstColumn = Math.max(0, Math.floor(cameraX / TILE) - 1);
-  const lastColumn = Math.min(levelColumns() - 1, Math.floor((cameraX + viewWidth()) / TILE) + 1);
+  // Which columns a view covers is the library's question now: `margin: 1` is the one column of
+  // slack this drawing wants at each edge, and it is the caller's number, not the library's default.
+  const view = visibleColumns(currentMap(), cameraX, viewWidth(), { margin: 1 });
   const offsetY = (LOGICAL_HEIGHT - worldHeight) * 0.5;
-  for (let column = firstColumn; column <= lastColumn; column += 1) {
+  for (let column = view.first; column < view.end; column += 1) {
     for (let row = 0; row < levelRows(); row += 1) {
       const x = (column * TILE - cameraX) * s;
       const y = (row * TILE + offsetY) * s;
