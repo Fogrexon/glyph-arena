@@ -178,6 +178,30 @@ function declared(file, pattern, fallbackName) {
   return { value: Number(match[1]), why: "" };
 }
 
+/**
+ * A number a demo declares, following one hop: `export const GRAVITY = CONFIG.gravity`.
+ *
+ * The four body numbers moved into a `CONFIG` object when they became one value set, and the old
+ * regex (`export const GRAVITY = 2600`) then matched nothing — R1 pended, counted and never run,
+ * for as long as that refactor has been on main. So: read the literal if it is there, otherwise
+ * follow `CONFIG.<key>` into the object.
+ */
+function declaredNumber(file, name) {
+  const text = source(file);
+  if (text === null) return { value: null, why: `${file} not in this checkout` };
+
+  const direct = new RegExp(`export const ${name}\\s*=\\s*(-?[\\d.]+)`).exec(text);
+  if (direct !== null) return { value: Number(direct[1]), why: "" };
+
+  const alias = new RegExp(`export const ${name}\\s*=\\s*CONFIG\\.([A-Za-z0-9_]+)`).exec(text);
+  if (alias === null) return { value: null, why: `${name} not found in ${file}` };
+
+  const body = /export const CONFIG[^=]*=\s*\{([\s\S]*?)\n\};/.exec(text)?.[1] ?? "";
+  const value = new RegExp(`\\b${alias[1]}\\s*:\\s*(-?[\\d.]+)`).exec(body);
+  if (value === null) return { value: null, why: `CONFIG.${alias[1]} not found in ${file}` };
+  return { value: Number(value[1]), why: "" };
+}
+
 /** The text the browser is actually handed: the built page and its bundles, never the sources. */
 function builtArtifacts() {
   const files = [{ name: "index.html", text: readFileSync(join(DIST, "index.html"), "utf8") }];
@@ -311,18 +335,27 @@ async function oneFrameTap(page, x, y) {
 }
 
 /**
- * The levels, read from `level.ts` rather than typed into this file: the ASCII is the level, so a
- * test that hard-codes a column is a test that goes green when the level moves and the game does
- * not. `LEVEL_*` appear in the file in the same order as the `LEVELS` list they feed.
+ * The three grids, from `levels.json` — the file `level.ts` imports.
+ *
+ * They used to sit inline in `level.ts` as `const LEVEL_1: … = [ … ]` and this read them with a
+ * regex over the TypeScript. When a level became content and moved to JSON, the regex kept matching
+ * nothing: `readLevels()` returned 0 levels and R11 pended all day — a check that is counted,
+ * reported, and never run. Reading the file the game itself imports is the version that cannot
+ * drift, and an unreadable file is a red rather than a pend (see the guard at R11).
  */
 function readLevels() {
   const text = source("level.ts") ?? "";
   const tile = Number(/export const TILE\s*=\s*(\d+)/.exec(text)?.[1] ?? Number.NaN);
-  const grids = [...text.matchAll(/const (LEVEL_[A-Z_]+)\s*:[^=]*=\s*\[([\s\S]*?)\];/g)].map((match) => ({
-    name: match[1],
-    rows: [...match[2].matchAll(/"([^"]*)"/g)].map((row) => row[1]),
-  }));
-  return { tile, grids };
+  try {
+    const data = JSON.parse(readFileSync(join(RUNNER_SRC, "levels.json"), "utf8"));
+    const grids = data.map((level, index) => ({
+      name: typeof level?.name === "string" ? level.name : `level ${index + 1}`,
+      rows: Array.isArray(level?.rows) ? level.rows : [],
+    }));
+    return { tile, grids, error: "" };
+  } catch (error) {
+    return { tile, grids: [], error: `levels.json: ${String(error.message).split("\n")[0]}` };
+  }
 }
 
 const BODY = { w: 20, h: 28 }; // createBody(x, y, 20, 28) in main.ts
@@ -594,10 +627,10 @@ async function runDesktop(browser, baseUrl, errors) {
 
     // ---- the shipped constants still equal the spec ---------------------
     const constants = {
-      jumpSpeed: declared("physics.ts", /export const JUMP_VELOCITY\s*=\s*(-?[\d.]+)/, "JUMP_VELOCITY"),
-      gravity: declared("physics.ts", /export const GRAVITY\s*=\s*([\d.]+)/, "GRAVITY"),
-      coyote: declared("physics.ts", /export const COYOTE_SECONDS\s*=\s*([\d.]+)/, "COYOTE_SECONDS"),
-      buffer: declared("physics.ts", /export const JUMP_BUFFER_SECONDS\s*=\s*([\d.]+)/, "JUMP_BUFFER_SECONDS"),
+      jumpSpeed: declaredNumber("physics.ts", "JUMP_VELOCITY"),
+      gravity: declaredNumber("physics.ts", "GRAVITY"),
+      coyote: declaredNumber("physics.ts", "COYOTE_SECONDS"),
+      buffer: declaredNumber("physics.ts", "JUMP_BUFFER_SECONDS"),
     };
     // Explicit rather than clever: four named constants, four spec numbers.
     const drift = [
@@ -608,7 +641,9 @@ async function runDesktop(browser, baseUrl, errors) {
     ].filter(([, actual, expected]) => actual !== null && actual !== expected);
     const unknown = Object.entries(constants).filter(([, read]) => read.value === null);
     if (unknown.length > 0) {
-      pend("R1: shipped constants match the spec", unknown.map(([name, read]) => `${name}: ${read.why}`).join("; "));
+      // Same rule as R11: this block only runs when the build exists, so a constant it cannot read
+      // is a broken reader, not a build that is not there yet. Pending here hid the refactor below.
+      check(false, "R1: shipped constants match the spec (760 / 2600 / 0.09 / 0.12)", unknown.map(([name, read]) => `${name}: ${read.why}`).join("; "));
     } else {
       check(
         drift.length === 0,
@@ -859,9 +894,15 @@ async function runDesktop(browser, baseUrl, errors) {
     //   R11b  holding right after a respawn never becomes a death loop: a second death is allowed,
     //         a 17 ms gap is not.
     const levels = readLevels();
-    if (levels.grids.length < 2 || !Number.isFinite(levels.tile)) {
-      pend("R11: a respawn leaves room to move", `cannot read the level grid from level.ts (${levels.grids.length} levels, tile ${levels.tile})`);
-    } else {
+    // A check that cannot read its own input is a red, not a pend: "pending" means "no build yet",
+    // and this whole block only runs when there is one. Pending here hid a broken parser for a day.
+    check(
+      levels.grids.length >= 2 && Number.isFinite(levels.tile),
+      "R11: the level grid is readable (levels.json, and TILE in level.ts)",
+      `${levels.grids.length} level(s), tile ${levels.tile}${levels.error ? ` — ${levels.error}` : ""}`,
+    );
+
+    if (levels.grids.length >= 2 && Number.isFinite(levels.tile)) {
       await page.goto(`${baseUrl}/`, { waitUntil: "load" });
       const startedR11 = await startPlaying(page);
       const entered = startedR11 ? await walkRight(page, (s) => s.level === 2, { levels, timeoutMs: 30000 }) : { hit: false, samples: [] };
