@@ -66,7 +66,12 @@ async function bundleOf(page) {
 
 async function launch() {
   const executablePath = process.env.E2E_CHROMIUM;
-  return executablePath ? chromium.launch({ executablePath, args: ["--no-sandbox"] }) : chromium.launch();
+  if (executablePath !== undefined) return chromium.launch({ executablePath, args: ["--no-sandbox"] });
+  // The same fallback the e2e gates use: `playwright-core` ships no browser, so a bare
+  // `chromium.launch()` only works where someone ran `playwright install`. On a GitHub runner it
+  // throws `Executable doesn't exist at ~/.cache/ms-playwright/...` — measured 2026-11-18, when
+  // `e2e:runner` started calling this bot.
+  return chromium.launch({ channel: process.env.E2E_CHANNEL ?? "chrome", args: ["--no-sandbox"] });
 }
 
 /* -------------------------------------------------------------------------------------------- *

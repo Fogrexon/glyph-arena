@@ -13,6 +13,12 @@
  * pixels and never from a stopwatch, except the two wall-clock numbers it
  * *reports* next to the game's own (the verdict uses the game's).
  *
+ * R10 is the one check that is not about a single level: the three levels are played end to end by
+ * `play-bot.mjs`. A probe bound to the wrong map (every level judged by level 1's walls) is invisible
+ * to every other check here — measured 2026-11-18, `runner:bot` reported `phase dead / level 2 /
+ * deaths 138` while this file passed. The sweep reuses that bot instead of growing a second
+ * implementation, so the number this gate fails on is the number a person quotes.
+ *
  * R6 and R7 are not game checks but "what ships" checks, and they are here for
  * the same reason: a phone session found all three by hand. A `\uXXXX` that
  * survived to the browser, a favicon nobody linked (so the browser asks for
@@ -43,6 +49,7 @@
  * screenshot.
  */
 
+import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -109,6 +116,25 @@ function check(ok, label, detail) {
 function pend(label, detail) {
   console.log(`PEND ${label}${detail ? ` — ${detail}` : ""}`);
   pending.push(label);
+}
+
+/**
+ * R10's threshold. Today's measurement is 3/3 with 1 death, so 3 is "two more than it needs" — a red
+ * here means the three levels stopped being playable end to end, not that a run went slightly worse.
+ */
+const SWEEP_MAX_DEATHS = 3;
+
+/** Play the three levels with the bot. Returns its JSON; a failed run is data, not a crash. */
+function sweepThreeLevels() {
+  const args = [join(ROOT, "scripts", "play-bot.mjs"), "runner", "--json", "--runs", "1"];
+  try {
+    return JSON.parse(execFileSync(process.execPath, args, { encoding: "utf8", env: process.env, timeout: 240_000 }));
+  } catch (error) {
+    // The bot exits 1 when the run did not reach the goal; its JSON is still on stdout.
+    const stdout = typeof error.stdout === "string" ? error.stdout : "";
+    if (stdout.trimStart().startsWith("{")) return JSON.parse(stdout);
+    throw error;
+  }
 }
 
 function serveDist(dist, port) {
@@ -1028,6 +1054,7 @@ async function main() {
       "R6: no escape sequence and a linked favicon reach the browser",
       "R8: no string the canvas paints carries a raw escape",
       "R7 (①): a tap in the middle of the title screen starts the run",
+      "R10: three levels end to end — deaths ≤ 3, the last level reached",
     ];
     for (const label of labels) pend(label, `no built runner at ${DIST}`);
     console.log(`runner: not built yet — ${pending.length} check(s) pending, 0 run, 0 failed`);
@@ -1059,6 +1086,38 @@ async function main() {
   }
 
   check(errors.length === 0, "R9: no page errors", errors.slice(0, 3).join(" | "));
+
+  // R10 last, and in its own browser: `play-bot.mjs` serves its own dist and opens its own page, so
+  // the two must not overlap. `RUNNER_DIST` is skipped rather than faked — the bot plays
+  // `examples/runner/dist` and would otherwise report a different build under this gate's name.
+  if (process.env.RUNNER_DIST) {
+    pend(
+      "R10: three levels end to end — deaths ≤ 3, the last level reached",
+      "RUNNER_DIST points outside the checkout, and runner:bot plays examples/runner/dist",
+    );
+  } else {
+    let sweep = null;
+    try {
+      sweep = sweepThreeLevels();
+    } catch (error) {
+      // The child's own stderr is the diagnostic: `Command failed: node …` alone says nothing.
+      const lastLine = String(error.stderr ?? "").trim().split("\n").filter(Boolean).at(-1);
+      console.error(`R10: the bot did not run — ${lastLine ?? String(error.message).split("\n")[0]}`);
+    }
+
+    const run = sweep?.results?.[0];
+    check(
+      run !== undefined &&
+        run.phase === "goal" &&
+        run.level === run.levelCount &&
+        run.deaths <= SWEEP_MAX_DEATHS &&
+        run.consoleErrors.length === 0,
+      "R10: three levels end to end — deaths ≤ 3, the last level reached (game clock, not wall clock)",
+      run
+        ? `deaths ${run.deaths}, level ${run.level}/${run.levelCount}, ${run.simMs} ms, errors ${run.consoleErrors.length}, ${run.bundle}`
+        : "the bot produced no result",
+    );
+  }
 
   if (failures.length > 0) {
     console.error(`e2e (runner) failed: ${failures.length} check(s), ${pending.length} pending`);
