@@ -9,6 +9,7 @@ import {
   mapRows,
   solidInRect,
   surfaceRowBelow,
+  tagIn,
   tagsAt,
   tileAt,
   visibleColumns,
@@ -230,5 +231,78 @@ describe("visibleColumns", () => {
     for (let column = range.first; column < range.end; column += 1) drawn.push(column);
 
     assert.deepEqual(drawn, [3, 4, 5]);
+  });
+});
+
+describe("tagIn", () => {
+  it("answers exactly what the three functions it binds answer", () => {
+    // The point of the binding is that the three answers are one word, not three typings. If they
+    // ever disagree, this is the test that says so, and it says it about the same map.
+    const solid = tagIn(map, "solid");
+
+    for (let row = 0; row < mapRows(map); row += 1) {
+      for (let column = 0; column < mapColumns(map); column += 1) {
+        assert.equal(solid.has(column, row), hasTag(map, column, row, "solid"), `has ${column},${row}`);
+      }
+    }
+
+    for (let left = -32; left <= 400; left += 32) {
+      for (let top = -32; top <= 128; top += 32) {
+        const right = left + 32;
+        const bottom = top + 32;
+        assert.equal(
+          solid.inRect(left, top, right, bottom),
+          solidInRect(map, left, top, right, bottom, "solid"),
+          `inRect ${left},${top}`,
+        );
+        assert.equal(
+          solid.surfaceBelow(left, top, { maxRows: 3 }),
+          surfaceRowBelow(map, left, top, "solid", { maxRows: 3 }),
+          `surfaceBelow ${left},${top}`,
+        );
+      }
+    }
+  });
+
+  it("keeps two tags on one tile apart", () => {
+    // `*` is solid *and* a hazard: the reason tags are a set and not a character.
+    const both = createTileMap("*.", { ...CONFIG, cell: 32 });
+
+    assert.equal(tagIn(both, "solid").has(0, 0), true);
+    assert.equal(tagIn(both, "hazard").has(0, 0), true);
+    assert.equal(tagIn(both, "solid").has(1, 0), false);
+  });
+
+  it("answers 'no' for a tag nobody uses, instead of throwing", () => {
+    // A misspelled tag is the failure this binding exists to make visible in one place. The library
+    // still cannot call a word wrong — but it can refuse to be the thing that hides it.
+    const sold = tagIn(map, "sold");
+
+    assert.equal(sold.has(0, 2), false);
+    assert.equal(sold.inRect(0, 64, 384, 96), false);
+    assert.equal(sold.surfaceBelow(16, 96, { maxRows: 3 }), undefined);
+  });
+
+  it("holds the map it was given, so a second map does not move it", () => {
+    // The reason the map is an argument: a game binds the probe where its map changes. A probe that
+    // read some global "current map" would answer with the next level's walls here.
+    const first = tagIn(map, "solid");
+    const other = createTileMap(["..........", "..........", ".........."].join("\n"), CONFIG);
+
+    assert.equal(first.has(0, 2), true, "the floor of the map it was bound to");
+    assert.equal(tagIn(other, "solid").has(0, 2), false, "the empty map is empty");
+    assert.equal(first.has(0, 2), true, "binding the second map did not move the first");
+  });
+
+  it("is half open like solidInRect, so a box beside a wall does not touch it", () => {
+    // Solid at column 2 and at row 2, and nowhere else — the same map the solidInRect test uses, so
+    // the binding cannot quietly change the edge rule it is supposed to pass through.
+    const edges = createTileMap(["..#", "...", "###"], CONFIG);
+    const solid = tagIn(edges, "solid");
+
+    assert.equal(solid.inRect(32, 0, 64, 32), false, "ends where column 2 starts");
+    assert.equal(solid.inRect(64, 0, 96, 32), true, "starts where column 2 starts");
+    assert.equal(solid.inRect(0, 32, 32, 64), false, "above the floor row");
+    assert.equal(solid.inRect(0, 64, 32, 96), true, "starts where row 2 starts");
   });
 });

@@ -47,7 +47,7 @@ describe("the tutorial's whole file, as a program", () => {
   it("is the program the tutorial's prose describes (the pieces it promises)", () => {
     const { code } = wholeFileProgram(TUTORIAL);
 
-    for (const name of ["createBody", "createTileMap", "stepBody", "solidInRect", "hasTag", "createCamera"]) {
+    for (const name of ["createBody", "createTileMap", "stepBody", "tagIn", "createCamera"]) {
       assert.ok(code.includes(name), `${name} is used in the block`);
     }
     // The two lines the prose says carry more weight than they look like.

@@ -91,7 +91,7 @@ A tile map is a list of equal-length strings plus a legend. `#` is solid, `.` is
 size is yours:
 
 ```ts
-import { createTileMap, hasTag, solidInRect, surfaceRowBelow } from "@fogrexon/glyph-arena";
+import { createTileMap, surfaceRowBelow, tagIn } from "@fogrexon/glyph-arena";
 
 const LEVEL = [
   "#..............................#",
@@ -113,8 +113,9 @@ into nothing: falling into it costs a jump, not the game. The first and last col
 the same reason at the sides — the tile map treats everything outside it as empty, so without them
 the first press of `ArrowLeft` walks the body off the world and it falls forever.
 
-`mapColumns(map)` and `mapRows(map)` give the size, `hasTag(map, column, row, "solid")` asks about one
-cell, and `solidInRect(map, left, top, right, bottom, "solid")` asks about a box in pixels.
+`mapColumns(map)` and `mapRows(map)` give the size. The tag is written once, where it is bound to the
+map: `tagIn(map, "solid").has(column, row)` asks about one cell, and `.inRect(left, top, right, bottom)`
+asks about a box in pixels.
 
 ## 5. A body with gravity and a jump
 
@@ -147,8 +148,7 @@ console.log(jumpHeightOf(feel)); // 111.08 px, from the same config the body use
 your own function, and the tile map already answers it:
 
 ```ts
-const solid = (left: number, top: number, right: number, bottom: number) =>
-  solidInRect(map, left, top, right, bottom, "solid");
+const solid = tagIn(map, "solid").inRect;
 ```
 
 `jump` is the press and `jumpHeld` is whether the button is still down: that pair is what makes a
@@ -225,10 +225,9 @@ import {
   createInput,
   createLoop,
   createTileMap,
-  hasTag,
   jumpHeightOf,
-  solidInRect,
   stepBody,
+  tagIn,
   // phone-end
 } from "@fogrexon/glyph-arena";
 
@@ -271,8 +270,7 @@ const feel = {
   jumpCutFactor: 0.35,
 };
 
-const solid = (left: number, top: number, right: number, bottom: number) =>
-  solidInRect(map, left, top, right, bottom, "solid");
+const solid = tagIn(map, "solid");
 
 const player = createBody({ x: 70, y: 100, w: 20, h: 28 }, feel);
 const camera = createCamera();
@@ -294,7 +292,7 @@ createLoop({
     const jump = jumpHeld && !jumpWasHeld;
     jumpWasHeld = jumpHeld;
 
-    stepBody(player, { left, right, jump, jumpHeld }, dt, solid, { grid: CELL });
+    stepBody(player, { left, right, jump, jumpHeld }, dt, solid.inRect, { grid: CELL });
 
     draw.clear("#0d1626");
 
@@ -303,7 +301,7 @@ createLoop({
 
     for (let row = 0; row < ROWS; row += 1) {
       for (let col = 0; col < COLS; col += 1) {
-        if (hasTag(map, col, row, "solid")) {
+        if (solid.has(col, row)) {
           draw.rect({ x: col * CELL, y: row * CELL, w: CELL, h: CELL, fill: "#2a3550" });
         }
       }
@@ -391,11 +389,10 @@ import {
   createTileMap,
   createTouchControls,
   fitToWindow,
-  hasTag,
   jumpHeightOf,
   measureCanvas,
-  solidInRect,
   stepBody,
+  tagIn,
   toCanvasPoint,
   // phone-end
 } from "@fogrexon/glyph-arena";
@@ -460,8 +457,7 @@ const feel = {
   jumpCutFactor: 0.35,
 };
 
-const solid = (left: number, top: number, right: number, bottom: number) =>
-  solidInRect(map, left, top, right, bottom, "solid");
+const solid = tagIn(map, "solid");
 
 const player = createBody({ x: 70, y: 100, w: 20, h: 28 }, feel);
 const camera = createCamera();
@@ -492,7 +488,7 @@ createLoop({
     const jump = jumpHeld && !jumpWasHeld;
     jumpWasHeld = jumpHeld;
 
-    stepBody(player, { left, right, jump, jumpHeld }, dt, solid, { grid: CELL });
+    stepBody(player, { left, right, jump, jumpHeld }, dt, solid.inRect, { grid: CELL });
 
     draw.clear("#0d1626");
 
@@ -501,7 +497,7 @@ createLoop({
 
     for (let row = 0; row < ROWS; row += 1) {
       for (let col = 0; col < COLS; col += 1) {
-        if (hasTag(map, col, row, "solid")) {
+        if (solid.has(col, row)) {
           draw.rect({ x: col * CELL, y: row * CELL, w: CELL, h: CELL, fill: "#2a3550" });
         }
       }

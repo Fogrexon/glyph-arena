@@ -211,3 +211,38 @@ export function surfaceRowBelow(
 
   return undefined;
 }
+
+/**
+ * One tag, bound to one map: the three questions a game asks about it, with the word written once.
+ *
+ * A platformer asks about its floor three ways — "is this cell solid", "is anything solid in this
+ * box", "what floor is under this foot" — and each of the three samples wrote the same wrapper for
+ * each, passing `"solid"` again at every call. That is a magic string: spelled wrong it is not an
+ * error, it is a map where nothing is solid, and the body falls through the floor with no message.
+ * Binding the tag once makes the word one thing, and the three answers are the same word by
+ * construction rather than by three people typing it correctly.
+ *
+ * The map is an argument and not captured from anywhere global, which is the other half of the
+ * point: a game that swaps levels has a different map after the swap. Bind the probe where the map
+ * changes (`loadLevel`), not at module load, or level 2 is collided against with level 1's walls —
+ * a bug that looks like "the new level's floor is wrong" and is not about the level at all.
+ */
+export interface TagView {
+  /** `hasTag(map, column, row, tag)`, with the cell address still the caller's. */
+  readonly has: (column: number, row: number) => boolean;
+  /** `solidInRect(map, left, top, right, bottom, tag)`: half open, `[left, right)` × `[top, bottom)`. */
+  readonly inRect: (left: number, top: number, right: number, bottom: number) => boolean;
+  /** `surfaceRowBelow(map, xPx, yPx, tag, options)`. `maxRows` stays required, and stays the game's. */
+  readonly surfaceBelow: (xPx: number, yPx: number, options: { maxRows: number }) => number | undefined;
+  /** `cellsWithTag(map, tag)`: every cell carrying the tag, in reading order. */
+  readonly cells: () => TileCell[];
+}
+
+export function tagIn(map: TileMap, tag: string): TagView {
+  return {
+    has: (column, row) => hasTag(map, column, row, tag),
+    inRect: (left, top, right, bottom) => solidInRect(map, left, top, right, bottom, tag),
+    surfaceBelow: (xPx, yPx, options) => surfaceRowBelow(map, xPx, yPx, tag, options),
+    cells: () => cellsWithTag(map, tag),
+  };
+}

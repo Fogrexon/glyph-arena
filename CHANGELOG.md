@@ -8,6 +8,24 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Added
 
+- **`tagIn(map, tag)` — the tag written once, and the four questions it answers.** A platformer asks
+  about its floor three ways — one cell, a box, and the ground under a foot — and all three samples
+  wrote the same wrapper for each, passing `"solid"` again at every call. A misspelled tag is not an
+  error in this package: it is a map where nothing is solid, so the body falls through the floor
+  with no message. `tagIn(map, tag)` binds the word to the map and returns `{ has, inRect,
+  surfaceBelow, cells }` — the four functions that take a tag, with the tag supplied once. **The map
+  is an argument, not a global**: runner swaps maps at `loadLevel`, so its probes are bound per
+  level, because a probe bound once at module load collides level 2 against level 1's walls and that
+  reads as "the new level's floor is wrong". **Applied to all three samples**: `"solid"` is written
+  once per game (runner also `"hazard"`, camp also `"spawn"` and `"enemy"`), camp's two wrappers are
+  now the bound functions themselves, and the tutorial's `solid` is `tagIn(map, "solid")` with
+  `stepBody(..., solid.inRect, ...)` and `solid.has(col, row)` in the draw loop. An addition to
+  `tilemap`, not a new package: the umbrella still exports 20 modules.
+  Tested by five cases (the binding agrees with the three functions it wraps across the whole map,
+  two tags on one tile stay apart, an unknown tag answers "no" everywhere rather than throwing, a
+  probe keeps the map it was given when a second map appears, and the half-open edges are
+  `solidInRect`'s), plus `e2e:runner`, `e2e:demo` and `e2e:tutorial` in a real browser.
+
 - **Camp's enemies take turns: no two commits inside 300 ms.** Three bodies in one room were not a
   hard fight, they were an unanswerable one — the interval between one lunge starting and the next
   measured **median 1900 ms but min 116 ms**, and 116 ms is shorter than the 180 ms a roll locks
