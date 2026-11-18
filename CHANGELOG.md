@@ -8,6 +8,27 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Added
 
+- **the outside reader's path is a gate now: pack the tarball, install it into an empty project,
+  compile both documents, and run the tutorial's program.** Every other check resolves the umbrella
+  to `src/` through `tsconfig` `paths` or a workspace link, so none of them ever looked at what npm
+  hands out — and that gap has already produced a false green: the docs described four functions a
+  released version did not export, and every workspace gate stayed green because the workspace had
+  them. `pnpm e2e:published` (CI step 12) does what a reader does: **P1** `pnpm pack` produces a
+  tarball that ships `dist/index.js` and `dist/index.d.ts`; **P2** it installs **offline** into an
+  empty project (`npm install --offline`, no links, no `paths`); **P3** the README's example and the
+  tutorial's "The whole file" both typecheck there — and **P3b** re-runs the compiler with
+  `--traceResolution` to prove the declarations used are the **installed** ones and that no
+  workspace `src` path appears, because a returning `paths` mapping would quietly turn this gate
+  back into a workspace check; **P4** the tutorial is emitted and runs in a browser with an
+  **import map** (nothing is bundled — the bytes executed are the ones npm installed): a painted
+  frame with the body on it, the world sliding under a fixed body while ArrowRight is held, frames
+  advancing; **P5** no console errors and no missing assets. Negative control: turning
+  `export function createDraw` into a private function in the draw package before packing turns
+  **P3** red naming both documents (`readme.ts(1,10)` and `tutorial.ts(4,3)`) and stops **P4** — the
+  exact false green from the fifth dry run. No lockfile change: the script is the only new file.
+
+### Added
+
 - **the umbrella `README.md`'s only example is compiled and run in CI — it is the one document that
   freezes.** The README ships inside the tarball, so npm shows it unchanged until the next version:
   a block that does not compile would ship and nobody could fix it. `check:readme` only ever proved

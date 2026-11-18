@@ -116,3 +116,11 @@ jobs:
       # the rectangle moving (its `x` is `40 + Math.sin(elapsed) * 60`, so a still rectangle means
       # `elapsed` never advanced even though frames did).
       - run: pnpm e2e:readme
+
+      # 12. The outside reader's path against the **packed tarball**: `pnpm pack`, `npm install
+      # --offline` into an empty project, compile the README's and the tutorial's programs against
+      # the installed declarations, then emit the tutorial and run it in a browser with an import
+      # map (nothing is bundled — the bytes the browser runs are the ones npm installed). Every
+      # other gate resolves the umbrella to `src/` through `tsconfig` paths; a false green has
+      # already come from exactly that gap (the docs described exports a released version lacked).
+      - run: pnpm e2e:published
