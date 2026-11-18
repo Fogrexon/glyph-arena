@@ -35,6 +35,8 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
+import { requireFreshPackages } from "./lib/build-stamp.mjs";
+
 const REPO = resolve(import.meta.dirname, "..");
 const PACKAGES_DIR = join(REPO, "packages");
 const TSC = join(REPO, "node_modules", ".bin", "tsc");
@@ -90,6 +92,12 @@ const packDir = join(work, "tarballs");
 const projectDir = join(work, "consumer");
 
 try {
+  // Before anything is packed: the packages have no `prepack`, so `pnpm pack` ships whatever is in
+  // `dist/`. CI builds first and is safe; a local run after an edit is not, and would report
+  // "installs and typechecks" about code nobody built. (The umbrella escapes this by rebuilding in
+  // `prepack` — `e2e:published` proves that separately.)
+  requireFreshPackages(REPO);
+
   const packages = packageDirs().map((entry) => ({
     ...entry,
     manifest: manifestOf(entry.dir),
