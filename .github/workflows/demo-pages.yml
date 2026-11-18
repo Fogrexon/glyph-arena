@@ -45,27 +45,15 @@ jobs:
       # day `glyph-arena-body` landed: the runner could not build because its dist was missing, and
       # the site stopped deploying while `main` stayed green (the deploy is not a CI gate).
       - run: pnpm -r --filter "./packages/*" build
-      - run: pnpm --filter @fogrexon/glyph-arena-pickup-demo build
-        env:
-          GITHUB_PAGES: "true"
 
-      # The parry demo is published beside the frozen pickup demo, at /glyph-arena/parry/.
-      - run: pnpm --filter @fogrexon/glyph-arena-parry-demo build
-        env:
-          PARRY_BASE: "/glyph-arena/parry/"
+      # No example is named here. Each one declares its own page in its own `package.json`
+      # (`glyphArenaPage`), and this builds exactly those with the `GLYPH_BASE` that path implies.
+      # The four hand-written `pnpm --filter … build` lines are how CAMP was built, published, and
+      # linked from nowhere: three lists had to agree and only two were updated.
+      - run: node scripts/build-examples.mjs
 
-      # The runner slice is published at /glyph-arena/runner/.
-      - run: pnpm --filter @fogrexon/glyph-arena-runner-demo build
-        env:
-          RUNNER_BASE: "/glyph-arena/runner/"
-
-      # The camp slice (a different genre) is published at /glyph-arena/camp/.
-      - run: pnpm --filter @fogrexon/glyph-arena-camp-demo build
-        env:
-          CAMP_BASE: "/glyph-arena/camp/"
-
-      # Where each demo is published comes from its own `package.json` (`glyphArenaPage`), not from a
-      # list here: the day an example is added, a hand-kept list silently stops publishing it.
+      # Same declaration, same source of truth: the site copies every declared page and injects the
+      # gallery nav into each one, so a page cannot be published without being reachable.
       - run: node scripts/assemble-site.mjs
 
       - uses: actions/upload-pages-artifact@v3

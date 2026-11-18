@@ -5,5 +5,5 @@ import { defineConfig } from "vite";
  * verification pod) is "/".
  */
 export default defineConfig({
-  base: process.env.RUNNER_BASE ?? "/",
+  base: process.env.GLYPH_BASE ?? "/",
 });

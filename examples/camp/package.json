@@ -1,6 +1,9 @@
 {
   "name": "@fogrexon/glyph-arena-camp-demo",
-  "glyphArenaPage": "/camp/",
+  "glyphArenaPage": {
+    "path": "/camp/",
+    "label": "Camp"
+  },
   "private": true,
   "type": "module",
   "scripts": {

@@ -1,12 +1,15 @@
 {
   "name": "@fogrexon/glyph-arena-pickup-demo",
-  "glyphArenaPage": "",
+  "glyphArenaPage": {
+    "path": "",
+    "label": "Pickup"
+  },
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "node ../../scripts/render-docs.mjs && vite build",
-    "build:pages": "node ../../scripts/render-docs.mjs && GITHUB_PAGES=true vite build",
+    "build:pages": "node ../../scripts/render-docs.mjs && GLYPH_BASE=/glyph-arena/ vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "docs": "node ../../scripts/render-docs.mjs"

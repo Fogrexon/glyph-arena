@@ -1,6 +1,9 @@
 {
   "name": "@fogrexon/glyph-arena-runner-demo",
-  "glyphArenaPage": "/runner/",
+  "glyphArenaPage": {
+    "path": "/runner/",
+    "label": "Runner"
+  },
   "private": true,
   "type": "module",
   "scripts": {
