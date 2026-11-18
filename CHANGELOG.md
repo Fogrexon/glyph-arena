@@ -6,6 +6,30 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+### Added
+
+- **the umbrella `README.md`'s only example is compiled and run in CI — it is the one document that
+  freezes.** The README ships inside the tarball, so npm shows it unchanged until the next version:
+  a block that does not compile would ship and nobody could fix it. `check:readme` only ever proved
+  the module names are listed and that `draw.rect` / `draw.text` appear somewhere — never that the
+  fifteen lines a reader copies actually work. Now `fixtures/readme` is a real workspace package
+  whose `typecheck` and `build` scripts extract that block from `packages/glyph-arena/README.md`
+  first, using the same extractor as the tutorial (`scripts/lib/markdown-program.mjs`; the tutorial's
+  `wholeFileProgram` is now a thin call to it). Three gates, each for a different failure:
+  `pnpm -r typecheck` compiles it against the workspace sources; **`pnpm check:readme-example`
+  compiles it against `packages/glyph-arena/dist/index.d.ts`** — the declarations the tarball
+  actually carries, so a name that exists in `src` but not in the published surface is caught; and
+  `pnpm e2e:readme` (CI step 11) serves the built page and reads the canvas — the frame painted, the
+  label drawn, `requestAnimationFrame` advancing, and the rectangle **moving** (its `x` is
+  `40 + Math.sin(elapsed) * 60`, so a still rectangle means `elapsed` never advanced although frames
+  did). The two browser gates now share `scripts/lib/static-server.mjs`, which answers the favicon
+  with 204 and keeps the list of requests it could not answer, so a failure names the path instead
+  of "Failed to load resource". `test:scripts` adds 11 tests (36 → 47), including one that pins the
+  fixture page to what the block looks up (`#game`). Reverse checks: a type error in the README
+  block turns `pnpm -r typecheck` red; making `Math.sin(elapsed)` constant leaves the page painting
+  and only R5 red; deleting an export from `dist/index.d.ts` turns `check:readme-example` red,
+  which is what proves that gate reads the published declarations rather than the sources.
+
 ## [0.3.0] - 2026-11-18
 
 The first version that ships `screen` and `touch`. `0.2.0` was the first npm publication and has

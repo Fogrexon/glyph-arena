@@ -193,6 +193,19 @@ importers:
         specifier: ^6.3.5
         version: 6.4.3(tsx@4.23.12)
 
+  fixtures/readme:
+    dependencies:
+      '@fogrexon/glyph-arena':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.3.5
+        version: 6.4.3(tsx@4.23.12)
+
   fixtures/tutorial:
     dependencies:
       '@fogrexon/glyph-arena':

@@ -7,5 +7,6 @@ examples/parry/public/parry.wav
 # the local mirror of the Pages layout (see demo-pages.yml); built, never committed
 /site/
 
-# extracted from docs/tutorial.md by scripts/extract-tutorial.mjs, compiled never committed
+# extracted from docs/tutorial.md and packages/glyph-arena/README.md by scripts/extract-*.mjs
 /fixtures/tutorial/main.ts
+/fixtures/readme/main.ts
