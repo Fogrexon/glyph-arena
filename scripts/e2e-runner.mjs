@@ -1100,7 +1100,9 @@ async function main() {
     try {
       sweep = sweepThreeLevels();
     } catch (error) {
-      console.error(`R10: the bot did not run — ${String(error.message).split("\n")[0]}`);
+      // The child's own stderr is the diagnostic: `Command failed: node …` alone says nothing.
+      const lastLine = String(error.stderr ?? "").trim().split("\n").filter(Boolean).at(-1);
+      console.error(`R10: the bot did not run — ${lastLine ?? String(error.message).split("\n")[0]}`);
     }
 
     const run = sweep?.results?.[0];
