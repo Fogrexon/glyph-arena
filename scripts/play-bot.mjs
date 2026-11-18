@@ -116,6 +116,7 @@ async function playCamp(page, strategy) {
         // With one enemy it is `restMs + windup`; with three it is whatever the stagger makes it,
         // and a roll that locks steering for 180 ms only works if that number is bigger.
         const lungeStarts = [];
+        const commitStarts = [];
         let frame = 0;
         const lost = [];
         const arrivals = [];
@@ -150,6 +151,7 @@ async function playCamp(page, strategy) {
             presses, tells, lunges, arrivals, lost,
             camps: [...camps.values()].sort((a, b) => a.camp - b.camp),
             dangerGapMs: lungeStarts.slice(1).map((at, index) => at - lungeStarts[index]),
+            commitGapMs: commitStarts.slice(1).map((at, index) => at - commitStarts[index]),
           });
         };
 
@@ -210,6 +212,7 @@ async function playCamp(page, strategy) {
             if (lastMode.get(index) === enemy.mode) return;
             if (enemy.mode === "windup") {
               tells += 1;
+              commitStarts.push(Math.round(s.simMs));
               if (camp !== undefined) stat(camp).tells += 1;
             }
             if (enemy.mode === "lunge") {
@@ -477,6 +480,13 @@ async function main() {
           const gaps = [...r.dangerGapMs].sort((a, b) => a - b);
           const median = gaps[Math.floor(gaps.length / 2)];
           console.log(`   danger gap: median ${median} ms  min ${gaps[0]}  n ${gaps.length}`);
+        }
+        if (r.commitGapMs.length > 0) {
+          // The rule spaces *commits*, so this is the number it can be compared with directly.
+          // The lunge gap is one tell later, and hitstop pauses the tell without pausing the clock.
+          const gaps = [...r.commitGapMs].sort((a, b) => a - b);
+          const median = gaps[Math.floor(gaps.length / 2)];
+          console.log(`   commit gap: median ${median} ms  min ${gaps[0]}  n ${gaps.length}`);
         }
         if (r.lost.length > 0) console.log(`   lost ${JSON.stringify(r.lost)}`);
       } else {
