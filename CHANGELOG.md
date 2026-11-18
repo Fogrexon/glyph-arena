@@ -6,6 +6,13 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-18
+
+The first version that ships `screen` and `touch`. `0.2.0` was the first npm publication and has
+neither, so the tutorial's `On a phone` section cannot compile against it: it calls
+`createTouchControls`, `fitToWindow`, `measureCanvas` and `toCanvasPoint`. Everything listed below
+has been on `main` since that publication.
+
 ### Added
 
 - **the tutorial's "The whole file" block is compiled and run in CI, so the one path an outside
