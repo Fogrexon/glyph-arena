@@ -237,6 +237,7 @@ importers:
   packages/glyph-arena-body: {}
 
   packages/glyph-arena-camera: {}
+  packages/glyph-arena-chase: {}
 
   packages/glyph-arena-collide: {}
 

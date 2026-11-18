@@ -24,6 +24,7 @@ export * from "../../glyph-arena-assets/src/index.js";
 export * from "../../glyph-arena-audio/src/index.js";
 export * from "../../glyph-arena-body/src/index.js";
 export * from "../../glyph-arena-camera/src/index.js";
+export * from "../../glyph-arena-chase/src/index.js";
 export * from "../../glyph-arena-collide/src/index.js";
 export * from "../../glyph-arena-draw/src/index.js";
 export * from "../../glyph-arena-ecs/src/index.js";

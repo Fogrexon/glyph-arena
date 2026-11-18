@@ -6,6 +6,7 @@
  * in `physics.ts`; this file is camera, drawing, sound, death and the state mirror.
  */
 import { createActions } from "@fogrexon/glyph-arena-actions";
+import { chaseTarget } from "@fogrexon/glyph-arena-chase";
 import { createInput } from "@fogrexon/glyph-arena-input";
 import { createLoop } from "@fogrexon/glyph-arena-loop";
 import { fitToWindow, measureCanvas, toCanvasPoint } from "@fogrexon/glyph-arena-screen";
@@ -13,7 +14,7 @@ import { visibleColumns } from "@fogrexon/glyph-arena-tilemap";
 import { createTouchControls, type TouchZone } from "@fogrexon/glyph-arena-touch";
 
 import { TILE, chaseSpawnLane, currentLevel, currentMap, goalLineX, hazardWithin, isHazardTile, isSolidTile, levelColumns, levelCount, levelRows, loadLevel, patrolRange, solidAt, spawnPoint, surfaceBelow } from "./level";
-import { CHASE, keepsChasing, startsChasing } from "./enemy";
+import { CHASE } from "./enemy";
 import { GRAVITY, createBody, jumpHeight, stepBody, type Body } from "./physics";
 
 type Phase = "title" | "play" | "dead" | "goal";
@@ -460,11 +461,12 @@ function makeEnemies(): Enemy[] {
 let enemies: Enemy[] = makeEnemies();
 
 /**
- * How far the ground one pixel ahead of an enemy's feet is from its own feet: `0` flat,
- * `+TILE` a lip, `-TILE` a drop, `Infinity` a hole. This is the number `keepsChasing()` reads.
+ * How far the ground one pixel ahead of an enemy's feet is from its own feet, looking **in `dir`**:
+ * `0` flat, `+TILE` a lip, `-TILE` a drop, `Infinity` a hole. The library asks with the direction it
+ * is about to walk, so the ground it checks and the ground it walks are the same ground.
  */
-function stepAhead(enemy: Enemy): number {
-  const aheadX = enemy.dir > 0 ? enemy.x + enemy.w + 1 : enemy.x - 1;
+function stepAhead(enemy: Enemy, dir: -1 | 1): number {
+  const aheadX = dir > 0 ? enemy.x + enemy.w + 1 : enemy.x - 1;
   const footY = enemy.y + enemy.h;
   const here = surfaceBelow(enemy.x + enemy.w / 2, footY);
   const ahead = surfaceBelow(aheadX, footY);
@@ -476,14 +478,22 @@ function stepAhead(enemy: Enemy): number {
 }
 
 function stepEnemies(dt: number): void {
-  const runnerCentre = body.x + body.w / 2;
   for (const enemy of enemies) {
     if (enemy.chases) {
-      const distance = runnerCentre - (enemy.x + enemy.w / 2);
+      // The rule — where the runner is, which way that is, and whether the ground ahead is floor —
+      // comes from the library. What stays here is the memory: patrol, the wait, and giving up.
+      const chase = chaseTarget(
+        { x: enemy.x, w: enemy.w, dir: enemy.dir },
+        { x: body.x, w: body.w },
+        { sightPx: CHASE.sightPx, stepTolerancePx: 0 },
+        (dir) => stepAhead(enemy, dir),
+      );
+
       if (enemy.mode === "patrol") {
-        if (startsChasing({ distancePx: distance, stepPx: stepAhead(enemy), elapsedSeconds: simSeconds })) {
+        if (simSeconds >= CHASE.startSeconds && chase.walkable) {
           enemy.mode = "chase";
           enemy.offScreenSeconds = 0;
+          enemy.dir = chase.dir;
         }
       }
       if (enemy.mode === "chase") {
@@ -491,7 +501,9 @@ function stepEnemies(dt: number): void {
         // shake it, standing out of sight does.
         const onScreen = enemy.x + enemy.w > cameraX && enemy.x < cameraX + viewWidth();
         enemy.offScreenSeconds = onScreen ? 0 : enemy.offScreenSeconds + dt;
-        if (!keepsChasing(stepAhead(enemy)) || enemy.offScreenSeconds >= CHASE.loseSightSeconds) {
+        if (chase.walkable && enemy.offScreenSeconds < CHASE.loseSightSeconds) {
+          enemy.dir = chase.dir;
+        } else {
           enemy.mode = "patrol";
           enemy.offScreenSeconds = 0;
           enemy.dir = enemy.dir > 0 ? -1 : 1; // turn back toward its own lane
@@ -499,7 +511,6 @@ function stepEnemies(dt: number): void {
       }
     }
     if (enemy.mode === "chase") {
-      enemy.dir = runnerCentre < enemy.x + enemy.w / 2 ? -1 : 1;
       enemy.speed = CHASE.speedPxPerSecond;
       enemy.x += enemy.dir * enemy.speed * dt;
     } else {
