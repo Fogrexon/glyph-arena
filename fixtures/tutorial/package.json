@@ -1,0 +1,19 @@
+{
+  "name": "@fogrexon/glyph-arena-tutorial-fixture",
+  "private": true,
+  "type": "module",
+  "description": "Compiles and runs the tutorial's 'The whole file' block, extracted from docs/tutorial.md",
+  "scripts": {
+    "extract": "node ../../scripts/extract-tutorial.mjs",
+    "dev": "node ../../scripts/extract-tutorial.mjs && vite",
+    "typecheck": "node ../../scripts/extract-tutorial.mjs && tsc -p tsconfig.json --noEmit",
+    "build": "node ../../scripts/extract-tutorial.mjs && vite build"
+  },
+  "dependencies": {
+    "@fogrexon/glyph-arena": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5"
+  }
+}

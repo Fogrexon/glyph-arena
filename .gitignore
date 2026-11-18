@@ -6,3 +6,6 @@ examples/parry/public/parry.wav
 
 # the local mirror of the Pages layout (see demo-pages.yml); built, never committed
 /site/
+
+# extracted from docs/tutorial.md by scripts/extract-tutorial.mjs, compiled never committed
+/fixtures/tutorial/main.ts
