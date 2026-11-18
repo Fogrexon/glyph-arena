@@ -585,6 +585,20 @@ async function runDesktop(browser, baseUrl, errors) {
       );
     }
 
+    // ---- a click that lands and lifts inside one frame starts the run ----
+    // The third path with the frame-boundary hole: `page.mouse.click` sends pointerdown and
+    // pointerup with no delay, so a loop that only kept "pointers down now" never saw the click at
+    // all. `input` latches the press for one frame, so the frame that acts on it still gets it.
+    if ((await state(page))?.phase === "title") {
+      await page.mouse.click(640, 360);
+      const clicked = await until(page, (s) => s.phase === "play", { timeoutMs: 4000 });
+      check(
+        clicked.hit,
+        "R7 (①): a click that ends inside one frame starts the run",
+        `phase ${clicked.samples.at(-1)?.phase}`,
+      );
+    }
+
     // ---- R2 (①): one second of running --------------------------------
     if (!(await startPlaying(page))) {
       check(false, "R2: the slice starts", "phase never reached play");

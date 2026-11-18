@@ -36,7 +36,7 @@ input.dispose();
 | Field | Type | Description |
 |-------|------|-------------|
 | `keys` | `ReadonlySet<string>` | Down now, or pressed since the previous `snapshot()` (the latch) |
-| `pointers` | `readonly PointerState[]` | Active pointers |
+| `pointers` | `readonly PointerState[]` | Down now, or landed since the previous `snapshot()` (the latch) |
 
 ### `PointerState`
 
@@ -60,6 +60,14 @@ be invisible, and every mechanical test had to hold a key for 150 ms. A press th
 frame runs is now reported for that one frame, so `actions.pressed()` still sees the edge. It is one
 frame, not a hold: `snapshot()` consumes the latch, so call it once per frame. Auto-repeat is not a
 second press.
+
+### The pointer latch
+
+A click or a tap that lands and lifts between two frames used to be invisible — the title screen never
+started, a menu item never fired. A press that ended before the frame runs now appears in `pointers`
+for that one frame, at the position it landed at, so `createTouchControls` and any menu handler see
+it. A pointer that is still down answers with its live position and is listed once. Same latch as the
+keys, same one-frame life.
 
 ### State clearing
 
