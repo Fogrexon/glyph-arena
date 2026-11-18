@@ -72,12 +72,9 @@ one strategy must not be free.
 | bold (mash) | 3/3 | 11.9 s | 1 | 4 |
 | careful (read the tell, punish the opening) | 6/6 | 42–54 s | 5 in 5 of 6 | 0 in 5 of 6 |
 
-Same level, same bundle (`index-D6_5OA_7.js`). Two bodies only:
-
-| bot | clears | time | hearts left | commits apart (min) |
-| --- | --- | --- | --- | --- |
-| bold | 2/2 | 10.4 s | 2 | 733 ms |
-| careful | 34 s (1 of 2 runs stalled — that was the open left edge) | | 5 | 1033 ms |
+Same level, same bundle (`index-D6_5OA_7.js`), two bodies only: bold clears 2/2 in 10.4 s with
+2 hearts left, the commits 733 ms apart; careful clears in 34 s with 5 hearts and 1033 ms apart
+(1 of its 2 runs stalled — that was the open left edge).
 
 With two bodies the queue never binds, which is why the two-body fight did not move when the rule
 landed.
