@@ -18,6 +18,17 @@
  *      screen spot while the tiles slide left — which only happens if input reaches `stepBody`
  *   T6 no page or console errors other than failed resource loads
  *   T7 nothing the page asked for was missing (the server saw every response < 400)
+ *   T8 at 390×844 (touch, DPR 3) the canvas is the window — the phone viewport the tutorial
+ *      promises to work in
+ *   T9 that page painted
+ *   T10 frames keep coming there too
+ *   T11 the pad the phone section builds has **no point that belongs to two zones**, at 360, 390,
+ *       414 and 432 px, and all three zones answer somewhere
+ *
+ * T11 exists because the same file broke for people outside this repo: `size = 120` needs 432 px of
+ * screen, so on a 390 px phone the right zone and the jump zone overlapped by 30 px (60 px at 360),
+ * and a thumb in the overlap walked *and* jumped. The doc now derives the size from the width; this
+ * check walks the zones of the block the doc publishes, at the widths where the constant failed.
  *
  * T5 is the one that catches the "it compiles but the world never steps" class, and it has to be
  * that one: the tutorial's body spawns already standing on a tile, so "it is on the floor" is true
@@ -114,6 +125,142 @@ const SAMPLE = `(() => {
   };
 })()`;
 
+
+/** The phone viewport the tutorial's "On a phone" section is written for. */
+const PHONE = { width: 390, height: 844 };
+
+/** The widths where a constant 120 px pad used to overlap: 432 is the first that fits. */
+const PAD_WIDTHS = [360, 390, 414, 432];
+
+const PHONE_USER_AGENT =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
+
+/**
+ * T8–T10: the tutorial's own program, in a phone-sized touch viewport.
+ *
+ * The 30-minute promise is "a canvas and a body", and the section after it starts "a phone has no
+ * keyboard" — so the program above has to survive the viewport before the pad is even considered.
+ */
+async function runPhoneViewport(browser, baseUrl) {
+  const context = await browser.newContext({
+    viewport: { ...PHONE },
+    deviceScaleFactor: 3,
+    isMobile: true,
+    hasTouch: true,
+    userAgent: PHONE_USER_AGENT,
+  });
+
+  try {
+    const page = await context.newPage();
+    const pageErrors = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+
+    await page.addInitScript(COUNT_FRAMES);
+    await page.goto(baseUrl, { waitUntil: "load" });
+
+    let first = null;
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
+      first = await page.evaluate(SAMPLE);
+      if (first.error === undefined && first.counts.player > 0) break;
+      await page.waitForTimeout(100);
+    }
+    if (first?.error !== undefined) throw new Error(first.error);
+
+    check(
+      first.width === PHONE.width && first.height === PHONE.height,
+      "T8: at 390×844 the canvas is the window",
+      `${first.width}×${first.height}`,
+    );
+    check(
+      first.counts.clear > 0 && first.counts.solid > 0 && first.counts.player > 0,
+      "T9: the phone-sized page painted the tutorial's frame",
+      `clear ${first.counts.clear}px, solid ${first.counts.solid}px, player ${first.counts.player}px`,
+    );
+
+    const before = await page.evaluate(SAMPLE);
+    await page.waitForTimeout(400);
+    const after = await page.evaluate(SAMPLE);
+    check(
+      before.frames !== null && after.frames - before.frames >= 4,
+      "T10: frames keep coming at 390×844",
+      `${before.frames} → ${after.frames} rAF callbacks in 400 ms`,
+    );
+    check(pageErrors.length === 0, "T10b: no page errors on the phone", pageErrors.slice(0, 2).join(" | "));
+  } finally {
+    await context.close();
+  }
+}
+
+/**
+ * T11: the zones the published `buildPad` produces, probed point by point.
+ *
+ * `buildPad` comes from the tutorial's `On a phone` block, packaged by the fixture. Each probe is a
+ * fresh pad and one pointer, so "two zones answered" is a property of the geometry, not of a finger
+ * that lingered. The y sweep is wide because the block's own `y` comes from the same size — the
+ * gate does not repeat that formula, it walks the pad and lets the zones speak.
+ */
+async function runPadZones(browser, baseUrl) {
+  const page = await browser.newPage({ viewport: { ...PHONE }, hasTouch: true });
+  try {
+    await page.goto(`${baseUrl}/phone.html`, { waitUntil: "load" });
+    await page.waitForFunction(() => typeof window.__buildPad === "function", undefined, { timeout: 10_000 });
+
+    const measured = await page.evaluate(
+      ({ widths, height }) => {
+        const buildPad = window.__buildPad;
+        const names = ["left", "right", "jump"];
+
+        return widths.map((width) => {
+          const spans = Object.fromEntries(names.map((name) => [name, { minX: Infinity, maxX: -Infinity, hits: 0 }]));
+          let overlaps = 0;
+          let firstOverlap = null;
+
+          for (let x = 0; x <= width; x += 2) {
+            for (let y = Math.max(0, height - 200); y <= height; y += 8) {
+              const pad = buildPad(width, height);
+              pad.update([{ id: 1, x, y }], 1 / 60);
+              const down = names.filter((name) => pad.down(name));
+
+              for (const name of down) {
+                const span = spans[name];
+                span.hits += 1;
+                if (x < span.minX) span.minX = x;
+                if (x > span.maxX) span.maxX = x;
+              }
+              if (down.length > 1) {
+                overlaps += 1;
+                if (firstOverlap === null) firstOverlap = { x, y, down };
+              }
+            }
+          }
+
+          return { width, spans, overlaps, firstOverlap };
+        });
+      },
+      { widths: PAD_WIDTHS, height: PHONE.height },
+    );
+
+    for (const entry of measured) {
+      const silent = ["left", "right", "jump"].filter((name) => entry.spans[name].hits === 0);
+      const zones = ["left", "right", "jump"]
+        .map((name) => `${name} ${entry.spans[name].minX}–${entry.spans[name].maxX}`)
+        .join(" / ");
+
+      check(
+        entry.overlaps === 0 && silent.length === 0,
+        `T11: at ${entry.width}px no point belongs to two pad zones`,
+        entry.overlaps > 0
+          ? `${entry.overlaps} point(s) answered twice, e.g. ${JSON.stringify(entry.firstOverlap)}`
+          : `${silent.join(", ")} never answered`,
+      );
+      console.log(`     ${entry.width}px: ${zones}`);
+    }
+  } finally {
+    await page.close();
+  }
+}
+
 async function main() {
   if (!existsSync(join(DIST, "index.html"))) {
     throw new Error(`no built tutorial at ${DIST} — run \`pnpm -r build\` first`);
@@ -192,6 +339,9 @@ async function main() {
 
     check(errors.length === 0, "T6: no console or page errors", errors.slice(0, 3).join(" | "));
     check(missing.length === 0, "T7: every asset the page asked for was served", missing.slice(0, 3).join(" | "));
+
+    await runPhoneViewport(browser, baseUrl);
+    await runPadZones(browser, baseUrl);
   } finally {
     await browser.close();
     server.close();

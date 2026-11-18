@@ -4,10 +4,10 @@
   "type": "module",
   "description": "Compiles and runs the tutorial's 'The whole file' block, extracted from docs/tutorial.md",
   "scripts": {
-    "extract": "node ../../scripts/extract-tutorial.mjs",
-    "dev": "node ../../scripts/extract-tutorial.mjs && vite",
-    "typecheck": "node ../../scripts/extract-tutorial.mjs && tsc -p tsconfig.json --noEmit",
-    "build": "node ../../scripts/extract-tutorial.mjs && vite build"
+    "extract": "node ../../scripts/extract-tutorial.mjs && node ../../scripts/extract-tutorial-phone.mjs",
+    "dev": "node ../../scripts/extract-tutorial.mjs && node ../../scripts/extract-tutorial-phone.mjs && vite",
+    "typecheck": "node ../../scripts/extract-tutorial.mjs && node ../../scripts/extract-tutorial-phone.mjs && tsc -p tsconfig.json --noEmit",
+    "build": "node ../../scripts/extract-tutorial.mjs && node ../../scripts/extract-tutorial-phone.mjs && vite build"
   },
   "dependencies": {
     "@fogrexon/glyph-arena": "workspace:*"

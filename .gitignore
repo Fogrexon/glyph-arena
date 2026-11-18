@@ -9,4 +9,5 @@ examples/parry/public/parry.wav
 
 # extracted from docs/tutorial.md and packages/glyph-arena/README.md by scripts/extract-*.mjs
 /fixtures/tutorial/main.ts
+/fixtures/tutorial/phone-pad.ts
 /fixtures/readme/main.ts

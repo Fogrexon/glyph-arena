@@ -8,6 +8,28 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Added
 
+- **`e2e:tutorial` walks the phone now — the viewport and the pad's zones.** The tutorial's
+  `On a phone` section is four snippets spliced into the program above, so it had never been
+  compiled or run: three are inserts into code that already exists. The fourth is
+  `buildPad(width, height)`, and it is the one that broke for people outside this repo — `size` was
+  a constant 120, three squares plus margins need 432 px, so on a 390 px phone the right zone and
+  the jump zone overlapped by 30 px (60 px at 360) and a thumb in the overlap **walked and jumped at
+  once**. The gate now does two things. **T8–T10**: the tutorial's own program is loaded at
+  **390×844 with touch, DPR 3 and an iPhone user agent**, and the canvas must be the window's size,
+  painted, with frames advancing. **T11**: the fixture extracts the published `buildPad` block
+  verbatim (`scripts/extract-tutorial-phone.mjs`, +1 harness line exporting it), serves it on its
+  own page, and probes the zones **point by point at 360 / 390 / 414 / 432 px** — every sampled
+  point must belong to **at most one** zone, and all three zones must answer somewhere. The probe
+  walks the pad instead of repeating the size formula, so it measures the doc, not the gate's copy
+  of it. Measured: `360: left 24–118 / right 132–226 / jump 240–334`, `390: 24–128 / 142–246 /
+  260–364`, `414: 24–136 / 150–262 / 276–388`, `432: 24–142 / 156–274 / 288–406` — matching the
+  arithmetic in the section. Reverse check: putting `const size = 120` back into the generated block
+  turns **T11 red at 360 (450 sampled points answering twice), 390 (225) and 414 (45), and green at
+  432** — the width where the constant fits. `test:scripts` adds 8 tests (47 → 55), including one
+  that fails if the size ever becomes a constant again.
+
+### Added
+
 - **the outside reader's path is a gate now: pack the tarball, install it into an empty project,
   compile both documents, and run the tutorial's program.** Every other check resolves the umbrella
   to `src/` through `tsconfig` `paths` or a workspace link, so none of them ever looked at what npm
