@@ -6,6 +6,17 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+### Fixed
+
+- **The P6 wait no longer paints a red annotation on a green run.** `tsc` prints
+  `file.ts(11,3): error TS2305: …`, and GitHub's runner has a matcher for exactly that shape, so the
+  line that says "a release is staged" came back as `##[error]` — a false statement about a run that
+  succeeded. `scripts/lib/diagnostics.mjs` rewrites the diagnostic to `file.ts: TS2305: …` for the
+  wait only; a real failure keeps its position, because that is the first thing a reader wants.
+  Tested by four cases (the exact line main's CI printed, a Windows path, an already-quiet line, and
+  a line that is not a diagnostic), including the assertion that the raw line matches the annotation
+  shape and the rewritten one does not.
+
 ## [0.4.0] - 2026-11-18
 
 The version that adds a module — `@fogrexon/glyph-arena-chase` — and `tagIn(map, tag)` on the tile

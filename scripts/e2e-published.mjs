@@ -34,6 +34,7 @@ import { join, resolve } from "node:path";
 import { chromium } from "playwright-core";
 
 import { requireFresh } from "./lib/build-stamp.mjs";
+import { quietDiagnostic } from "./lib/diagnostics.mjs";
 import { singleProgram } from "./lib/markdown-program.mjs";
 import { serveDist } from "./lib/static-server.mjs";
 import { wholeFileProgram } from "./lib/tutorial.mjs";
@@ -290,7 +291,7 @@ async function main() {
           // line names the version so the wait cannot be mistaken for a pass.
           console.log(
             `PEND P6: npm serves @fogrexon/glyph-arena@${publishedVersion}, which cannot run the documents on main ` +
-              `(${registryError}); this workspace is v${workspaceVersion}, so a release is staged — ` +
+              `(${quietDiagnostic(registryError)}); this workspace is v${workspaceVersion}, so a release is staged — ` +
               `publish v${workspaceVersion} and this check becomes the gate`,
           );
         } else {
