@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@fogrexon/glyph-arena": ["../../packages/glyph-arena/dist/index.d.ts"]
+    }
+  }
+}
