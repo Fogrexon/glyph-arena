@@ -1040,33 +1040,30 @@ async function runParry(browser, errors) {
       `parried ${beforeSecond?.parried} -> ${afterSecond.parried}, wave ${beforeSecond?.wave} -> ${secondPress?.wave}`,
     );
 
-    // I11: five waves defended in a row. This is the check that makes `lives` a machine criterion: every
-    // frame it turns to the soonest threat and presses inside the window, which a single direction could
-    // not do when two enemies arrive together.
+    // I11: a press inside the window defends a wave, and a wave nobody answers costs a life.
+    //
+    // This check used to be "the bot survives five waves", which measured the harness instead of the
+    // game: on one bundle the same code passed (`5 parried, 3 lives`) and failed (`4 parried,
+    // 2 lives`) run to run -- one in three. The rule is arithmetic the demo already publishes: the
+    // parry fires on the frame an enemy is inside the box and `pressMs <= windowMs`, and a dash
+    // lasts `dashMs`. So this presses *once per wave*, forty milliseconds before that threshold is
+    // crossed, and counts defended waves. No re-pressing, no reflexes.
     await page.goto(`http://127.0.0.1:${PARRY_PORT}/?i11=1`, { waitUntil: "load" });
     await page.waitForTimeout(600);
     await pressOnce(page, "Space");
     const defenceStart = Date.now();
     let heldArrows = [];
     let defenceState = null;
-    let lostLife = false;
-    // Press and re-press while the enemy is inside the window instead of pressing once: a dash that
-    // starts slightly early ends before the parry box reaches, and one that starts late lets the enemy
-    // touch first. A single press makes the check depend on the runner's frame timing; pressing again
-    // as soon as the dash is over does not.
-    let pressCooldownUntil = 0;
-    while (Date.now() - defenceStart < 20000) {
+    let presses = 0;
+    let lastPress = 0;
+    while (Date.now() - defenceStart < 25000) {
       const s = await page.evaluate(() => window.__parryState);
       if (!s || s.phase !== "play") {
         await page.waitForTimeout(20);
         continue;
       }
       defenceState = s;
-      if (s.lives < 3) {
-        lostLife = true;
-        break;
-      }
-      if (s.parried >= 5) break;
+      if (s.lives < 3 || s.parried >= 5) break;
       const threat = (s.threats && s.threats[0]) || null;
       const arrows = [];
       if (threat) {
@@ -1082,22 +1079,45 @@ async function runParry(browser, errors) {
         if (!heldArrows.includes(key)) await page.keyboard.down(key);
       }
       heldArrows = arrows;
-      // In the window: dash, then come straight back to read the result. If the parry did not land,
-      // the next pass presses again -- `pressCooldownUntil` only covers the dash that is still running.
-      if (threat && threat.ms <= s.windowMs + s.dashMs && Date.now() > pressCooldownUntil) {
+      // One press per wave: `ms` is distance / speed, so the parry fires about `ms - windowMs` from
+      // now; 40 ms of lead leaves the 160 ms dash covering that moment. The cooldown only guards
+      // against a second press for the same wave while the first dash is still running.
+      if (threat && threat.ms > 0 && threat.ms - s.windowMs <= 40 && Date.now() - lastPress > 330) {
         await page.keyboard.down("ShiftLeft");
-        await page.waitForTimeout(120);
+        await page.waitForTimeout(90);
         await page.keyboard.up("ShiftLeft");
-        pressCooldownUntil = Date.now() + 60;
+        presses += 1;
+        lastPress = Date.now();
         continue;
       }
-      await page.waitForTimeout(10);
+      await page.waitForTimeout(5);
     }
     for (const key of heldArrows) await page.keyboard.up(key);
+    const defended = defenceState?.parried ?? 0;
     check(
-      !lostLife && Boolean(defenceState) && defenceState.parried >= 5 && defenceState.lives === 3,
-      "I11: five waves defended without losing a life",
-      `${defenceState?.parried} parried, ${defenceState?.lives} lives, wave ${defenceState?.wave}`,
+      defended >= 5 && defenceState?.lives === 3,
+      "I11: five presses inside the window defend five waves without losing a life",
+      `${defended} parried in ${presses} press(es), ${defenceState?.lives} lives, wave ${defenceState?.wave}`,
+    );
+
+    // The other half of the same rule: a wave nobody answers costs a life. Without this the check
+    // would still pass if `lives` had stopped moving altogether.
+    let unanswered = null;
+    const unansweredStart = Date.now();
+    while (Date.now() - unansweredStart < 20000) {
+      const s = await page.evaluate(() => window.__parryState);
+      if (!s) {
+        await page.waitForTimeout(100);
+        continue;
+      }
+      unanswered = s;
+      if (s.phase !== "play" || s.lives < 3) break;
+      await page.waitForTimeout(100);
+    }
+    check(
+      unanswered !== null && unanswered.parried >= 5 && unanswered.lives === 2,
+      "I11: a wave nobody answers costs a life",
+      `lives ${unanswered?.lives} after standing still at ${unanswered?.parried} parried`,
     );
 
     // I12: an enemy that stops being a threat leaves the field. Before this, only a parry removed an
