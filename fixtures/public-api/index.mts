@@ -25,6 +25,7 @@ import { createGamepad } from "@fogrexon/glyph-arena-gamepad";
 import { createInput } from "@fogrexon/glyph-arena-input";
 import { createLoop } from "@fogrexon/glyph-arena-loop";
 import { createForest } from "@fogrexon/glyph-arena-scene";
+import { fitToWindow, measureCanvas, screenScale, toCanvasPoint } from "@fogrexon/glyph-arena-screen";
 import { createTimer } from "@fogrexon/glyph-arena-timer";
 import { createTransform } from "@fogrexon/glyph-arena-transform";
 import { approach, createTween } from "@fogrexon/glyph-arena-tween";
@@ -42,6 +43,7 @@ import type { GamepadReader } from "@fogrexon/glyph-arena-gamepad";
 import type { Input } from "@fogrexon/glyph-arena-input";
 import type { Loop } from "@fogrexon/glyph-arena-loop";
 import type { Forest } from "@fogrexon/glyph-arena-scene";
+import type { MeasuredCanvas, ScreenBox, ScreenSize, WindowFit } from "@fogrexon/glyph-arena-screen";
 import type { Timer } from "@fogrexon/glyph-arena-timer";
 import type { Transform } from "@fogrexon/glyph-arena-transform";
 import type { Tween } from "@fogrexon/glyph-arena-tween";
@@ -62,6 +64,11 @@ export const publicFactories = {
   input: createInput,
   loop: createLoop,
   scene: createForest,
+  // Screen space: four functions, and the whole surface a game converts a pointer with.
+  screenScale,
+  toCanvasPoint,
+  measureCanvas,
+  fitToWindow,
   timer: createTimer,
   transform: createTransform,
   tween: createTween,
@@ -83,6 +90,10 @@ export type PublicTypes = {
   input: Input;
   loop: Loop;
   scene: Forest;
+  screen: MeasuredCanvas;
+  screenBox: ScreenBox;
+  screenSize: ScreenSize;
+  screenFit: WindowFit;
   timer: Timer;
   transform: Transform;
   tween: Tween;

@@ -8,6 +8,7 @@ import { createWorld, type Entity } from "@fogrexon/glyph-arena-ecs";
 import { createGamepad, type GamepadState } from "@fogrexon/glyph-arena-gamepad";
 import { createInput } from "@fogrexon/glyph-arena-input";
 import { createLoop } from "@fogrexon/glyph-arena-loop";
+import { fitToWindow } from "@fogrexon/glyph-arena-screen";
 import { createForest, type Node } from "@fogrexon/glyph-arena-scene";
 import { createTimer } from "@fogrexon/glyph-arena-timer";
 import { createTransform, type Matrix2D } from "@fogrexon/glyph-arena-transform";
@@ -637,13 +638,7 @@ async function main(): Promise<void> {
     { once: true },
   );
 
-  function resize(): void {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-  }
-
-  resize();
-  window.addEventListener("resize", resize);
+  fitToWindow(canvas, window);
 
   const input = createInput();
   input.attach(window);

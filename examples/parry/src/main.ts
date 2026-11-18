@@ -8,6 +8,7 @@ import { createWorld, type Entity } from "@fogrexon/glyph-arena-ecs";
 import { createGamepad, type GamepadState } from "@fogrexon/glyph-arena-gamepad";
 import { createInput } from "@fogrexon/glyph-arena-input";
 import { createLoop } from "@fogrexon/glyph-arena-loop";
+import { fitToWindow, measureCanvas, toCanvasPoint } from "@fogrexon/glyph-arena-screen";
 import { createForest, type Node } from "@fogrexon/glyph-arena-scene";
 import { createTimer } from "@fogrexon/glyph-arena-timer";
 import { createTouchControls, type TouchZone } from "@fogrexon/glyph-arena-touch";
@@ -511,21 +512,6 @@ async function main(): Promise<void> {
   actions.bind("restart", ["KeyR"]);
 
   /**
-   * Pointer coordinates in canvas pixels. The bitmap is `innerWidth x innerHeight` while the CSS box is
-   * whatever the layout gives it, so on a phone those are not the same numbers - comparing a client position
-   * against a canvas position puts the buttons somewhere the player cannot see.
-   *
-   * This is the one part of the pads that stays here: `createTouchControls` takes zones and pointers in
-   * the same units and deliberately does not decide what "the same units" means.
-   */
-  function toCanvasPoint(point: { x: number; y: number }): { x: number; y: number } {
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = rect.width === 0 ? 1 : canvas.width / rect.width;
-    const scaleY = rect.height === 0 ? 1 : canvas.height / rect.height;
-    return { x: (point.x - rect.left) * scaleX, y: (point.y - rect.top) * scaleY };
-  }
-
-  /**
    * The pads, in canvas pixels. Rebuilt on resize rather than every frame: the zones are geometry in
    * canvas pixels, so they only change when the canvas does, and rebuilding throws away a press in
    * flight - which a resize can afford and a frame cannot.
@@ -544,13 +530,13 @@ async function main(): Promise<void> {
 
   let touch = createTouchControls({ zones: touchZones(), holdMs: TOUCH_HOLD_MS });
 
-  function resize(): void {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    touch = createTouchControls({ zones: touchZones(), holdMs: TOUCH_HOLD_MS });
-  }
-  resize();
-  window.addEventListener("resize", resize);
+  // The bitmap is the window, and a zone is geometry in bitmap pixels - so the pads are rebuilt
+  // after the new size is in place, not on the frame.
+  fitToWindow(canvas, window, {
+    onResize: () => {
+      touch = createTouchControls({ zones: touchZones(), holdMs: TOUCH_HOLD_MS });
+    },
+  });
 
   function drawTouchPad(): void {
     if (!touchEnabled) {
@@ -899,8 +885,10 @@ async function main(): Promise<void> {
       if (touchEnabled) {
         // The frame's pointers and the frame's `dt`. `holdMs` inside the pad is what turns a tap
         // that lands and lifts between two frames into a press the game can act on.
+        // One layout read for the frame, however many thumbs are on the screen.
+        const measured = measureCanvas(canvas);
         touch.update(
-          snapshot.pointers.map((point) => ({ ...toCanvasPoint(point), id: point.id })),
+          snapshot.pointers.map((point) => ({ ...toCanvasPoint(point, measured.box, measured.size), id: point.id })),
           delta,
         );
         const stick = touch.axis("move");

@@ -8,6 +8,7 @@
 import { createActions } from "@fogrexon/glyph-arena-actions";
 import { createInput } from "@fogrexon/glyph-arena-input";
 import { createLoop } from "@fogrexon/glyph-arena-loop";
+import { fitToWindow, measureCanvas, toCanvasPoint } from "@fogrexon/glyph-arena-screen";
 import { visibleColumns } from "@fogrexon/glyph-arena-tilemap";
 import { createTouchControls, type TouchZone } from "@fogrexon/glyph-arena-touch";
 
@@ -268,7 +269,7 @@ function touchButtons(): { left: Rect; right: Rect; jump: Rect } {
 }
 
 /**
- * The pads, in canvas pixels — the same units `toCanvas` below puts the pointers in. `screen` is the
+ * The pads, in canvas pixels — the same units `toCanvasPoint` puts the pointers in. `screen` is the
  * whole canvas: the title and the result screens are "tap anywhere", and a phone user should not have
  * to find a corner before the first move.
  */
@@ -284,15 +285,13 @@ function touchZones(): Record<string, TouchZone> {
 
 let touch = createTouchControls({ zones: touchZones(), holdMs: TOUCH.holdMs });
 
-function resize(): void {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  // The zones are canvas pixels, so they only change when the canvas does. Rebuild on resize, not
-  // on every frame: a rebuild drops a press in flight, which a resize can afford and a frame cannot.
-  touch = createTouchControls({ zones: touchZones(), holdMs: TOUCH.holdMs });
-}
-resize();
-window.addEventListener("resize", resize);
+// The zones are canvas pixels, so they only change when the canvas does. Rebuild on resize, not on
+// every frame: a rebuild drops a press in flight, which a resize can afford and a frame cannot.
+fitToWindow(canvas, window, {
+  onResize: () => {
+    touch = createTouchControls({ zones: touchZones(), holdMs: TOUCH.holdMs });
+  },
+});
 
 // ---------------------------------------------------------------- drawing
 
@@ -754,15 +753,12 @@ const loop = createLoop({
     const keys = new Set(snapshot.keys);
     const query = actions.tick(keys);
 
-    const rect = canvas.getBoundingClientRect();
-    const toCanvas = (point: { x: number; y: number }) => ({
-      x: (point.x - rect.left) * (rect.width === 0 ? 1 : canvas.width / rect.width),
-      y: (point.y - rect.top) * (rect.height === 0 ? 1 : canvas.height / rect.height),
-    });
+    // One layout read for the frame, however many thumbs are on the screen.
+    const measured = measureCanvas(canvas);
     // The frame's pointers and the frame's `dt`. `holdMs` is what turns a tap that lands and lifts
     // between two frames into a press the game can act on; without it the harness has to hold.
     touch.update(
-      snapshot.pointers.map((point) => ({ ...toCanvas(point), id: point.id })),
+      snapshot.pointers.map((point) => ({ ...toCanvasPoint(point, measured.box, measured.size), id: point.id })),
       dt,
     );
     // Movement is presence, not a press: a thumb that lifts has to stop the runner on that frame,
