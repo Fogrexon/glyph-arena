@@ -216,6 +216,7 @@ jump.
 
 ```ts
 import {
+  // phone-begin
   createBody,
   createCamera,
   createDraw,
@@ -226,15 +227,18 @@ import {
   jumpHeightOf,
   solidInRect,
   stepBody,
+  // phone-end
 } from "@fogrexon/glyph-arena";
 
 const CELL = 32;
 const COLS = 32;
 const ROWS = 6;
 
+// phone-begin
 const canvas = document.querySelector<HTMLCanvasElement>("#game")!;
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
+// phone-end
 
 const draw = createDraw({ context: canvas.getContext("2d")! });
 const input = createInput();
@@ -277,23 +281,18 @@ console.log(jumpHeightOf(feel)); // 111.08 px, from the same config the body use
 createLoop({
   onFrame: ({ delta }) => {
     const dt = Math.min(delta, 1 / 30); // a long frame must not teleport the body
+
+    // phone-begin
     const keys = input.snapshot().keys;
+    const left = keys.has("ArrowLeft") || keys.has("KeyA");
+    const right = keys.has("ArrowRight") || keys.has("KeyD");
     const jumpHeld = keys.has("Space");
+    // phone-end
+
     const jump = jumpHeld && !jumpWasHeld;
     jumpWasHeld = jumpHeld;
 
-    stepBody(
-      player,
-      {
-        left: keys.has("ArrowLeft") || keys.has("KeyA"),
-        right: keys.has("ArrowRight") || keys.has("KeyD"),
-        jump,
-        jumpHeld,
-      },
-      dt,
-      solid,
-      { grid: CELL },
-    );
+    stepBody(player, { left, right, jump, jumpHeld }, dt, solid, { grid: CELL });
 
     draw.clear("#0d1626");
 
@@ -310,6 +309,11 @@ createLoop({
     draw.rect({ x: player.x, y: player.y, w: player.w, h: player.h, fill: "#f7b32b" });
 
     draw.setView(null);
+
+    // phone-begin
+    // (a keyboard game: there is no pad to draw)
+    // phone-end
+
     draw.text({ text: `x ${Math.round(player.x)}`, x: 16, y: 16, size: 16, fill: "#e8eaed" });
     draw.text({
       text: "SCORE 0",
@@ -427,3 +431,182 @@ const right = keys.has("ArrowRight") || keys.has("KeyD") || pad.down("right");
 Two things outside the library still matter. Give the canvas `touch-action: none` in CSS, or a drag
 scrolls the page instead of moving the character. And draw the pad yourself with `draw.rect`: the
 zones are where the fingers are, not what they look like, and the library has no opinion about that.
+
+## The whole file, on a phone
+
+The same game as `## The whole file`, with the phone wiring in it: it runs on a keyboard and on two
+thumbs, and the pad it draws is the pad it reads. It needs one line of CSS the desktop version does
+not — `canvas { touch-action: none; }` — or a drag scrolls the page instead of moving the character.
+
+The `// phone-begin` / `// phone-end` pairs mark the only places this program differs from the one
+above; everything outside them is byte for byte the same, and a check in CI says so.
+
+```ts
+import {
+  // phone-begin
+  createBody,
+  createCamera,
+  createDraw,
+  createInput,
+  createLoop,
+  createTileMap,
+  createTouchControls,
+  fitToWindow,
+  hasTag,
+  jumpHeightOf,
+  measureCanvas,
+  solidInRect,
+  stepBody,
+  toCanvasPoint,
+  // phone-end
+} from "@fogrexon/glyph-arena";
+
+const CELL = 32;
+const COLS = 32;
+const ROWS = 6;
+
+// phone-begin
+const canvas = document.querySelector<HTMLCanvasElement>("#game")!;
+
+// The rectangles a finger is tested against are the ones the player sees, so the two cannot drift apart.
+function buildPad(width: number, height: number) {
+  const margin = 24;
+  const gap = 12;
+  const size = Math.min(120, Math.floor((width - margin * 2 - gap * 2) / 3));
+  const y = height - size - margin;
+  const zones = {
+    left: { kind: "rect", x: margin, y, w: size, h: size },
+    right: { kind: "rect", x: margin + size + gap, y, w: size, h: size },
+    jump: { kind: "rect", x: width - margin - size, y, w: size, h: size },
+  } as const;
+  return { zones, controls: createTouchControls({ zones, holdMs: 120 }) };
+}
+
+let pad = buildPad(window.innerWidth, window.innerHeight);
+
+// The canvas is the window's size and stays that size; a resize rebuilds the pad from the new one.
+fitToWindow(canvas, window, {
+  onResize: () => {
+    pad = buildPad(canvas.width, canvas.height);
+  },
+});
+// phone-end
+
+const draw = createDraw({ context: canvas.getContext("2d")! });
+const input = createInput();
+input.attach(window);
+
+const LEVEL = [
+  "................................",
+  "................................",
+  "..........#####.................",
+  "................................",
+  "########.......################",
+  "################################",
+];
+const map = createTileMap(LEVEL.join("\n"), { legend: { "#": ["solid"] }, cell: CELL });
+
+// Every number this game feels by lives here; the library holds none of them.
+const feel = {
+  gravity: 2600,
+  jumpVelocity: -760,
+  maxFall: 1200,
+  coyoteSeconds: 0.09,
+  jumpBufferSeconds: 0.12,
+  runSpeed: 320,
+  runAccel: 2600,
+  airAccel: 1700,
+  groundFriction: 2400,
+  airFriction: 400,
+  jumpCutFactor: 0.35,
+};
+
+const solid = (left: number, top: number, right: number, bottom: number) =>
+  solidInRect(map, left, top, right, bottom, "solid");
+
+const player = createBody({ x: 70, y: 100, w: 20, h: 28 }, feel);
+const camera = createCamera();
+let jumpWasHeld = false; // `jump` is the edge: a press, not "the key is down"
+
+console.log(jumpHeightOf(feel)); // 111.08 px, from the same config the body uses
+
+createLoop({
+  onFrame: ({ delta }) => {
+    const dt = Math.min(delta, 1 / 30); // a long frame must not teleport the body
+
+    // phone-begin
+    const keys = input.snapshot().keys;
+
+    // Pointers arrive in CSS pixels; the pad lives in canvas pixels.
+    const measured = measureCanvas(canvas);
+    const points = input.snapshot().pointers.map((pointer) => ({
+      id: pointer.id,
+      ...toCanvasPoint({ x: pointer.x, y: pointer.y }, measured.box, measured.size),
+    }));
+    pad.controls.update(points, dt);
+
+    const left = keys.has("ArrowLeft") || keys.has("KeyA") || pad.controls.down("left");
+    const right = keys.has("ArrowRight") || keys.has("KeyD") || pad.controls.down("right");
+    const jumpHeld = keys.has("Space") || pad.controls.held("jump");
+    // phone-end
+
+    const jump = jumpHeld && !jumpWasHeld;
+    jumpWasHeld = jumpHeld;
+
+    stepBody(player, { left, right, jump, jumpHeld }, dt, solid, { grid: CELL });
+
+    draw.clear("#0d1626");
+
+    camera.set({ x: player.x - canvas.width * 0.33, y: 0 });
+    draw.setView(camera.view(canvas.width, canvas.height));
+
+    for (let row = 0; row < ROWS; row += 1) {
+      for (let col = 0; col < COLS; col += 1) {
+        if (hasTag(map, col, row, "solid")) {
+          draw.rect({ x: col * CELL, y: row * CELL, w: CELL, h: CELL, fill: "#2a3550" });
+        }
+      }
+    }
+    draw.rect({ x: player.x, y: player.y, w: player.w, h: player.h, fill: "#f7b32b" });
+
+    draw.setView(null);
+
+    // phone-begin
+    // The pad is drawn from the same rectangles the fingers are tested against.
+    for (const [name, zone] of Object.entries(pad.zones)) {
+      draw.rect({
+        x: zone.x,
+        y: zone.y,
+        w: zone.w,
+        h: zone.h,
+        fill: pad.controls.down(name) ? "#2f4a72" : "#141d30",
+        stroke: "#3a4a6b",
+        lineWidth: 2,
+      });
+      draw.text({
+        text: name === "jump" ? "JUMP" : name === "left" ? "<" : ">",
+        x: zone.x + zone.w / 2,
+        y: zone.y + zone.h / 2 - 8,
+        size: 18,
+        fill: "#c9d4e6",
+        align: "center",
+      });
+    }
+    // phone-end
+
+    draw.text({ text: `x ${Math.round(player.x)}`, x: 16, y: 16, size: 16, fill: "#e8eaed" });
+    draw.text({
+      text: "SCORE 0",
+      x: canvas.width - 16,
+      y: 16,
+      size: 16,
+      fill: "#e8eaed",
+      align: "right",
+    });
+  },
+}).start();
+```
+
+Two things changed from the keyboard version: `fitToWindow` sizes the canvas, instead of the two
+assignments inside the first marked region, and `onResize` rebuilds the pad because its zones are in
+canvas pixels and those are the numbers that just changed.
