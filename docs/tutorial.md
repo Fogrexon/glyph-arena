@@ -30,11 +30,12 @@ packed; the package's `prepack` then runs the build, so the tarball it produces 
 git clone https://github.com/Fogrexon/glyph-arena
 cd glyph-arena
 pnpm install
-pnpm --filter @fogrexon/glyph-arena pack     # writes fogrexon-glyph-arena-0.2.0.tgz in this directory
-npm install /path/to/glyph-arena/fogrexon-glyph-arena-0.2.0.tgz
+pnpm --filter @fogrexon/glyph-arena pack     # writes fogrexon-glyph-arena-<version>.tgz here
+npm install /path/to/glyph-arena/fogrexon-glyph-arena-<version>.tgz
 ```
 
-The rest of this page is unchanged either way.
+`<version>` is the umbrella's `version`; `pack` prints the file name it wrote. The rest of this
+page is unchanged either way.
 
 ## 2. A canvas
 
@@ -388,18 +389,26 @@ position.
 import { createTouchControls } from "@fogrexon/glyph-arena";
 
 function buildPad(width: number, height: number) {
-  const size = 120;
-  const y = height - size - 24;
+  const margin = 24;
+  const gap = 12;
+  // Three squares and the gaps have to fit across the screen, so the size comes from the width.
+  const size = Math.min(120, Math.floor((width - margin * 2 - gap * 2) / 3));
+  const y = height - size - margin;
   return createTouchControls({
     zones: {
-      left: { kind: "rect", x: 24, y, w: size, h: size },
-      right: { kind: "rect", x: 24 + size + 12, y, w: size, h: size },
-      jump: { kind: "rect", x: width - size - 24, y, w: size, h: size },
+      left: { kind: "rect", x: margin, y, w: size, h: size },
+      right: { kind: "rect", x: margin + size + gap, y, w: size, h: size },
+      jump: { kind: "rect", x: width - margin - size, y, w: size, h: size },
     },
     holdMs: 120,
   });
 }
 ```
+
+`size` is derived rather than fixed because a constant does not fit a phone: three 120 px squares plus
+the margins need 432 px, and below that the right zone and the jump zone overlap — by 30 px at 390 px
+wide, 60 px at 360 px — so a thumb in the overlap walks and jumps at once. Deriving the size keeps 120
+where there is room and shrinks it where there is not.
 
 The frame then reads both sources into the same two variables, and the edge stays where it already
 was — one edge over "the button is down", whichever button that is:
