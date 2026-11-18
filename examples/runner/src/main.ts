@@ -79,6 +79,13 @@ type RunnerState = {
   }>;
 };
 
+/**
+ * The height the game is laid out in: HUD text, touch buttons and the camera's vertical framing are
+ * sized against 540, and `scale()` maps that to whatever the window is.
+ *
+ * Not a screen scale — `screenScale` answers a different question (bitmap pixels per CSS pixel) and
+ * is 1 on both axes here, because `fitToWindow` gives the canvas a bitmap the size of the window.
+ */
 const LOGICAL_HEIGHT = 540;
 const RESPAWN_SECONDS = 0.6;
 

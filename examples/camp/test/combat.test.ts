@@ -11,7 +11,7 @@ import {
   dodgeInvulnerable,
   dodgeReady,
   dodgeRolling,
-  overlaps,
+  overlapsHalfOpen,
   stepAttack,
   stepDodge,
   type Dodge,
@@ -54,9 +54,9 @@ test("a swing that is over is idle, and a new swing forgets the last one hit", (
 
 test("overlap is half-open: touching edges do not connect", () => {
   const a = { left: 0, top: 0, right: 10, bottom: 10 };
-  assert.equal(overlaps(a, { left: 9, top: 9, right: 19, bottom: 19 }), true);
-  assert.equal(overlaps(a, { left: 10, top: 0, right: 20, bottom: 10 }), false);
-  assert.equal(overlaps(a, { left: 0, top: 10, right: 10, bottom: 20 }), false);
+  assert.equal(overlapsHalfOpen(a, { left: 9, top: 9, right: 19, bottom: 19 }), true);
+  assert.equal(overlapsHalfOpen(a, { left: 10, top: 0, right: 20, bottom: 10 }), false);
+  assert.equal(overlapsHalfOpen(a, { left: 0, top: 10, right: 10, bottom: 20 }), false);
 });
 
 test("the enemy commits only up close, on the ground, and only from a walk", () => {

@@ -27,7 +27,7 @@ import {
   dodgeInvulnerable,
   dodgeReady,
   dodgeRolling,
-  overlaps,
+  overlapsHalfOpen,
   stepAttack,
   stepDodge,
   type Attack,
@@ -265,7 +265,7 @@ function stepWorld(dt: number, dtMs: number, moveLeft: boolean, moveRight: boole
     if (attackPhase(attack.elapsedMs) === "active" && !attack.hasHit) {
       const blade = attackBox(player, attack.facing);
       for (const enemy of enemies) {
-        if (enemy.alive && overlaps(blade, boxOf(enemy.body))) {
+        if (enemy.alive && overlapsHalfOpen(blade, boxOf(enemy.body))) {
           hitEnemy(enemy, attack.facing);
           attack.hasHit = true;
           break;
@@ -279,7 +279,7 @@ function stepWorld(dt: number, dtMs: number, moveLeft: boolean, moveRight: boole
     for (const enemy of enemies) {
       // Only the commit hurts. Brushing past a walking enemy is not a hit — the lunge is the
       // threat, and it is the only thing you have to answer.
-      if (enemy.alive && enemy.mode === "lunge" && overlaps(boxOf(player), boxOf(enemy.body))) {
+      if (enemy.alive && enemy.mode === "lunge" && overlapsHalfOpen(boxOf(player), boxOf(enemy.body))) {
         hurtPlayer(player.x < enemy.body.x ? -1 : 1);
         break;
       }
@@ -294,7 +294,7 @@ function stepWorld(dt: number, dtMs: number, moveLeft: boolean, moveRight: boole
     if (!enemy.alive) continue;
     const me = boxOf(player);
     const them = boxOf(enemy.body);
-    if (!overlaps(me, them)) continue;
+    if (!overlapsHalfOpen(me, them)) continue;
     const overlapX = Math.min(me.right, them.right) - Math.max(me.left, them.left);
     if (overlapX <= 0) continue;
     const push = (me.left + me.right) / 2 < (them.left + them.right) / 2 ? -overlapX : overlapX;
