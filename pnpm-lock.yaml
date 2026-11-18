@@ -170,6 +170,9 @@ importers:
       '@fogrexon/glyph-arena-body':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-body
+      '@fogrexon/glyph-arena-chase':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-chase
       '@fogrexon/glyph-arena-input':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-input
