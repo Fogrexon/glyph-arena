@@ -96,8 +96,11 @@ try {
     process.exit(0);
   }
   // 5) Publish with the token in a throwaway npmrc — never in the repo, never in an argv.
-  const token = process.env.NPM_TOKEN || process.env.DSH_SECRET_NPM_TOKEN;
-  if (!token) die("NPM_TOKEN is not set (Automation token for the account that owns @fogrexon)");
+  // Order matters: the account has 2FA on, so only a token with "bypass 2FA" can publish. A plain
+  // token authenticates fine (`npm whoami` works) and is then refused with 403 at the PUT.
+  const token = process.env.NPM_TOKEN_PUBLISH || process.env.DSH_SECRET_NPM_TOKEN_PUBLISH
+    || process.env.NPM_TOKEN || process.env.DSH_SECRET_NPM_TOKEN;
+  if (!token) die("no publish token (set NPM_TOKEN_PUBLISH — the account has 2FA, so the token must bypass it)");
   const npmrc = join(packDir, ".npmrc");
   writeFileSync(npmrc, `//registry.npmjs.org/:_authToken=${token}\n`);
   chmodSync(npmrc, 0o600);
