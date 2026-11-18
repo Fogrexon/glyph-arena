@@ -43,7 +43,11 @@ try {
   let installOk = true;
   let installErr = "";
   try {
-    run("npm", ["install", "--no-audit", "--no-fund", "--loglevel=error", target]);
+    // A throwaway cache, because the shared one lies about time: right after a publish, `npm install
+    // <pkg>@<new version>` answers `notarget` from a packument npm cached a minute earlier. That
+    // turned two successful publishes (0.3.0, 0.4.0) into "failed to verify" — the one red that
+    // invites publishing again. A fresh cache cannot be stale.
+    run("npm", ["install", "--no-audit", "--no-fund", "--loglevel=error", `--cache=${join(dir, ".npmcache")}`, target]);
   } catch (e) {
     installOk = false;
     installErr = String(e.stderr ?? e.message).trim().split("\n").slice(-2).join(" ");
