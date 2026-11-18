@@ -135,7 +135,7 @@ function hitEnemy(enemy: Enemy, from: 1 | -1): void {
   hitstopMs = ATTACK.hitstopMs;
   shakeMs = 110;
   hits += 1;
-  if (canInterrupt(enemy.mode)) {
+  if (canInterrupt(enemy.mode, enemy.modeMs)) {
     // Hitting the tell is the counter: the lunge never happens.
     enemy.mode = "rest";
     enemy.modeMs = 0;
@@ -346,6 +346,7 @@ type CampState = {
   x: number;
   y: number;
   hearts: number;
+  grounded: boolean;
   hits: number;
   kills: number;
   simMs: number;
@@ -363,6 +364,7 @@ function publish(): void {
     x: player.x,
     y: player.y,
     hearts,
+    grounded: player.grounded,
     hits,
     kills,
     simMs: Math.round(simMs),

@@ -68,9 +68,11 @@ life counter quietly moving.
 
 ## Frame delta
 
-The simulation advances by at most `0.1 s` per frame (`MAX_FRAME_DELTA`). A backgrounded tab can hand the
-loop a multi-second delta; without the clamp that single frame would spend the whole round clock and
-teleport the hazards, ending the round the moment the tab is focused again.
+The simulation advances by at most `0.1 s` per frame, and the clamp is the loop's (`createLoop` defaults
+`maxDelta` to `0.1`). A backgrounded tab can hand the loop a multi-second delta; without the clamp that
+single frame would spend the whole round clock and teleport the hazards, ending the round the moment the
+tab is focused again. The game used to carry its own `Math.min(time.delta, MAX_FRAME_DELTA)`; that copy
+was `0.1` — the same number the loop already used — so it was an identity line that read as protection.
 
 ## Layouts
 

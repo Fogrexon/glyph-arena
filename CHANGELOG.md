@@ -8,6 +8,42 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Changed
 
+- **`camp`: the fight is a choice, and it is measured.** Three numbers moved and each one has a
+  measurement behind it. The lunge range went **110 -> 70 px**: the commit covers 138 px, so a
+  110 px trigger meant every place you could stand was a place the lunge reached and there was no
+  safe spot to think in. The rest after a lunge went **300 -> 450 ms**: 300 ms is shorter than the
+  swing you have to commit to (300 ms) plus the 125 ms it costs to reverse a retreat, so the reward
+  for reading the tell was a window nobody could step into. And **the second half of the tell is now
+  armoured** — only a hit in its first 130 ms cancels the lunge. With the whole tell cancellable, a
+  bot that never stopped swinging cancelled every tell (`tells 4 lunges 0`, 7.0 s, no damage), which
+  made mashing strictly better than reading: no choice, just a correct answer.
+
+  Measured in a Pod (Chromium 156) with `pnpm camp:bot bold|careful`, three runs each, on the bundle
+  the run itself reports (`index-CMS2xY4C.js`), plus the runner's three levels in the same harness
+  (`index-Zher5vOm.js`):
+
+  ```
+  bold     7.22 / 7.25 / 7.26 s   hearts 1 (took 2)   clear 3/3
+  careful 17.83 /18.93 /19.31 s   hearts 3 (took 0)   clear 3/3
+  runner   goal 3/3               deaths 1            21529 ms
+  ```
+
+  **2.6x the time for zero damage**, and every hit bold takes lands while its own blade is in
+  recovery (`blade: "recovery"`, 19-21 frames after the press): it committed, so it ate the commit.
+  That is the exchange, not a dominant strategy.
+
+- **`scripts/play-bot.mjs`: the acceptance for a slice is a rerun, not a rewrite.** Camp (both
+  strategies) and the runner's three levels in one harness — `pnpm camp:bot bold|careful` and
+  `pnpm runner:bot`. A number is only useful if the next person can reproduce it, and on 11-17 the
+  measuring device itself was wrong four times (a "careful" bot that never engaged and sat silent
+  for 57 s, a jump timed 150 px early, take-off points remembered from a level that had moved — 95
+  deaths from that one — and a cold first run counted). Two of those failures are now impossible by
+  construction: the runner's take-off windows, pits and hazards are **derived from `levels.json`**
+  (a spike hanging in the air is not a take-off point; one standing on the ground is), and the bundle
+  name is read **from the page being played**. Everything else is printed per run — tells, lunges,
+  presses, the frame a swing arrived at, and for each hit taken, what the bot was doing when it
+  landed. That is what turned "the bot dies" into "the bot was still drifting backwards when the
+  window opened".
 - **`loop`: the step the world sees is the loop's.** `createLoop({ maxDelta })` sets the largest
   step `delta` may report, in seconds (default `0.1`, unchanged). All four samples opened `onFrame`
   with `Math.min(time.delta, MAX_FRAME_DELTA)` and their own constant — for `parry` and

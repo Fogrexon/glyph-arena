@@ -46,18 +46,28 @@ test("overlap is half-open: touching edges do not connect", () => {
 });
 
 test("the enemy commits only up close, on the ground, and only from a walk", () => {
-  assert.equal(wantsLunge("walk", 0, 90, true), true);
-  assert.equal(wantsLunge("walk", 0, 200, true), false, "far away it keeps walking");
-  assert.equal(wantsLunge("walk", 0, 90, false), false, "it does not lunge in the air");
-  assert.equal(wantsLunge("windup", 0, 90, true), false, "it cannot start a second tell");
-  assert.equal(wantsLunge("rest", 0, 90, true), false, "it is open after a lunge");
+  // Derived from the range itself: the number is the game's, and a test that writes its own copy
+  // of it fails when the fight is tuned, which is the test's job to allow and the tuning's job to
+  // answer for.
+  const inside = ENEMY_AI.lungeRangePx - 10;
+  const outside = ENEMY_AI.lungeRangePx + 90;
+  assert.equal(ENEMY_AI.lungeRangePx + 10 < ENEMY_AI.lungeSpeedPxPerSecond * (ENEMY_AI.lungeMs / 1000), true, "the commit out-reaches the place it starts from");
+  assert.equal(wantsLunge("walk", 0, inside, true), true);
+  assert.equal(wantsLunge("walk", 0, outside, true), false, "far away it keeps walking");
+  assert.equal(wantsLunge("walk", 0, inside, false), false, "it does not lunge in the air");
+  assert.equal(wantsLunge("windup", 0, inside, true), false, "it cannot start a second tell");
+  assert.equal(wantsLunge("rest", 0, inside, true), false, "it is open after a lunge");
 });
 
 test("a hit cancels the tell or the lunge, and nothing else", () => {
-  assert.equal(canInterrupt("windup"), true);
-  assert.equal(canInterrupt("lunge"), false, "the commit has armour: swinging into it loses");
-  assert.equal(canInterrupt("walk"), false);
-  assert.equal(canInterrupt("rest"), false);
+  const half = ENEMY_AI.windupMs / 2;
+  assert.equal(canInterrupt("windup", 0), true);
+  assert.equal(canInterrupt("windup", half - 1), true);
+  assert.equal(canInterrupt("windup", half), false, "the second half of the tell is armoured");
+  assert.equal(canInterrupt("windup", ENEMY_AI.windupMs - 1), false, "striking the tell late is too late");
+  assert.equal(canInterrupt("lunge", 0), false, "the commit has armour: swinging into it loses");
+  assert.equal(canInterrupt("walk", 0), false);
+  assert.equal(canInterrupt("rest", 0), false);
   assert.equal(modeRemainingMs("windup", 100), ENEMY_AI.windupMs - 100);
   assert.equal(modeRemainingMs("walk", 9999), 0);
 });

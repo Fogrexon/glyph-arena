@@ -13,15 +13,24 @@ export type EnemyMode = "walk" | "windup" | "lunge" | "rest";
 export const ENEMY_AI = {
   /** It notices you inside this distance (px). */
   sightPx: 260,
-  /** It lunges from here. Close enough that stepping back is a real retreat. */
-  lungeRangePx: 110,
+  /**
+   * It lunges from here. Close enough that stepping back is a real retreat, far enough that a spot
+   * outside it exists at all: the commit covers 138 px, so a 110 px trigger made every place you
+   * could stand a place the lunge reached.
+   */
+  lungeRangePx: 70,
   /** The tell. Long enough to react to, short enough that standing still is a mistake. */
   windupMs: 260,
-  /** The commit: 105 px of travel at 420 px/s. Faster than your run (300), so the way out is up. */
+  /** The commit: 300 ms at 460 px/s — 138 px, which is why the way out has to start at the tell. */
   lungeMs: 300,
   lungeSpeedPxPerSecond: 460,
-  /** After a lunge it is open: no second lunge for this long. */
-  restMs: 300,
+  /**
+   * After a lunge it is open: no second lunge for this long. Measured: at 300 ms the window could
+   * not be used from outside the commit — reversing the retreat alone costs 125 ms and the swing
+   * is 300 ms, so the reward for reading the tell was a window nobody could step into. The number
+   * has to outlast the commitment it asks for.
+   */
+  restMs: 450,
 } as const;
 
 /** Should a walking enemy stop and start the tell? */
@@ -33,12 +42,16 @@ export function wantsLunge(mode: EnemyMode, modeMs: number, distancePx: number, 
 }
 
 /**
- * A hit during the tell cancels the lunge — that is the reward for reading it. A hit *during* the
- * lunge does not: the commit has armour, or "attack" would always beat "commit" and there would be
- * nothing to read. This is the one line that makes the fight a decision instead of a damage race.
+ * A hit during the first half of the tell cancels the lunge — that is the reward for reading it.
+ * After the halfway point the tell is armoured too, and so is the lunge.
+ *
+ * Measured on 11-18: with the whole tell cancellable, a bot that never stops swinging cancelled
+ * every single tell (`tells 4 lunges 0`, seven seconds, no damage) and that made mashing strictly
+ * better than reading — no choice, just a correct answer. Half a tell is one decision long: strike
+ * the tell early, or leave. Standing still and swinging late is the one losing move.
  */
-export function canInterrupt(mode: EnemyMode): boolean {
-  return mode === "windup";
+export function canInterrupt(mode: EnemyMode, modeMs: number): boolean {
+  return mode === "windup" && modeMs < ENEMY_AI.windupMs / 2;
 }
 
 /** How long the current mode has left, in ms; 0 when the mode has no timer (walk). */
