@@ -90,3 +90,15 @@ jobs:
       # `examples/runner/dist` does not exist it reports PEND lines — pending
       # is counted separately from passing, never as one.
       - run: pnpm e2e:runner
+
+      # 10. The tutorial's "The whole file" block, which is the only path a
+      # reader outside this repo walks: copy it, import `@fogrexon/glyph-arena`,
+      # run it. Steps 5 and 6 already compile it — the block is the source of a
+      # real workspace package (`fixtures/tutorial`) whose typecheck and build
+      # scripts extract it from `docs/tutorial.md` first — so a docs edit that
+      # does not typecheck goes red there. This step covers what a compiler
+      # cannot: the built page is served from 127.0.0.1 and the canvas is read,
+      # so "the frame painted", "frames keep coming", and "holding right moves
+      # the body through the world" (input reaches the body step) are checked.
+      # Both breakages that reached readers this week compiled fine.
+      - run: pnpm e2e:tutorial

@@ -6,6 +6,30 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+### Added
+
+- **the tutorial's "The whole file" block is compiled and run in CI, so the one path an outside
+  reader walks cannot rot.** That block is the whole onboarding story: copy it, import
+  `@fogrexon/glyph-arena`, run it. It lived only inside a Markdown fence, so `pnpm -r typecheck`
+  never saw it — and two breakages reached readers that way (a spawn inside the floor, and `jump`
+  fed the held state instead of the press). Now the block is the *source*: `fixtures/tutorial` is a
+  real workspace package whose `typecheck` and `build` scripts run
+  `scripts/extract-tutorial.mjs` first, so `pnpm -r typecheck` and `pnpm -r build` compile the
+  docs' own program and a docs edit that does not compile goes red at the step that already exists.
+  The extractor refuses to guess (`scripts/lib/tutorial.mjs`): the heading must be exactly
+  `## The whole file`, exactly one `ts` fence may sit in that section, the fence must be closed,
+  and the only `@fogrexon/…` import allowed is the umbrella package — the subpackages are workspace
+  internals, so a reader who copies one gets a module npm does not have. `pnpm e2e:tutorial` then
+  serves the built page from 127.0.0.1 and reads the canvas in the tutorial's own colours: the
+  frame painted, the body is on it, `requestAnimationFrame` keeps advancing, and holding
+  ArrowRight **moves the body through the world** — the camera holds it at a fixed screen spot
+  while the tiles slide under it, which cannot happen if input never reaches `stepBody`.
+  `test:scripts` adds 12 tests, one per way the extraction could go wrong. Reverse checks: deleting
+  `stepBody` from the generated program leaves the page painting and only T5 red (a first version
+  of T5 asserted "the body rests on a tile" and that build passed it — the tutorial spawns already
+  standing on one); a subpackage import in the block turns the extractor red by name; a one-line
+  type error in `docs/tutorial.md` turns the existing `pnpm -r typecheck` step red with the line.
+
 ### Changed
 
 - **the gallery's pages come from their own declarations, so a new sample cannot ship
