@@ -16,7 +16,7 @@ import {
   stepDodge,
   type Dodge,
 } from "../src/combat.ts";
-import { ENEMY_AI, canInterrupt, modeRemainingMs, wantsLunge } from "../src/enemy.ts";
+import { ENEMY_AI, canCommit, canInterrupt, modeRemainingMs, wantsLunge } from "../src/enemy.ts";
 
 const TOTAL = ATTACK.windupMs + ATTACK.activeMs + ATTACK.recoveryMs;
 
@@ -115,4 +115,16 @@ test("a roll runs out and the cooldown ends, on the game's own clock", () => {
   assert.equal(dodgeReady(dodge), false, "but the cooldown is not");
   for (let ms = 0; ms < DODGE.cooldownMs; ms += step) stepDodge(dodge, step);
   assert.equal(dodgeReady(dodge), true);
+});
+test("enemies take turns: no two commits inside the spacing window", () => {
+  // The rule exists because the measured interval between two lunges was 116 ms — shorter than the
+  // 180 ms a roll locks steering for, so the second one had no answer. A test that only checked
+  // "300 >= 300" would pass with any number; these two check the two properties that matter.
+  const spacing = ENEMY_AI.commitSpacingMs;
+  assert.equal(canCommit(1000, -Infinity), true, "the first enemy is always free");
+  assert.equal(canCommit(1000, 1000 - spacing), true, "exactly the spacing apart is allowed");
+  assert.equal(canCommit(1000, 1000 - spacing + 1), false, "one millisecond early waits");
+  assert.equal(canCommit(1000, 999), false, "immediately after someone else, no");
+
+  assert.equal(ENEMY_AI.windupMs + ENEMY_AI.lungeMs + ENEMY_AI.restMs >= spacing, true, "a lunging enemy's own cycle is not shorter than the queue, so the rule never stalls one body forever");
 });
