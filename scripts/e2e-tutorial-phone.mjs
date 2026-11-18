@@ -8,17 +8,22 @@
  * ran them. `pnpm -r typecheck` and `pnpm -r build` now compile it (the fixture extracts the block
  * verbatim); this file proves it *runs*, and that the wiring is the wiring.
  *
- *   T12 at 390×844 with touch and DPR 3, the canvas is the window and it painted
- *   T13 frames keep coming — a running game, not a still figure
- *   T14 a thumb on the right zone walks the body right while the camera holds it, and the world
+ *   T12 both phone pages were served without a missing asset
+ *   T13 at 390×844 with touch and DPR 3, the canvas is the window and it painted
+ *   T14 the frame paints (clear, solid, body)
+ *   T15 frames keep coming — a running game, not a still figure
+ *   T16 a thumb on the right zone walks the body right while the camera holds it, and the world
  *       slides left: the whole chain from the touch through the pad into `stepBody`
- *   T15 a thumb on the jump zone lifts the body off the floor (`jump` is the edge, not the hold)
- *   T16 after the window grows to 414 px the canvas follows it, and a point that is inside the pad
- *       *only* at the new width still walks — which only happens if `onResize` rebuilt the pad
- *   T17 a canvas styled to half its bitmap width still puts the thumb in the zone drawn under it;
+ *   T17 a thumb on the jump zone lifts the body off the floor (`jump` is the edge, not the hold)
+ *   T18 after the window grows to 414 px the canvas follows it
+ *   T19 after that resize, a point that is inside the pad *only* at the new width still answers —
+ *       which only happens if `onResize` rebuilt the pad. It jumps rather than walks: a walk is
+ *       blocked by the level's 32 px step depending on how far T16 got, and a gate that fails on
+ *       terrain fails at random (it did, once, in CI)
+ *   T20 a canvas styled to half its bitmap width still puts the thumb in the zone drawn under it;
  *       the page hands the program CSS pixels and the program hands the pad bitmap pixels, so this
  *       is `measureCanvas`/`toCanvasPoint` doing their job rather than merely being called
- *   T18 no page errors on any of it
+ *   T21 no page errors on any of it
  *
  * The pad's coordinates come from probing the doc's own `buildPad` (the same walk `e2e:tutorial`
  * does at four widths) — this file never repeats the size arithmetic, so a document that changes
@@ -32,6 +37,7 @@ import { join, resolve } from "node:path";
 
 import { chromium } from "playwright-core";
 
+import { writeFailureArtifacts } from "./lib/e2e-artifacts.mjs";
 import { serveDist } from "./lib/static-server.mjs";
 
 const HERE = import.meta.dirname ?? new URL(".", import.meta.url).pathname;
@@ -127,6 +133,26 @@ function worldMoved(before, after) {
   const shift = before.solidCentreX - after.solidCentreX;
 
   return { moved: before.worldSignature !== after.worldSignature || Math.abs(shift) > 8, shift };
+}
+
+/**
+ * Wait until the body is standing still, so a jump measured from here is the jump this press made.
+ *
+ * A press is an edge, so it fires even in mid-air — and then "the body rose" is the previous jump,
+ * not this one. Two samples with the same lowest row means it is on the ground.
+ */
+async function settle(page, timeoutMs = 3_000) {
+  const deadline = Date.now() + timeoutMs;
+  let previous = await page.evaluate(SAMPLE);
+
+  while (Date.now() < deadline) {
+    await page.waitForTimeout(120);
+    const next = await page.evaluate(SAMPLE);
+    if (previous.body !== null && next.body !== null && previous.body.maxY === next.body.maxY) return next;
+    previous = next;
+  }
+
+  return previous;
 }
 
 /**
@@ -235,7 +261,9 @@ async function main() {
     try {
       const page = await context.newPage();
       const pageErrors = [];
+      const consoleLines = [];
       page.on("pageerror", (error) => pageErrors.push(error.message));
+      page.on("console", (message) => consoleLines.push(`[${message.type()}] ${message.text()}`));
 
       await page.addInitScript(COUNT_FRAMES);
       await page.goto(`${baseUrl}/phone-whole.html`, { waitUntil: "load" });
@@ -301,10 +329,16 @@ async function main() {
       );
 
       // A point inside the pad at 414 px and outside it at 390: only a rebuilt pad answers there.
+      //
+      // The jump zone, not the left one. A walk is a fine probe only while the level lets the body
+      // go that way: after T16 the body can be past the 32 px step at x=256, and walking left is
+      // then blocked by geometry, so the check fails for a reason that has nothing to do with the
+      // pad. That is exactly how this gate went red once on CI while green locally. A jump lifts
+      // the body wherever it stands.
       const pad414 = zones[WIDER.width];
       const grown = {
-        x: (pad390.left.maxX + pad414.left.maxX) / 2,
-        y: (pad414.left.minY + pad414.left.maxY) / 2,
+        x: (pad390.jump.maxX + pad414.jump.maxX) / 2,
+        y: (pad414.jump.minY + pad414.jump.maxY) / 2,
       };
 
       await page.setViewportSize({ ...WIDER });
@@ -322,15 +356,20 @@ async function main() {
         `${first.width}×${first.height} → ${resized.width}×${resized.height}`,
       );
 
-      const beforeGrown = await page.evaluate(SAMPLE);
-      await touchHold(page, grown, 500);
-      const afterGrown = await page.evaluate(SAMPLE);
-      const grownMove = worldMoved(beforeGrown, afterGrown);
+      const grounded = await settle(page);
+      await touchHold(page, grown, 140);
+
+      let risen = grounded;
+      for (let sample = 0; sample < 12; sample += 1) {
+        const frame = await page.evaluate(SAMPLE);
+        if (frame.body !== null && risen.body !== null && frame.body.maxY < risen.body.maxY) risen = frame;
+        await page.waitForTimeout(40);
+      }
 
       check(
-        grownMove.moved,
-        "T19: after the resize, the pad point that only exists at the new width still walks the body",
-        `x=${grown.x.toFixed(1)}: world ${grownMove.moved ? "moved" : "did not move"} (centroid ${grownMove.shift.toFixed(1)}px)`,
+        grounded.body !== null && risen.body !== null && grounded.body.maxY - risen.body.maxY > 20,
+        "T19: after the resize, the pad point that only exists at the new width still jumps",
+        `x=${grown.x.toFixed(1)}: lowest ${grounded.body?.maxY} → highest ${risen.body?.maxY} (row of the lowest player pixel)`,
       );
 
       // The reader's page will style the canvas; the program draws in bitmap pixels and receives
@@ -357,6 +396,18 @@ async function main() {
       );
 
       check(pageErrors.length === 0, "T21: no page errors on the phone program", pageErrors.slice(0, 2).join(" | "));
+
+      if (failures.length > 0) {
+        await writeFailureArtifacts({
+          name: `tutorial-phone-${new Date().toISOString().replace(/[:.]/g, "-")}`,
+          root: ROOT,
+          page,
+          checks: failures,
+          consoleLines,
+          pageErrors,
+          extra: { grown, resized: { width: resized.width, height: resized.height } },
+        });
+      }
     } finally {
       await context.close();
     }
