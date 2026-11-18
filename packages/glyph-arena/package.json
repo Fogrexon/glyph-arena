@@ -32,7 +32,7 @@
     "runtime"
   ],
   "scripts": {
-    "build": "vite build && tsc -p tsconfig.build.json && node scripts/write-entry-dts.mjs",
+    "build": "vite build && tsc -p tsconfig.build.json && node scripts/write-entry-dts.mjs && node ../../scripts/stamp-dist.mjs package:glyph-arena",
     "prepack": "pnpm build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "tsx --test test/**/*.test.ts"

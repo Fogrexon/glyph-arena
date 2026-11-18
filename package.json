@@ -8,7 +8,7 @@
     "check:pack": "node scripts/check-pack-rebuilds.mjs",
     "check:package-entry-points": "node scripts/check-package-entry-points.mjs",
     "check:readme": "node scripts/check-umbrella-readme.mjs",
-    "check:readme-example": "node scripts/extract-readme.mjs && tsc -p fixtures/readme/tsconfig.published.json",
+    "check:readme-example": "node scripts/require-fresh.mjs package:glyph-arena && node scripts/extract-readme.mjs && tsc -p fixtures/readme/tsconfig.published.json",
     "check:served": "node scripts/check-served-bundles.mjs",
     "docs:render": "node scripts/render-docs.mjs",
     "e2e:demo": "node scripts/e2e-demo.mjs",
@@ -26,7 +26,7 @@
     "test:scripts": "node --test scripts/*.test.mjs",
     "tutorial:extract": "node scripts/extract-tutorials.mjs",
     "typecheck": "pnpm -r typecheck",
-    "typecheck:public-api": "tsc -p fixtures/public-api/tsconfig.json"
+    "typecheck:public-api": "node scripts/require-fresh.mjs --packages && tsc -p fixtures/public-api/tsconfig.json"
   },
   "devDependencies": {
     "playwright-core": "^1.49.0",

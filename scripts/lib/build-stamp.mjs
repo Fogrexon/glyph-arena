@@ -11,6 +11,10 @@
  * So a build writes `.build-stamp.json` with a hash of its inputs, and a gate recomputes that hash
  * before it serves anything. A mismatch is a red with the reason in the message, not a silent PASS.
  *
+ * The same applies to `packages/<name>/dist`: the workspace packages have no `prepack`, so
+ * `pnpm pack` (and every gate that packs or compiles against a `dist`) ships whatever is on disk.
+ * A package build therefore stamps itself too — `kind` is `package:<directory name>`.
+ *
  * The hash covers the sources a build reads: the example or fixture's own files, the documents a
  * fixture is extracted from, every `packages/<name>/src`, and `pnpm-lock.yaml`. It deliberately does not
  * cover the toolchain's version numbers beyond that: a different vite patch that produces the same
@@ -39,6 +43,28 @@ function collectFiles(path, files) {
   files.push(path);
 }
 
+/** `package:<directory name>` — a workspace package's own build. */
+const PACKAGE_PREFIX = "package:";
+
+function packageNameOf(kind) {
+  return kind.startsWith(PACKAGE_PREFIX) ? kind.slice(PACKAGE_PREFIX.length) : null;
+}
+
+/** How a kind is named in a failure: `packages/glyph-arena-draw`, `runner`, `tutorial`. */
+function describeKind(kind) {
+  const name = packageNameOf(kind);
+  return name === null ? kind : `packages/${name}`;
+}
+
+/** Every workspace package, as a kind. Derived from `packages/`, never a hand-kept list. */
+export function packageKinds(root) {
+  const packagesDir = join(root, "packages");
+  return readdirSync(packagesDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && existsSync(join(packagesDir, entry.name, "package.json")))
+    .map((entry) => `${PACKAGE_PREFIX}${entry.name}`)
+    .sort();
+}
+
 /** The files a build of `kind` reads, as absolute paths that may not exist (they are filtered). */
 export function inputsFor(kind, root) {
   const packagesDir = join(root, "packages");
@@ -49,6 +75,22 @@ export function inputsFor(kind, root) {
     : [];
 
   const shared = [...packageSources, join(root, "pnpm-lock.yaml")];
+
+  const name = packageNameOf(kind);
+  if (name !== null) {
+    const dir = join(root, "packages", name);
+    // The umbrella bundles its siblings: its build reads every `packages/<name>/src`, not just its
+    // own. A sibling reads only itself, so editing one package does not mark the other 18 stale.
+    const sources = name === "glyph-arena" ? packageSources : [join(dir, "src")];
+    return [
+      ...sources,
+      join(dir, "package.json"),
+      join(dir, "tsconfig.json"),
+      join(dir, "tsconfig.build.json"),
+      join(root, "tsconfig.base.json"),
+      join(root, "pnpm-lock.yaml"),
+    ];
+  }
 
   if (kind === "tutorial") {
     return [join(root, "docs", "tutorial.md"), join(root, "fixtures", "tutorial"), ...shared];
@@ -63,6 +105,9 @@ export function inputsFor(kind, root) {
 
 /** Where a build of `kind` puts its output. */
 export function distFor(kind, root) {
+  const name = packageNameOf(kind);
+  if (name !== null) return join(root, "packages", name, "dist");
+
   return kind === "tutorial" || kind === "readme"
     ? join(root, "fixtures", kind, "dist")
     : join(root, "examples", kind, "dist");
@@ -108,21 +153,21 @@ export function staleReason(kind, root, dist = distFor(kind, root)) {
   const stampPath = join(dist, STAMP_NAME);
 
   if (!stampPath || !existsSync(stampPath)) {
-    return `the ${kind} build at ${dist} has no ${STAMP_NAME}: it was built before this check existed, or by hand (run \`pnpm -r build\`)`;
+    return `the build of ${describeKind(kind)} at ${dist} has no ${STAMP_NAME}: it was built before this check existed, or by hand (run \`pnpm -r build\`)`;
   }
 
   let stamp;
   try {
     stamp = JSON.parse(readFileSync(stampPath, "utf8"));
   } catch {
-    return `the ${kind} build's ${STAMP_NAME} at ${dist} is not readable`;
+    return `the ${STAMP_NAME} of ${describeKind(kind)} at ${dist} is not readable`;
   }
 
   const { hash, files } = hashFor(kind, root);
   if (stamp.hash === hash) return null;
 
   return (
-    `the ${kind} build at ${dist} was built from different sources ` +
+    `the build of ${describeKind(kind)} at ${dist} is older than its sources ` +
     `(stamp ${String(stamp.hash).slice(0, 12)}, inputs now ${hash.slice(0, 12)} over ${files} file(s)) — ` +
     "run `pnpm -r build` before this gate, or it is testing an artifact nobody built"
   );
@@ -132,7 +177,7 @@ export function staleReason(kind, root, dist = distFor(kind, root)) {
  * Gate-side entry point: print the reason and exit 1 when the build is stale. Never throws, so a
  * gate cannot accidentally swallow it.
  */
-export function requireFresh(kind, root, { dist = distFor(kind, root), external = undefined, label = undefined } = {}) {
+export function requireFresh(kind, root, { dist = distFor(kind, root), external = undefined, label = describeKind(kind) } = {}) {
   if (external !== undefined) {
     console.log(`${label ?? kind}: external build at ${external} — stamp not checked (the caller pointed at it)`);
     return;
@@ -144,4 +189,14 @@ export function requireFresh(kind, root, { dist = distFor(kind, root), external 
   console.error(`FAIL ${label ?? kind}: ${reason}`);
   console.error(`::error::${reason}`);
   process.exit(1);
+}
+
+/**
+ * Gate-side entry point for the gates that read `packages/<name>/dist` (they pack it, or compile against
+ * the emitted declarations). Every package must be current, because these gates read all of them.
+ */
+export function requireFreshPackages(root, { label = "packages" } = {}) {
+  const kinds = packageKinds(root);
+  for (const kind of kinds) requireFresh(kind, root);
+  console.log(`${label}: ${kinds.length} package build(s) match their sources`);
 }
