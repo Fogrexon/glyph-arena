@@ -6,22 +6,6 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
-### Fixed
-
-- **`e2e:tutorial-phone` failed once in CI and was green on re-run, and the gate was the bug.** The
-  check after the resize walked the body at a point that only exists in the wider pad — and a walk
-  is only a probe while the level lets the body go that way. The tutorial's level has a 32 px step
-  at x=256, so when the previous check left the body just past it, walking left is blocked by
-  geometry and the gate failed for a reason that had nothing to do with the pad. Measured on a pod
-  against the real program: from that spot a left thumb moves the world **0.0 px**, while the jump
-  zone lifts the body **104 px**. The check now jumps — a jump lifts the body wherever it stands.
-  **A failing browser gate now leaves evidence**: the checks that failed, the page's console, the
-  page errors, the last frame it read, and a screenshot (`scripts/lib/e2e-artifacts.mjs`), written
-  to `.e2e-artifacts` and printed to the log, because uploading needs a workflow-scoped token this
-  repository's bot does not have. **`pnpm e2e:flake`** runs a gate ten times and reports the rate
-  (`scripts/e2e-repeat.mjs`), so "re-run and it was green" stops being a diagnosis: the phone gate
-  is **10/10** after the fix.
-
 ### Added
 
 - **The tutorial's phone program is compiled and walked, not just described.** `## The whole file,
@@ -141,6 +125,30 @@ has been on `main` since that publication.
   type error in `docs/tutorial.md` turns the existing `pnpm -r typecheck` step red with the line.
 
 ### Changed
+
+- **`camp`: the harness prints the interval between commits, and it answers the question the roll
+  was built for.** `danger gap` is the gap between one enemy starting a commit and the next one
+  starting, across all living enemies. With one enemy it is `restMs + windup`; with several it is
+  whatever the stagger makes it — and a roll that locks steering for 180 ms only works if that
+  number stays above it.
+
+  Measured on a three-enemy second camp (`index-Cf3pZXIV.js`), the bold bot, one run:
+
+  ```
+  danger gap: median 1900 ms   min 116 ms   n 5
+  ```
+
+  **The median is generous and the minimum is not.** Two enemies can commit 116 ms apart, which is
+  shorter than the roll's lock — so no single committed verb can answer two staggered commits, and
+  every hit in that run landed while the player was in its **own** swing (`blade: "recovery"`) or
+  its own roll. That is why the levers in order — i-frame, interval, health — do not reach it:
+  a longer i-frame cannot help when the second commit arrives inside the first one's recovery, the
+  interval is already 1.9 s at the median, and more hearts buys a hit, not an answer.
+
+  The level stays at **two camps of two**, and the three-enemy version was reverted rather than
+  shipped as a difficulty spike. What would fix it is a **minimum spacing between commits across
+  enemies** — a coordination rule, so it is a proposal and not a patch.
+
 
 - **`camp`: a third verb — a roll with a window it cannot be hit in.** Attack answers "hit it" and
   jump answers "leave"; neither answers "it is already on me". The roll is a **commitment**: 180 ms
