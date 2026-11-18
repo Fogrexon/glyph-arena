@@ -178,6 +178,30 @@ function declared(file, pattern, fallbackName) {
   return { value: Number(match[1]), why: "" };
 }
 
+/**
+ * A number a demo declares, following one hop: `export const GRAVITY = CONFIG.gravity`.
+ *
+ * The four body numbers moved into a `CONFIG` object when they became one value set, and the old
+ * regex (`export const GRAVITY = 2600`) then matched nothing — R1 pended, counted and never run,
+ * for as long as that refactor has been on main. So: read the literal if it is there, otherwise
+ * follow `CONFIG.<key>` into the object.
+ */
+function declaredNumber(file, name) {
+  const text = source(file);
+  if (text === null) return { value: null, why: `${file} not in this checkout` };
+
+  const direct = new RegExp(`export const ${name}\\s*=\\s*(-?[\\d.]+)`).exec(text);
+  if (direct !== null) return { value: Number(direct[1]), why: "" };
+
+  const alias = new RegExp(`export const ${name}\\s*=\\s*CONFIG\\.([A-Za-z0-9_]+)`).exec(text);
+  if (alias === null) return { value: null, why: `${name} not found in ${file}` };
+
+  const body = /export const CONFIG[^=]*=\s*\{([\s\S]*?)\n\};/.exec(text)?.[1] ?? "";
+  const value = new RegExp(`\\b${alias[1]}\\s*:\\s*(-?[\\d.]+)`).exec(body);
+  if (value === null) return { value: null, why: `CONFIG.${alias[1]} not found in ${file}` };
+  return { value: Number(value[1]), why: "" };
+}
+
 /** The text the browser is actually handed: the built page and its bundles, never the sources. */
 function builtArtifacts() {
   const files = [{ name: "index.html", text: readFileSync(join(DIST, "index.html"), "utf8") }];
@@ -603,10 +627,10 @@ async function runDesktop(browser, baseUrl, errors) {
 
     // ---- the shipped constants still equal the spec ---------------------
     const constants = {
-      jumpSpeed: declared("physics.ts", /export const JUMP_VELOCITY\s*=\s*(-?[\d.]+)/, "JUMP_VELOCITY"),
-      gravity: declared("physics.ts", /export const GRAVITY\s*=\s*([\d.]+)/, "GRAVITY"),
-      coyote: declared("physics.ts", /export const COYOTE_SECONDS\s*=\s*([\d.]+)/, "COYOTE_SECONDS"),
-      buffer: declared("physics.ts", /export const JUMP_BUFFER_SECONDS\s*=\s*([\d.]+)/, "JUMP_BUFFER_SECONDS"),
+      jumpSpeed: declaredNumber("physics.ts", "JUMP_VELOCITY"),
+      gravity: declaredNumber("physics.ts", "GRAVITY"),
+      coyote: declaredNumber("physics.ts", "COYOTE_SECONDS"),
+      buffer: declaredNumber("physics.ts", "JUMP_BUFFER_SECONDS"),
     };
     // Explicit rather than clever: four named constants, four spec numbers.
     const drift = [
@@ -617,7 +641,9 @@ async function runDesktop(browser, baseUrl, errors) {
     ].filter(([, actual, expected]) => actual !== null && actual !== expected);
     const unknown = Object.entries(constants).filter(([, read]) => read.value === null);
     if (unknown.length > 0) {
-      pend("R1: shipped constants match the spec", unknown.map(([name, read]) => `${name}: ${read.why}`).join("; "));
+      // Same rule as R11: this block only runs when the build exists, so a constant it cannot read
+      // is a broken reader, not a build that is not there yet. Pending here hid the refactor below.
+      check(false, "R1: shipped constants match the spec (760 / 2600 / 0.09 / 0.12)", unknown.map(([name, read]) => `${name}: ${read.why}`).join("; "));
     } else {
       check(
         drift.length === 0,
