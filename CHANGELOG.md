@@ -8,6 +8,25 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Added
 
+- **Camp's enemies take turns: no two commits inside 300 ms.** Three bodies in one room were not a
+  hard fight, they were an unanswerable one — the interval between one lunge starting and the next
+  measured **median 1900 ms but min 116 ms**, and 116 ms is shorter than the 180 ms a roll locks
+  steering for, so the second commit landed while the answer was still locked. `ENEMY_AI.commitSpacingMs`
+  (300, measured) makes an enemy that is in range but not next hold its ground rather than commit:
+  **the queue was unfair, not the body.** Re-measured with the rule: `commit gap` min **300 / 316 /
+  300 ms** (bold) and 1034 ms (careful), `danger gap` min 299–317 ms (bold). The two-camp fight does
+  not move — bold 10.5 s and four hits, careful 36–38 s and no hits, the same totals as before the
+  rule — because with two bodies the queue never binds.
+
+- **Camp's second room holds three, and the world is closed on its left.** With the queue in place
+  the third body adds a decision instead of a second impossible one: five enemies, two in the open
+  and three under the rocks. Measured on the shipped bundle: **careful clears 6/6 in 42–54 s, five
+  of them with hearts 5** (the one hit was taken while free — `blade: idle`, `since 51` — which is a
+  place, not a lockout), **bold clears 3/3 in 11.9 s with hearts 1** (four hits): fast-and-hurt
+  against slow-and-untouched, on the same level. The left column is a wall now, and it is not
+  decoration: the tilemap treats out-of-map cells as empty, so a knockback at the first camp could
+  push the player past `x = 0` into a world with no ground — measured `x -104`, every enemy stuck in
+  `walk`, 48 s of nothing and no way for the run to end. The level test holds the wall.
 - **`@fogrexon/glyph-arena-chase` — the pursuit rule both samples had written twice.** runner and
   camp each measured the gap between centres, took its sign, and tested it against a sight radius,
   and each learned the same two lessons on its own: a pursuer that walks off a ledge is not a
