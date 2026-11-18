@@ -4,13 +4,27 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Glyph Arena tutorial — the pad</title>
+    <!--
+      The phone program looks up `#game`, so this page has one: the generated `phone-pad.ts` is the
+      tutorial's phone program verbatim plus one `export`, which is what lets the gate probe `buildPad`
+      at widths the running page is not using.
+    -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #0d1626;
+      }
+      canvas {
+        display: block;
+        touch-action: none;
+      }
+    </style>
   </head>
   <body>
-    <!--
-      No canvas: `buildPad(width, height)` is arithmetic plus `createTouchControls`, and the gate
-      probes the zones at several widths. The tutorial's own page draws the pad; this one only
-      answers "which zones are down here".
-    -->
+    <canvas id="game"></canvas>
     <script type="module" src="./phone.ts"></script>
   </body>
 </html>

@@ -13,6 +13,7 @@
   "include": [
     "main.ts",
     "phone-pad.ts",
-    "phone.ts"
+    "phone.ts",
+    "phone-whole.ts"
   ]
 }
