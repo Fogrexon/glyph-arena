@@ -6,12 +6,11 @@
  * world pixels.
  */
 import {
-  cellsWithTag,
   createTileMap,
-  hasTag,
   mapColumns,
   mapRows,
-  solidInRect,
+  tagIn,
+  type TagView,
   type TileMap,
 } from "@fogrexon/glyph-arena-tilemap";
 
@@ -53,6 +52,11 @@ const TEXT: readonly string[] = [
 
 const MAP: TileMap = createTileMap(TEXT, { legend: LEGEND, cell: TILE });
 
+/** The three words this game knows, each bound to the map once. */
+const SOLID = tagIn(MAP, "solid");
+const SPAWN = tagIn(MAP, "spawn");
+const ENEMY = tagIn(MAP, "enemy");
+
 /**
  * The map, for callers that need the map itself — which columns a view covers is a question for
  * `visibleColumns`, and it takes the map, not a count.
@@ -70,25 +74,21 @@ export function levelRows(): number {
 }
 
 /** Solid for the body: ground and rock, and nothing to the left of the world's first column. */
-export function solidAt(left: number, top: number, right: number, bottom: number): boolean {
-  return solidInRect(MAP, left, top, right, bottom, "solid");
-}
+export const solidAt = SOLID.inRect;
 
-export function isSolidTile(column: number, row: number): boolean {
-  return hasTag(MAP, column, row, "solid");
-}
+export const isSolidTile = SOLID.has;
 
 /** Every cell carrying `tag`, in world pixels (top-left of the cell). */
-function pointsOf(tag: string): Array<{ x: number; y: number }> {
-  return cellsWithTag(MAP, tag).map((cell) => ({ x: cell.column * TILE, y: cell.row * TILE }));
+function pointsOf(tag: TagView): Array<{ x: number; y: number }> {
+  return tag.cells().map((cell) => ({ x: cell.column * TILE, y: cell.row * TILE }));
 }
 
 /** Where the run starts, in world pixels (feet, not centre). */
 export function spawnPoint(): { x: number; y: number } {
-  return pointsOf("spawn")[0] ?? { x: 0, y: 0 };
+  return pointsOf(SPAWN)[0] ?? { x: 0, y: 0 };
 }
 
 /** Where the enemies stand. Slice one has one; the format already allows a camp. */
 export function enemySpawns(): Array<{ x: number; y: number }> {
-  return pointsOf("enemy");
+  return pointsOf(ENEMY);
 }

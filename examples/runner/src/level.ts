@@ -8,13 +8,12 @@
  * content is not what the line count is about.
  */
 import {
-  cellsWithTag,
   createTileMap,
   hasTag,
   mapColumns,
   mapRows,
-  solidInRect,
-  surfaceRowBelow,
+  tagIn,
+  type TagView,
   type TileMap,
 } from "@fogrexon/glyph-arena-tilemap";
 
@@ -49,6 +48,24 @@ const LEVELS = LEVEL_DATA as readonly LevelData[];
 const MAPS: readonly TileMap[] = LEVELS.map((level) => createTileMap(level.rows, { legend: LEGEND, cell: TILE }));
 
 let current = 0;
+
+/**
+ * One probe per tag, per level. The map changes at `loadLevel`, so the probes are bound per map: a
+ * probe bound once at module load would collide level 2 against level 1's walls, and that reads as
+ * "the new level's floor is wrong" rather than as a stale binding.
+ */
+const PROBES = MAPS.map((level) => ({
+  solid: tagIn(level, "solid"),
+  hazard: tagIn(level, "hazard"),
+  spawn: tagIn(level, "spawn"),
+  goal: tagIn(level, "goal"),
+}));
+
+type LevelProbes = (typeof PROBES)[number];
+
+function probes(): LevelProbes {
+  return PROBES[current] as LevelProbes;
+}
 
 /** How many levels the run has. */
 export function levelCount(): number {
@@ -102,16 +119,16 @@ export function levelRows(): number {
 
 /** True for any tile the body cannot pass through. */
 export function isSolidTile(column: number, row: number): boolean {
-  return hasTag(map(), column, row, "solid");
+  return probes().solid.has(column, row);
 }
 
 export function isHazardTile(column: number, row: number): boolean {
-  return hasTag(map(), column, row, "hazard");
+  return probes().hazard.has(column, row);
 }
 
 /** Is any solid tile inside the pixel rectangle? Half-open edges are the library's rule now. */
 export function solidAt(left: number, top: number, right: number, bottom: number): boolean {
-  return solidInRect(map(), left, top, right, bottom, "solid");
+  return probes().solid.inRect(left, top, right, bottom);
 }
 
 /**
@@ -121,7 +138,7 @@ export function solidAt(left: number, top: number, right: number, bottom: number
  * `SAFE_CLEARANCE` away, or the death returns you somewhere you cannot react from.
  */
 export function hazardWithin(x: number, y: number, w: number, h: number, margin = 0): boolean {
-  return solidInRect(map(), x - margin, y - margin, x + w + margin, y + h + margin, "hazard");
+  return probes().hazard.inRect(x - margin, y - margin, x + w + margin, y + h + margin);
 }
 
 /**
@@ -132,7 +149,7 @@ export function hazardWithin(x: number, y: number, w: number, h: number, margin 
  * floor beneath a pit and call it ground.
  */
 export function surfaceBelow(xPx: number, yPx: number): number {
-  return surfaceRowBelow(map(), xPx, yPx, "solid", { maxRows: 3 }) ?? Number.POSITIVE_INFINITY;
+  return probes().solid.surfaceBelow(xPx, yPx, { maxRows: 3 }) ?? Number.POSITIVE_INFINITY;
 }
 
 /**
@@ -167,16 +184,16 @@ export function chaseSpawnLane(): { startX: number; endX: number } | null {
 }
 
 /** The first cell carrying `tag`, in world pixels (top-left of the cell), or null. */
-function pointOf(tag: string): { x: number; y: number } | null {
+function pointOf(tag: TagView): { x: number; y: number } | null {
   // Reading order is the library's now: the first `@` in the text is the start, and the loop that
   // used to say so is the one both games had written twice.
-  const cell = cellsWithTag(map(), tag)[0];
+  const cell = tag.cells()[0];
   return cell === undefined ? null : { x: cell.column * TILE, y: cell.row * TILE };
 }
 
 /** Where the run starts, in world pixels (feet, not centre). */
 export function spawnPoint(): { x: number; y: number } {
-  return pointOf("spawn") ?? { x: 0, y: 0 };
+  return pointOf(probes().spawn) ?? { x: 0, y: 0 };
 }
 
 /**
@@ -189,5 +206,5 @@ export function goalLineX(): number {
 
 /** Where the goal flag is drawn, in world pixels. */
 export function goalPoint(): { x: number; y: number } | null {
-  return pointOf("goal");
+  return pointOf(probes().goal);
 }
