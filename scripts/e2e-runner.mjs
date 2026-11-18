@@ -311,11 +311,6 @@ async function oneFrameTap(page, x, y) {
 }
 
 /**
- * The levels, read from `level.ts` rather than typed into this file: the ASCII is the level, so a
- * test that hard-codes a column is a test that goes green when the level moves and the game does
- * not. `LEVEL_*` appear in the file in the same order as the `LEVELS` list they feed.
- */
-/**
  * The three grids, from `levels.json` — the file `level.ts` imports.
  *
  * They used to sit inline in `level.ts` as `const LEVEL_1: … = [ … ]` and this read them with a
