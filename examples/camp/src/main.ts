@@ -33,7 +33,7 @@ import {
   type Attack,
   type Dodge,
 } from "./combat";
-import { ENEMY_AI, canInterrupt, type EnemyMode } from "./enemy";
+import { ENEMY_AI, canCommit, canInterrupt, type EnemyMode } from "./enemy";
 import { TILE, currentMap, enemySpawns, isSolidTile, levelColumns, levelRows, solidAt, spawnPoint } from "./level";
 
 const VIEW_W = 640;
@@ -115,6 +115,9 @@ let shakeMs = 0;
 let hits = 0;
 let kills = 0;
 let simMs = 0;
+// When anyone last began a tell. Enemies take turns: no two commits inside
+// `ENEMY_AI.commitSpacingMs`. See `canCommit` — the unfair thing was the queue, not the enemy.
+let lastCommitMs = -Infinity;
 let cameraX = 0;
 
 const worldWidth = levelColumns() * TILE;
@@ -143,6 +146,7 @@ function reset(): void {
   hits = 0;
   kills = 0;
   simMs = 0;
+  lastCommitMs = -Infinity;
   cameraX = 0;
 }
 reset();
@@ -217,10 +221,17 @@ function stepWorld(dt: number, dtMs: number, moveLeft: boolean, moveRight: boole
     const chasing = Math.abs(distance) < ENEMY_STATS.sightPx;
 
     if (enemy.mode === "walk") {
-      if (chasing && Math.abs(distance) <= ENEMY_AI.lungeRangePx && enemy.body.grounded) {
+      const inRange = chasing && Math.abs(distance) <= ENEMY_AI.lungeRangePx && enemy.body.grounded;
+      if (inRange && canCommit(simMs, lastCommitMs)) {
         enemy.mode = "windup";
         enemy.modeMs = 0;
         enemy.facing = distance < 0 ? -1 : 1;
+        lastCommitMs = simMs;
+      } else if (inRange) {
+        // In range, but it is not this one's turn. It holds rather than walking through the player
+        // — the queue has to be readable, or the rule just looks like a frozen enemy.
+        enemy.body.vx = 0;
+        stepBody(enemy.body, {}, dt, solidAt, { grid: TILE });
       } else {
         stepBody(enemy.body, { left: chasing && distance < 0, right: chasing && distance > 0 }, dt, solidAt, { grid: TILE });
       }
