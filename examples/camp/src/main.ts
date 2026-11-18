@@ -42,7 +42,14 @@ const PLAYER_CONFIG: BodyConfig = {
 /** The enemy shares the physics and differs in speed: it can never outrun you, only corner you. */
 const ENEMY_CONFIG: BodyConfig = { ...PLAYER_CONFIG, runSpeed: 74, runAccel: 900, airAccel: 500, jumpVelocity: -520 };
 
-const PLAYER_STATS = { hearts: 3, invulnerableMs: 900, contactKnockback: 320 };
+/**
+ * Five hearts for two camps: the run is expected to cost a masher about two hits per camp, plus one
+ * heart of margin. This is the number the two-strategy acceptance lives on — measured with three it
+ * died with the last enemy standing, and with an enemy's hp at 3 instead it took nothing at all
+ * (twelve swings cancel every tell before it lands), so the health is the lever that keeps
+ * "fast and hurt" a way to win rather than the huge-hammer option that only looks brave.
+ */
+const PLAYER_STATS = { hearts: 5, invulnerableMs: 900, contactKnockback: 320 };
 const ENEMY_STATS = { hp: 4, sightPx: 260, contactDamage: 1 };
 
 const canvas = document.querySelector("canvas");

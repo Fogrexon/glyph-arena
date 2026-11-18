@@ -25,8 +25,12 @@ const LEGEND: Readonly<Record<string, readonly string[]>> = {
 };
 
 /**
- * Wide enough to walk, small enough that the first fight is the thing you meet. The rocks break
- * the line of sight so the enemy has to be found rather than collected.
+ * Wide enough for two camps, small enough that the first fight is the thing you meet.
+ *
+ * The enemies come in pairs, twenty tiles apart: the run is fight, walk, fight. One pair on open
+ * ground and one under the hanging rocks with the wall at its back, because the second fight should
+ * ask the same question in a smaller room — retreating is what the careful play spends, and the
+ * corner is where it runs out. Four enemies, no new rule: the same spawn tag, twice over.
  */
 const TEXT: readonly string[] = [
   "................................................................",
@@ -37,7 +41,7 @@ const TEXT: readonly string[] = [
   "................................................................",
   "................................................................",
   "................................................................",
-  "........@...................................e.....e....^^^......",
+  "........@.....................e...e...........e....e...^^^......",
   "################################################################",
   "################################################################",
 ];
