@@ -116,6 +116,23 @@ async function playCamp(page, strategy) {
         const arrivals = [];
         const lastMode = new Map();
         const restStart = new Map();
+        // A run is more than one fight now, so the totals are not enough: "the second camp is a
+        // different fight" is a claim about the second camp, and a summed number cannot answer it.
+        // Camps are derived from the spawn layout (split at the walk, not at a written-down index),
+        // so moving an enemy does not silently re-label the fight.
+        const campOf = new Map();
+        const camps = new Map();
+        const hpSeen = new Map();
+        const deadSeen = new Set();
+        let campsBuilt = false;
+        const stat = (camp) => {
+          let entry = camps.get(camp);
+          if (entry === undefined) {
+            entry = { camp, tells: 0, lunges: 0, hits: 0, heartsLost: 0, clearedAtMs: null };
+            camps.set(camp, entry);
+          }
+          return entry;
+        };
         let lungeAge = -1;
         let wasLunging = false;
         let arrived = false;
@@ -126,6 +143,7 @@ async function playCamp(page, strategy) {
           resolve({
             phase: s.phase, hearts: s.hearts, hits: s.hits, kills: s.kills, simMs: s.simMs,
             presses, tells, lunges, arrivals, lost,
+            camps: [...camps.values()].sort((a, b) => a.camp - b.camp),
           });
         };
 
@@ -143,13 +161,50 @@ async function playCamp(page, strategy) {
               .filter((enemy) => enemy.alive)
               .map((enemy) => ({ mode: enemy.mode, gap: Math.round(Math.abs(enemy.x + 10 - (s.x + 10)) - 20) }))
               .sort((a, b) => a.gap - b.gap);
+            const blame = s.enemies
+              .map((enemy, index) => ({ index, gap: Math.abs(enemy.x + 10 - (s.x + 10)) }))
+              .sort((a, b) => a.gap - b.gap)[0];
+            const blameCamp = blame === undefined ? undefined : campOf.get(blame.index);
+            if (blameCamp !== undefined) stat(blameCamp).heartsLost += lastHearts - s.hearts;
             lost.push({ hearts: s.hearts, simMs: s.simMs, blade: s.blade, grounded: s.grounded, since: frame - lastPress, all });
             lastHearts = s.hearts;
           }
+          if (!campsBuilt && s.enemies.length > 0) {
+            campsBuilt = true;
+            const order = s.enemies.map((enemy, index) => ({ index, x: enemy.x })).sort((a, b) => a.x - b.x);
+            const gaps = order.slice(1).map((entry, k) => entry.x - order[k].x);
+            const smallest = gaps.length > 0 ? Math.min(...gaps) : Number.POSITIVE_INFINITY;
+            let camp = 1;
+            order.forEach((entry, k) => {
+              // A walk is a gap nothing else in the layout has: more than twice the tightest pair.
+              if (k > 0 && gaps[k - 1] > smallest * 2) camp += 1;
+              campOf.set(entry.index, camp);
+              stat(camp);
+            });
+          }
+
           s.enemies.forEach((enemy, index) => {
+            const camp = campOf.get(index);
+            if (camp !== undefined) {
+              const seen = hpSeen.get(index);
+              if (seen !== undefined && enemy.hp < seen) stat(camp).hits += enemy.hp === seen ? 0 : seen - enemy.hp;
+              hpSeen.set(index, enemy.hp);
+              if (!enemy.alive && !deadSeen.has(index)) {
+                deadSeen.add(index);
+                const entry = stat(camp);
+                const done = s.enemies.every((other, otherIndex) => other.alive || campOf.get(otherIndex) !== camp);
+                if (done && entry.clearedAtMs === null) entry.clearedAtMs = Math.round(s.simMs);
+              }
+            }
             if (lastMode.get(index) === enemy.mode) return;
-            if (enemy.mode === "windup") tells += 1;
-            if (enemy.mode === "lunge") lunges += 1;
+            if (enemy.mode === "windup") {
+              tells += 1;
+              if (camp !== undefined) stat(camp).tells += 1;
+            }
+            if (enemy.mode === "lunge") {
+              lunges += 1;
+              if (camp !== undefined) stat(camp).lunges += 1;
+            }
             if (enemy.mode === "rest") restStart.set(index, frame);
             lastMode.set(index, enemy.mode);
           });
@@ -164,8 +219,11 @@ async function playCamp(page, strategy) {
             const gap = Math.abs(target.x + 10 - me) - 20;
             const toward = target.x > s.x ? "ArrowRight" : "ArrowLeft";
             const away = toward === "ArrowRight" ? "ArrowLeft" : "ArrowRight";
-            const lunging = alive.some((enemy) => enemy.mode === "lunge");
-            const telling = alive.some((enemy) => enemy.mode === "windup");
+            // The threat that matters is the one being fought. Reading every enemy made the bot
+            // back off from a tell two bodies away and never stand still long enough to take a
+            // window: measured on the two-camp level, 60 s of play with seven arrivals and one kill.
+            const lunging = target.mode === "lunge";
+            const telling = target.mode === "windup";
             lungeAge = lunging ? (wasLunging ? lungeAge + 1 : 0) : -1;
             wasLunging = lunging;
 
@@ -401,6 +459,7 @@ async function main() {
             `tells ${r.tells}  lunges ${r.lunges}  presses ${r.presses}  arrived ${JSON.stringify(r.arrivals)}  ` +
             `errors ${r.consoleErrors.length}  ${r.bundle}`,
         );
+        console.log(`   camps ${JSON.stringify(r.camps)}`);
         if (r.lost.length > 0) console.log(`   lost ${JSON.stringify(r.lost)}`);
       } else {
         const jump = Object.entries(r.jumps).map(([kind, n]) => `${kind} ${n}`).join(" ");

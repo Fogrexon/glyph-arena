@@ -106,6 +106,37 @@ has been on `main` since that publication.
 
 ### Changed
 
+- **`camp`: the harness reports per camp, and it answered the question it was built for.** Two camps
+  made a run twice as long, but "the second camp is a different fight" was a claim about *the second
+  camp* and every number was a total. `pnpm camp:bot` now prints one line per camp — tells, lunges,
+  hits, hearts lost — with the camps **derived from the spawn layout** (split where the gap is more
+  than twice the tightest pair, not at a written-down index, so moving an enemy cannot silently
+  re-label the fight).
+
+  The answer, three runs, on the bundle the run reports (`index-BTtthii5.js`):
+
+  ```
+  bold     10.56 / 10.58 s          hearts 1        clear 2/2
+     camps [camp 1: 4 tells, 2 lunges, 8 hits, 2 hearts] [camp 2: 4 tells, 2 lunges, 7 hits, 2 hearts]
+  careful  38.08 / 38.32 / 39.85 s  hearts 5 (0)    clear 3/3
+     camps [camp 1: 11-12 tells] [camp 2: 12 tells]
+  ```
+
+  **The second camp is the first one again.** Same tells, same lunges, same damage. The run doubled
+  and the decisions doubled with it, but the wall at the second camp's back changes nothing, because
+  the player always arrives from the left and retreats to the left — the corner is never behind them.
+  Tightening the second pair from four tiles to two was measured too and changed nothing either
+  (bold's per-camp line was identical), so that was reverted rather than kept as scenery.
+
+- **`camp`: the careful bot was backing off from the wrong enemy.** `telling` and `lunging` were
+  computed across *every* living enemy, so a tell two bodies away froze the bot in a retreat and it
+  never stood still long enough to take a window. With four enemies that is a stall, not a caution:
+  measured, one run in three ended at the 60 s cap with seven arrivals and one kill. Reading the
+  *target's* mode instead — the enemy it is actually fighting — made it **3/3 clear at 38-40 s with
+  no damage taken**. The bold line did not move (2/2, 10.6 s, two hearts a camp), which is how we
+  know the fix touched the retreat and not the fight.
+
+
 - **`camp`: two camps, so the run is a run.** The level had one fight at the end of a walk: a bold
   run was 7.2 s and eight tells, so the decision the fight is built around happened four times.
   Now the enemies come in pairs twenty tiles apart — fight, walk, fight — with the second pair under
