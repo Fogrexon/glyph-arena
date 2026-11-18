@@ -16,6 +16,7 @@ This package does not import `@fogrexon/glyph-arena-input`.
 ```ts
 const loop = createLoop({
   onFrame(time) { /* ... */ },
+  maxDelta?, // optional, seconds; default 0.1
   clock?,   // optional
   raf?,     // optional
   cancelRaf?, // optional
@@ -29,6 +30,7 @@ loop.isRunning; // boolean
 ### Options
 
 - **`onFrame(time: Time)`** — called each frame.
+- **`maxDelta?: number`** — the largest step `delta` may report, in seconds. Default `0.1`. This is the game's own number: a body that moves 800 px/s wants a smaller step than one that moves 360, and passing it here means the `delta` a frame receives **is** the step the world sees — no `Math.min(time.delta, …)` at the top of `onFrame`. Only `delta` is clamped; `elapsed` keeps reporting real time. `0`, negative and non-finite values throw a `RangeError` at construction (a zero step is a game that silently never moves). A value above `0.1` is allowed and is the caller's tunnelling risk: 0.1 is what the demo's collision sizes are safe against.
 - **`clock?(): number`** — returns milliseconds. Defaults to `performance.now`.
 - **`raf?(callback): number`** — schedules the next frame. Defaults to `requestAnimationFrame`.
 - **`cancelRaf?(handle)`** — cancels a scheduled frame. Optional; when omitted, `stop` sets `isRunning = false` and late rAF callbacks are ignored.
@@ -40,7 +42,7 @@ All values are in **seconds**.
 | Field | Description |
 |-------|-------------|
 | `elapsed` | Time since `start()` |
-| `delta` | Time since the previous frame |
+| `delta` | Time since the previous frame, capped at `maxDelta` (0.1 s by default) |
 | `frame` | Frame index |
 
 First frame: `delta = 0`, `frame = 0`.

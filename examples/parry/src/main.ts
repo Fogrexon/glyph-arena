@@ -110,7 +110,6 @@ const PARRY_BOX = 56;
 const INVULN_SECONDS = 1;
 const HIT_KNOCKBACK = 40;
 const HITSTOP_SECONDS = 0.06;
-const MAX_FRAME_DELTA = 0.1;
 /** An enemy this far outside the play area has left the run for good. */
 const OFFSCREEN_MARGIN = 40;
 const INITIAL_LIVES = 3;
@@ -884,7 +883,8 @@ async function main(): Promise<void> {
 
   const loop = createLoop({
     onFrame(time) {
-      const delta = Math.min(time.delta, MAX_FRAME_DELTA);
+      // The loop's default step is already 0.1: this game clamped `time.delta` to the same number.
+      const delta = time.delta;
       const snapshot = input.snapshot();
       const keys = new Set(snapshot.keys);
       const pads = gamepad.snapshot();

@@ -78,7 +78,6 @@ type RunnerState = {
 };
 
 const LOGICAL_HEIGHT = 540;
-const MAX_FRAME_DELTA = 1 / 30;
 const RESPAWN_SECONDS = 0.6;
 
 /** The palette: one place, so the slice cannot drift into a pile of stray colours. */
@@ -746,8 +745,10 @@ function publish(): void {
 }
 
 const loop = createLoop({
+  // The body moves faster than the demo this default was measured against: one step is 1/30 s.
+  maxDelta: 1 / 30,
   onFrame(time) {
-    const dt = Math.min(time.delta, MAX_FRAME_DELTA);
+    const dt = time.delta;
     clock += dt;
     const snapshot = input.snapshot();
     const keys = new Set(snapshot.keys);
