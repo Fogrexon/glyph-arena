@@ -42,6 +42,9 @@ Ask `hasTag(map, c, r, "solid")`.
 - `tileAt(map, column, row)` → the character, or `undefined` outside the map.
 - `tagsAt(map, column, row)` → the tile's tags; empty for an unknown character or outside.
 - `hasTag(map, column, row, tag)` → boolean.
+- `cellsWithTag(map, tag)` → every cell carrying `tag` as `{ column, row }`, in reading order
+  (row by row, left to right). Cells, not pixels: multiply by `map.cell`. `[0]` is the first
+  one, which is how a game asks "where does this start" without a second function.
 - `solidInRect(map, left, top, right, bottom, tag)` → any tile with `tag` in `[left, right)` ×
   `[top, bottom)`. Out-of-range cells are empty, never an error.
 - `surfaceRowBelow(map, xPx, yPx, tag, { maxRows })` → the first row at or below that point, or

@@ -25,6 +25,7 @@ kind, because a tile that is both solid and a hazard is the day `tileAt() === "s
 - `tileAt(map, column, row)` — the character, or `undefined` outside the map.
 - `tagsAt(map, column, row)` — the cell's tags; empty for an unknown character or outside the map.
 - `hasTag(map, column, row, tag)` — one cell, one tag.
+- `cellsWithTag(map, tag)` — every cell carrying `tag` as `{ column, row }`, in reading order (row by row, left to right). Cells, not pixels: multiply by `map.cell`. The order is part of the answer — the first spawn point in the text is the one a run starts at, so `cellsWithTag(map, "at")[0]` is where it starts.
 - `solidInRect(map, left, top, right, bottom, tag)` — any tile with `tag` in `[left, right)` × `[top, bottom)`, in pixels; out-of-range cells are empty, never an error.
 - `surfaceRowBelow(map, xPx, yPx, tag, { maxRows })` — the first row at or below that point, or `undefined`.
 

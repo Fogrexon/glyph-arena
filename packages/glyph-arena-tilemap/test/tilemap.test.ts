@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  cellsWithTag,
   createTileMap,
   hasTag,
   mapColumns,
@@ -69,6 +70,61 @@ describe("tileAt / tagsAt / hasTag", () => {
 
     assert.deepEqual([...tagsAt(unknown, 0, 0)], []);
     assert.equal(hasTag(unknown, 0, 0, "solid"), false);
+  });
+});
+
+describe("cellsWithTag", () => {
+  /** The game's word for a spawn; the package has none of its own. */
+  const AT: TileMapConfig = { legend: { "@": ["at"] }, cell: 32 };
+
+  it("returns every matching cell in reading order, so the first one is the top-left one", () => {
+    const cells = cellsWithTag(createTileMap(["..@", "@..", "..."], AT), "at");
+
+    assert.deepEqual(cells, [
+      { column: 2, row: 0 },
+      { column: 0, row: 1 },
+    ]);
+    // The order is part of the contract: a run starts at the first `@` in the text, so the
+    // "where does this start" question is `[0]` and needs no second function.
+    assert.deepEqual(cellsWithTag(createTileMap(["..@", "@..", "..."], AT), "at")[0], {
+      column: 2,
+      row: 0,
+    });
+  });
+
+  it("answers cells, not pixels: the cell size never leaks into the result", () => {
+    const small = cellsWithTag(createTileMap(["^^"], { ...CONFIG, cell: 1 }), "hazard");
+    const large = cellsWithTag(createTileMap(["^^"], { ...CONFIG, cell: 32 }), "hazard");
+
+    assert.deepEqual(small, large);
+    assert.deepEqual(small, [
+      { column: 0, row: 0 },
+      { column: 1, row: 0 },
+    ]);
+  });
+
+  it("finds a cell once per tag, including a cell that carries two", () => {
+    const both = createTileMap("*", CONFIG);
+
+    assert.deepEqual(cellsWithTag(both, "solid"), [{ column: 0, row: 0 }]);
+    assert.deepEqual(cellsWithTag(both, "hazard"), [{ column: 0, row: 0 }]);
+  });
+
+  it("returns nothing rather than throwing when no cell carries the tag", () => {
+    assert.deepEqual(cellsWithTag(map, "goal"), []);
+    assert.deepEqual(cellsWithTag(createTileMap("?", CONFIG), "solid"), []);
+    assert.deepEqual(cellsWithTag(createTileMap("", CONFIG), "solid"), []);
+  });
+
+  it("reads a ragged row as ending where the text ends, not as the row below", () => {
+    const ragged = createTileMap(["#..", "#", "..#"], CONFIG);
+
+    // The short row is empty past its end: column 2 of row 1 is sky, not the `#` of row 2.
+    assert.deepEqual(cellsWithTag(ragged, "solid"), [
+      { column: 0, row: 0 },
+      { column: 0, row: 1 },
+      { column: 2, row: 2 },
+    ]);
   });
 });
 
