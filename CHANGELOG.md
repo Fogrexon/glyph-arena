@@ -161,6 +161,15 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
   and only R5 red; deleting an export from `dist/index.d.ts` turns `check:readme-example` red,
   which is what proves that gate reads the published declarations rather than the sources.
 
+### Fixed
+
+- **Every runner level is closed on both sides.** The floor rows were solid at the edges and the rows
+  the body stands in were not, and outside the map is sky, so the first `ArrowLeft` walked the body
+  to x -180 and y 658 (the world is 13 rows, 416 px tall); the respawn put it back outside, and the
+  run died three times in four seconds. Both edge columns are now solid on every row of all three
+  levels — holding left stops at x 32 with no deaths — and a unit test per level names the reason so
+  the next level cannot reopen it. The tutorial's level had the same hole.
+
 ## [0.3.0] - 2026-11-18
 
 The first version that ships `screen` and `touch`. `0.2.0` was the first npm publication and has

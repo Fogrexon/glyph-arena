@@ -58,6 +58,19 @@ for (let index = 0; index < levelCount(); index += 1) {
     assert.equal(tileAt(0, -2), "empty");
     assert.equal(tileAt(levelColumns() + 5, 2), "empty");
   });
+
+  test(`level ${index + 1}: both edge columns are solid, so the first press cannot walk off the world`, () => {
+    loadLevel(index);
+    // Measured 2026-11-18 on the built page: holding ArrowLeft from the spawn walked the body to
+    // x -180 and y 658 (the world is 13 rows, 416 px tall), and the respawn put it back outside
+    // again, so the run died three times in four seconds. The floor rows were solid at the edges
+    // and the rows the body stands in were not, and outside the map is sky: there was nothing to
+    // collide with. The edge columns are the frame of the world, not level content.
+    for (let row = 0; row < levelRows(); row += 1) {
+      assert.ok(isSolidTile(0, row), `row ${row} is open on the left edge`);
+      assert.ok(isSolidTile(levelColumns() - 1, row), `row ${row} is open on the right edge`);
+    }
+  });
 }
 
 test("level 2 asks for height: a step up onto a plateau, and a pit to cross", () => {
@@ -83,7 +96,9 @@ test("level 2 asks for height: a step up onto a plateau, and a pit to cross", ()
 test("level 1 does not ask for height (that is what makes level 2 a step)", () => {
   loadLevel(0);
   let steps = 0;
-  for (let column = 1; column < levelColumns(); column += 1) {
+  // The two edge columns are the frame of the world (see the edge-column test above), so this
+  // walks the interior: a wall is not a step the level is asking the player to take.
+  for (let column = 1; column < levelColumns() - 1; column += 1) {
     if (isSolidTile(column, 10) && !isSolidTile(column - 1, 10)) steps += 1;
   }
   // A ledge hanging in the sky is not a step: it has to be reachable from the ground line.
