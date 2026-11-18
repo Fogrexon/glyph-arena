@@ -216,7 +216,7 @@ jump.
 
 ```ts
 import {
-  // phone-begin
+  // phone-begin: imports
   createBody,
   createCamera,
   createDraw,
@@ -234,7 +234,7 @@ const CELL = 32;
 const COLS = 32;
 const ROWS = 6;
 
-// phone-begin
+// phone-begin: canvas and pad
 const canvas = document.querySelector<HTMLCanvasElement>("#game")!;
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
@@ -282,7 +282,7 @@ createLoop({
   onFrame: ({ delta }) => {
     const dt = Math.min(delta, 1 / 30); // a long frame must not teleport the body
 
-    // phone-begin
+    // phone-begin: input
     const keys = input.snapshot().keys;
     const left = keys.has("ArrowLeft") || keys.has("KeyA");
     const right = keys.has("ArrowRight") || keys.has("KeyD");
@@ -310,7 +310,7 @@ createLoop({
 
     draw.setView(null);
 
-    // phone-begin
+    // phone-begin: pad
     // (a keyboard game: there is no pad to draw)
     // phone-end
 
@@ -349,88 +349,24 @@ node -e "import('@fogrexon/glyph-arena').then(m => console.log('createTouchContr
 ```
 
 The file above reads the keyboard, and a phone has none. Four functions close that gap, and they come
-from the same import. This is the next five minutes, not a second tutorial: the block above stays the
-fast path, and nothing here changes it.
+from the same import. `fitToWindow` sizes the canvas to the window and keeps it sized; its `onResize`
+is where anything measured in canvas pixels — the touch pad — has to be rebuilt, because the numbers
+it was built from just changed. `measureCanvas` and `toCanvasPoint` turn a pointer's CSS pixels into
+the canvas pixels the game draws in, measured once per frame because `getBoundingClientRect` forces
+layout and two thumbs on the same frame do not need it twice. `createTouchControls` turns those points
+into zones, with a `holdMs` because a tap can land and lift between two frames: `down` is "a finger is
+there right now", `held` outlives the finger by that window, `pressed` is true for one frame, and
+`axis` gives a stick's direction rather than a position.
 
-The canvas has to be sized by the game rather than by CSS. `fitToWindow` sets the bitmap to the window
-and keeps it set; its `onResize` is where anything measured in canvas pixels — the touch pad below —
-has to be rebuilt, because the numbers it was built from just changed.
+The program below is that game with all four wired in — one file rather than four insertions, so
+there is nothing to splice and `buildPad` exists once rather than twice. Its `size` comes from the
+width because a constant does not fit a phone: three 120 px squares plus the margins need 432 px, and
+below that the right zone and the jump zone overlap — by 30 px at 390 px wide, 60 px at 360 px — so a
+thumb in the overlap walks and jumps at once.
 
-```ts
-import { fitToWindow } from "@fogrexon/glyph-arena";
-
-let pad = buildPad(canvas.width, canvas.height);
-const fit = fitToWindow(canvas, window, {
-  onResize: () => {
-    pad = buildPad(canvas.width, canvas.height);
-  },
-});
-```
-
-Pointers arrive in **CSS** pixels — where the page put the canvas — while the game draws in **bitmap**
-pixels, and on a phone those are different numbers. `measureCanvas` reads the box, the size and the
-ratio in one go and `toCanvasPoint` converts. Measure once per frame and reuse it: `getBoundingClientRect`
-forces layout, and two thumbs on the same frame do not need it twice.
-
-```ts
-import { measureCanvas, toCanvasPoint } from "@fogrexon/glyph-arena";
-
-// in onFrame, before pad.update
-const measured = measureCanvas(canvas);
-const points = input.snapshot().pointers.map((pointer) => ({
-  id: pointer.id,
-  ...toCanvasPoint({ x: pointer.x, y: pointer.y }, measured.box, measured.size),
-}));
-```
-
-`createTouchControls` turns those points into zones, in the same pixels the game draws in. It needs
-`holdMs` because a tap can land and lift between two frames, and how long such a tap still counts is
-the game's call; `down` is "a finger is there right now", `held` outlives the finger by that window,
-`pressed` is true for one frame, and `axis` gives a stick's direction (a `circle` zone) rather than a
-position.
-
-```ts
-import { createTouchControls } from "@fogrexon/glyph-arena";
-
-function buildPad(width: number, height: number) {
-  const margin = 24;
-  const gap = 12;
-  // Three squares and the gaps have to fit across the screen, so the size comes from the width.
-  const size = Math.min(120, Math.floor((width - margin * 2 - gap * 2) / 3));
-  const y = height - size - margin;
-  return createTouchControls({
-    zones: {
-      left: { kind: "rect", x: margin, y, w: size, h: size },
-      right: { kind: "rect", x: margin + size + gap, y, w: size, h: size },
-      jump: { kind: "rect", x: width - margin - size, y, w: size, h: size },
-    },
-    holdMs: 120,
-  });
-}
-```
-
-`size` is derived rather than fixed because a constant does not fit a phone: three 120 px squares plus
-the margins need 432 px, and below that the right zone and the jump zone overlap — by 30 px at 390 px
-wide, 60 px at 360 px — so a thumb in the overlap walks and jumps at once. Deriving the size keeps 120
-where there is room and shrinks it where there is not.
-
-The frame then reads both sources into the same two variables, and the edge stays where it already
-was — one edge over "the button is down", whichever button that is:
-
-```ts
-pad.update(points, dt);
-
-const jumpHeld = keys.has("Space") || pad.held("jump");
-const jump = jumpHeld && !jumpWasHeld;
-jumpWasHeld = jumpHeld;
-
-const left = keys.has("ArrowLeft") || keys.has("KeyA") || pad.down("left");
-const right = keys.has("ArrowRight") || keys.has("KeyD") || pad.down("right");
-```
-
-Two things outside the library still matter. Give the canvas `touch-action: none` in CSS, or a drag
-scrolls the page instead of moving the character. And draw the pad yourself with `draw.rect`: the
-zones are where the fingers are, not what they look like, and the library has no opinion about that.
+Two things outside the library still matter: the canvas needs `touch-action: none` in CSS, or a drag
+scrolls the page instead of moving the character, and the zones are where the fingers are, not what
+they look like, so the program draws them itself.
 
 ## The whole file, on a phone
 
@@ -439,11 +375,12 @@ thumbs, and the pad it draws is the pad it reads. It needs one line of CSS the d
 not — `canvas { touch-action: none; }` — or a drag scrolls the page instead of moving the character.
 
 The `// phone-begin` / `// phone-end` pairs mark the only places this program differs from the one
-above; everything outside them is byte for byte the same, and a check in CI says so.
+above; everything outside them is byte for byte the same, and a check in CI says so. Each pair is
+named for what it is for, so a fifth one has to argue its own case.
 
 ```ts
 import {
-  // phone-begin
+  // phone-begin: imports
   createBody,
   createCamera,
   createDraw,
@@ -465,7 +402,7 @@ const CELL = 32;
 const COLS = 32;
 const ROWS = 6;
 
-// phone-begin
+// phone-begin: canvas and pad
 const canvas = document.querySelector<HTMLCanvasElement>("#game")!;
 
 // The rectangles a finger is tested against are the ones the player sees, so the two cannot drift apart.
@@ -534,7 +471,7 @@ createLoop({
   onFrame: ({ delta }) => {
     const dt = Math.min(delta, 1 / 30); // a long frame must not teleport the body
 
-    // phone-begin
+    // phone-begin: input
     const keys = input.snapshot().keys;
 
     // Pointers arrive in CSS pixels; the pad lives in canvas pixels.
@@ -571,7 +508,7 @@ createLoop({
 
     draw.setView(null);
 
-    // phone-begin
+    // phone-begin: pad
     // The pad is drawn from the same rectangles the fingers are tested against.
     for (const [name, zone] of Object.entries(pad.zones)) {
       draw.rect({
@@ -608,5 +545,5 @@ createLoop({
 ```
 
 Two things changed from the keyboard version: `fitToWindow` sizes the canvas, instead of the two
-assignments inside the first marked region, and `onResize` rebuilds the pad because its zones are in
+assignments inside the first marked segment, and `onResize` rebuilds the pad because its zones are in
 canvas pixels and those are the numbers that just changed.
