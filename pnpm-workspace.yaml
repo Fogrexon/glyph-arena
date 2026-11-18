@@ -3,3 +3,4 @@ packages:
   - "examples/*"
   # the tutorial's "whole file" block, compiled and run from docs/tutorial.md
   - "fixtures/tutorial"
+  - "fixtures/readme"

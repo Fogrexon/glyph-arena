@@ -59,6 +59,13 @@ jobs:
 
       - run: pnpm typecheck:public-api
 
+      # The umbrella README ships inside the tarball and freezes there until the next version, so
+      # a compile error in its only example cannot be fixed after it ships. `check:readme` proves
+      # what the prose claims (module names, draw.rect/draw.text); this compiles the block itself
+      # against the emitted declarations — the ones the tarball carries — with the extractor the
+      # tutorial gate uses. `pnpm -r typecheck` already compiles it against the sources.
+      - run: pnpm check:readme-example
+
       # Packs every package, installs the tarballs into an empty project
       # offline, and typechecks a strict consumer against them. No registry is
       # contacted; S4 in the script proves the check actually reads types.
@@ -102,3 +109,10 @@ jobs:
       # the body through the world" (input reaches the body step) are checked.
       # Both breakages that reached readers this week compiled fine.
       - run: pnpm e2e:tutorial
+
+      # 11. The umbrella README's block, in a real browser. It is the first fifteen lines anyone
+      # sees on npm and it freezes in the tarball, so "it compiles" is not enough: the built page is
+      # served and the canvas is read — the frame painted, the label drawn, frames advancing, and
+      # the rectangle moving (its `x` is `40 + Math.sin(elapsed) * 60`, so a still rectangle means
+      # `elapsed` never advanced even though frames did).
+      - run: pnpm e2e:readme

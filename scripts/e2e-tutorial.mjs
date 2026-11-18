@@ -29,11 +29,11 @@
  * browser, exactly like `e2e:demo`.
  */
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
-import { createServer } from "node:http";
-import { join, resolve, sep } from "node:path";
+import { join, resolve } from "node:path";
 
 import { chromium } from "playwright-core";
+
+import { serveDist } from "./lib/static-server.mjs";
 
 const HERE = import.meta.dirname ?? new URL(".", import.meta.url).pathname;
 const ROOT = resolve(HERE, "..");
@@ -43,15 +43,6 @@ const PORT = Number(process.env.E2E_TUTORIAL_PORT ?? 4321);
 const CLEAR = [13, 22, 38]; // "#0d1626"
 const SOLID = [42, 53, 80]; // "#2a3550"
 const PLAYER = [247, 179, 43]; // "#f7b32b"
-
-const MIME = new Map([
-  [".html", "text/html; charset=utf-8"],
-  [".js", "text/javascript; charset=utf-8"],
-  [".css", "text/css; charset=utf-8"],
-  [".json", "application/json; charset=utf-8"],
-  [".map", "application/json; charset=utf-8"],
-  [".svg", "image/svg+xml"],
-]);
 
 const failures = [];
 
@@ -123,56 +114,12 @@ const SAMPLE = `(() => {
   };
 })()`;
 
-/**
- * Serve the built page, and keep the list of requests the server could not answer. The browser's
- * own console message for a 404 names no URL, so this list is the precise version of it — and it
- * catches a 500 too, which the tutorial's reader would see as a blank page.
- */
-async function serveDist() {
-  const root = resolve(DIST);
-  const missing = [];
-
-  const server = createServer(async (request, response) => {
-    const url = new URL(request.url ?? "/", `http://127.0.0.1:${PORT}`);
-    const relative = decodeURIComponent(url.pathname).replace(/^\/+/, "");
-
-    // The page has no favicon; the browser asks anyway. Answering it is not hiding a page asset.
-    if (relative === "favicon.ico") {
-      response.writeHead(204).end();
-      return;
-    }
-
-    const path = resolve(root, relative === "" ? "index.html" : relative);
-
-    if (path !== root && !path.startsWith(root + sep)) {
-      missing.push(`403 ${url.pathname}`);
-      response.writeHead(403).end("forbidden");
-      return;
-    }
-
-    try {
-      const body = await readFile(path);
-      const type = MIME.get(path.slice(path.lastIndexOf("."))) ?? "application/octet-stream";
-      response.writeHead(200, { "content-type": type, "cache-control": "no-store" }).end(body);
-    } catch {
-      missing.push(`404 ${url.pathname}`);
-      response.writeHead(404).end("not found");
-    }
-  });
-
-  const listening = await new Promise((resolvePromise) => {
-    server.listen(PORT, "127.0.0.1", () => resolvePromise(server));
-  });
-
-  return { server: listening, missing };
-}
-
 async function main() {
   if (!existsSync(join(DIST, "index.html"))) {
     throw new Error(`no built tutorial at ${DIST} — run \`pnpm -r build\` first`);
   }
 
-  const { server, missing } = await serveDist();
+  const { server, missing } = await serveDist({ root: DIST, port: PORT });
   const baseUrl = `http://127.0.0.1:${PORT}`;
   const errors = [];
   const launch = {

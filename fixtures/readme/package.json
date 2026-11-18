@@ -1,0 +1,20 @@
+{
+  "name": "@fogrexon/glyph-arena-readme-fixture",
+  "private": true,
+  "type": "module",
+  "description": "Compiles and runs the umbrella README's only ts block, extracted from packages/glyph-arena/README.md",
+  "scripts": {
+    "extract": "node ../../scripts/extract-readme.mjs",
+    "dev": "node ../../scripts/extract-readme.mjs && vite",
+    "typecheck": "node ../../scripts/extract-readme.mjs && tsc -p tsconfig.json --noEmit",
+    "typecheck:published": "node ../../scripts/extract-readme.mjs && tsc -p tsconfig.published.json",
+    "build": "node ../../scripts/extract-readme.mjs && vite build"
+  },
+  "dependencies": {
+    "@fogrexon/glyph-arena": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5"
+  }
+}
