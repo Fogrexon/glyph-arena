@@ -8,7 +8,7 @@
     "dev": "node ../../scripts/extract-readme.mjs && vite",
     "typecheck": "node ../../scripts/extract-readme.mjs && tsc -p tsconfig.json --noEmit",
     "typecheck:published": "node ../../scripts/extract-readme.mjs && tsc -p tsconfig.published.json",
-    "build": "node ../../scripts/extract-readme.mjs && vite build"
+    "build": "node ../../scripts/extract-readme.mjs && vite build && node ../../scripts/stamp-dist.mjs readme"
   },
   "dependencies": {
     "@fogrexon/glyph-arena": "workspace:*"
