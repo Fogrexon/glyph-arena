@@ -15,7 +15,7 @@
     "e2e:published": "node scripts/e2e-published.mjs",
     "e2e:readme": "node scripts/e2e-readme.mjs",
     "e2e:runner": "node scripts/e2e-runner.mjs",
-    "e2e:tutorial": "node scripts/e2e-tutorial.mjs",
+    "e2e:tutorial": "node scripts/e2e-tutorial.mjs && node scripts/e2e-tutorial-phone.mjs",
     "measure:parry-run": "node scripts/measure-parry-run.mjs",
     "publish:npm": "node scripts/publish-npm.mjs",
     "readme:extract": "node scripts/extract-readme.mjs",
@@ -23,7 +23,7 @@
     "smoke:pack-install": "node scripts/smoke-pack-install.mjs",
     "test": "pnpm -r test",
     "test:scripts": "node --test scripts/*.test.mjs",
-    "tutorial:extract": "node scripts/extract-tutorial.mjs",
+    "tutorial:extract": "node scripts/extract-tutorials.mjs",
     "typecheck": "pnpm -r typecheck",
     "typecheck:public-api": "tsc -p fixtures/public-api/tsconfig.json"
   },
