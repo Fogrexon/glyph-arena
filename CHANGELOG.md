@@ -6,6 +6,22 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+### Fixed
+
+- **`e2e:tutorial-phone` failed once in CI and was green on re-run, and the gate was the bug.** The
+  check after the resize walked the body at a point that only exists in the wider pad — and a walk
+  is only a probe while the level lets the body go that way. The tutorial's level has a 32 px step
+  at x=256, so when the previous check left the body just past it, walking left is blocked by
+  geometry and the gate failed for a reason that had nothing to do with the pad. Measured on a pod
+  against the real program: from that spot a left thumb moves the world **0.0 px**, while the jump
+  zone lifts the body **104 px**. The check now jumps — a jump lifts the body wherever it stands.
+  **A failing browser gate now leaves evidence**: the checks that failed, the page's console, the
+  page errors, the last frame it read, and a screenshot (`scripts/lib/e2e-artifacts.mjs`), written
+  to `.e2e-artifacts` and printed to the log, because uploading needs a workflow-scoped token this
+  repository's bot does not have. **`pnpm e2e:flake`** runs a gate ten times and reports the rate
+  (`scripts/e2e-repeat.mjs`), so "re-run and it was green" stops being a diagnosis: the phone gate
+  is **10/10** after the fix.
+
 ### Added
 
 - **The tutorial's phone program is compiled and walked, not just described.** `## The whole file,
