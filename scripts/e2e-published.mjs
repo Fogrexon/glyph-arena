@@ -17,6 +17,8 @@
  *   P4 the tutorial's program is emitted and **runs in a browser** — the canvas is read, so a
  *      broken `dist` cannot hide behind types that happen to be right
  *   P5 no console or page errors, and every asset the page asked for was served
+ *   P6 the same two programs, compiled against the version **npm serves** — red when that version
+ *      is this workspace's own, and a named wait when a release is staged (see the block)
  *
  * The emitted JavaScript keeps the bare specifier and the page resolves it with an import map, so
  * nothing here is bundled — the bytes the browser runs are the ones npm installed.
@@ -47,6 +49,8 @@ const SOLID = [42, 53, 80]; // "#2a3550"
 const PLAYER = [247, 179, 43]; // "#f7b32b"
 
 const failures = [];
+
+const firstLine = (error) => String(error?.message ?? error).split("\n")[0];
 
 function check(ok, name, detail) {
   if (ok) {
@@ -215,6 +219,88 @@ async function main() {
       );
     } else {
       failures.push("P3: the documents do not compile against the installed package");
+    }
+
+
+    // ---- P6: the same two documents, against the version npm is serving ------
+    // P3 proves the documents work with the tarball this workspace is about to publish, and it is
+    // green even when main's documents are hours ahead of what a reader can install: the workspace
+    // has the export, the registry does not. That gap stopped a real dry run on its first import —
+    // `does not provide an export named 'tagIn'` — while every workspace gate was green. The fix
+    // for that state is a release, not a code change, so the check has to tell the two apart.
+    //
+    // The published version is the one `npm install @fogrexon/glyph-arena` resolves to, so it is
+    // the one the documents have to compile against:
+    //   workspace == registry → the documents must compile against what npm serves, or red;
+    //   workspace > registry  → a release is staged (this workspace is the newer one), and the
+    //                           check names the version it waits for instead of blocking every pull
+    //                           request until that release ships.
+    const registry = join(work, "registry");
+    mkdirSync(registry, { recursive: true });
+    writeFileSync(
+      join(registry, "package.json"),
+      `${JSON.stringify({ name: "registry-docs", private: true, type: "module" }, null, 2)}\n`,
+    );
+
+    const workspaceVersion = JSON.parse(readFileSync(join(UMBRELLA, "package.json"), "utf8")).version;
+    let publishedVersion = null;
+    try {
+      publishedVersion = run("npm", ["view", "@fogrexon/glyph-arena", "version"], ROOT).trim();
+    } catch (error) {
+      console.log(`PEND P6: could not ask the registry which version it serves — ${firstLine(error)}`);
+    }
+
+    if (publishedVersion) {
+      let registryInstalled = true;
+      try {
+        run(
+          "npm",
+          ["install", "--no-audit", "--no-fund", "--ignore-scripts", `@fogrexon/glyph-arena@${publishedVersion}`],
+          registry,
+        );
+      } catch (error) {
+        registryInstalled = false;
+        console.log(`PEND P6: could not install @fogrexon/glyph-arena@${publishedVersion} from the registry — ${firstLine(error)}`);
+      }
+
+      if (registryInstalled) {
+        writeFileSync(join(registry, "tutorial.ts"), `${tutorial.code}\n`);
+        writeFileSync(join(registry, "readme.ts"), `${readme.code}\n`);
+        writeFileSync(join(registry, "tsconfig.json"), `${JSON.stringify(tsconfig, null, 2)}\n`);
+
+        let registryCompiled = true;
+        let registryError = "";
+        try {
+          run(TSC, ["-p", "tsconfig.json"], registry);
+        } catch (error) {
+          registryCompiled = false;
+          const out = `${error.stdout ?? ""}${error.stderr ?? ""}`;
+          registryError = out.split("\n").find((line) => line.includes("error TS")) ?? firstLine(error);
+        }
+
+        if (registryCompiled) {
+          check(
+            true,
+            "P6: the documents on main compile against the version npm serves",
+            `@fogrexon/glyph-arena@${publishedVersion}`,
+          );
+        } else if (workspaceVersion !== publishedVersion) {
+          // A release is staged: this workspace is a version npm does not have yet, so the
+          // documents are ahead of the registry *by design* until that version is published. The
+          // line names the version so the wait cannot be mistaken for a pass.
+          console.log(
+            `PEND P6: npm serves @fogrexon/glyph-arena@${publishedVersion}, which cannot run the documents on main ` +
+              `(${registryError}); this workspace is v${workspaceVersion}, so a release is staged — ` +
+              `publish v${workspaceVersion} and this check becomes the gate`,
+          );
+        } else {
+          check(
+            false,
+            "P6: the documents on main compile against the version npm serves",
+            `${registryError} — v${publishedVersion} is published and this workspace is the same version`,
+          );
+        }
+      }
     }
 
     // ---- P4: the installed bundle actually runs ------------------------------

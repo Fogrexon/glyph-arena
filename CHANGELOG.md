@@ -8,6 +8,19 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Added
 
+- **`e2e:published` P6: the documents on main, compiled against the version npm serves.** P3 proves
+  the tutorial and README work with the tarball this workspace is about to publish, and it stayed
+  green while main's documents were eight hours ahead of what a reader could install: the workspace
+  had `tagIn`, `@fogrexon/glyph-arena@0.3.0` did not, and a one-page dry run from the site stopped on
+  its first import (`does not provide an export named 'tagIn'`). P6 installs `@latest` from the
+  registry into an empty project and compiles the same two programs against it. When the workspace
+  version is the published one that is the gate: red, naming the export that is missing. When the
+  workspace is ahead, a release is staged, and the check prints the version it waits for instead of
+  blocking every pull request until that release ships — a named `PEND` with the version and the
+  error, not a silent pass. `packages/glyph-arena` moves to **0.4.0** so that state is explicit.
+  Reverse check: with the version put back to 0.3.0 the gate fails (`FAIL P6 … has no exported member
+  'tagIn'`, exit 1); with 0.4.0 it is the named wait.
+
 - **`tagIn(map, tag)` — the tag written once, and the four questions it answers.** A platformer asks
   about its floor three ways — one cell, a box, and the ground under a foot — and all three samples
   wrote the same wrapper for each, passing `"solid"` again at every call. A misspelled tag is not an
