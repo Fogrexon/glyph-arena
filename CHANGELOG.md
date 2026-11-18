@@ -8,6 +8,26 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Added
 
+- **The tutorial's phone program is compiled and walked, not just described.** `## The whole file,
+  on a phone` is the tutorial's second complete program: the same game wired to a pad. Until now the
+  three things that only go wrong on a phone — `fitToWindow`'s `onResize` hook, `measureCanvas`, and
+  `toCanvasPoint` — were snippets spliced into the desktop program, so nothing compiled or ran them.
+  Now `pnpm -r typecheck` and `pnpm -r build` compile it (`scripts/extract-tutorials.mjs` writes
+  `fixtures/tutorial/phone-whole.ts` **verbatim** — no harness line, so the file the gate runs is
+  the file a reader copies), and `e2e:tutorial-phone` drives it with a thumb at **390×844, touch,
+  DPR 3**: the canvas is the window, frames keep coming, a thumb on the right zone walks while the
+  camera holds the body, a thumb on the jump zone lifts it, and after the window grows to 414 px a
+  point that is inside the pad **only at the new width** still walks — which only happens if
+  `onResize` rebuilt the pad. A canvas styled to half its bitmap width still puts the thumb in the
+  zone drawn under it, which is `measureCanvas`/`toCanvasPoint` doing their job rather than being
+  called. **The two programs may differ only inside `// phone-begin` / `// phone-end` segments** (4
+  is the ceiling; a fifth means it is a second program): `test:scripts` compares everything outside
+  them, byte for byte. Reverse-checked: one byte changed outside the segments fails that comparison,
+  removing `toCanvasPoint` fails only the half-size check, and rebuilding the pad with a stale width
+  fails only the resize check. **One extractor** now writes all three generated programs
+  (`scripts/extract-tutorials.mjs`); the two per-file scripts are gone, and `tutorial:extract` no
+  longer knows about only half of them.
+
 - **`e2e:tutorial` walks the phone now — the viewport and the pad's zones.** The tutorial's
   `On a phone` section is four snippets spliced into the program above, so it had never been
   compiled or run: three are inserts into code that already exists. The fourth is
@@ -17,7 +37,7 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
   once**. The gate now does two things. **T8–T10**: the tutorial's own program is loaded at
   **390×844 with touch, DPR 3 and an iPhone user agent**, and the canvas must be the window's size,
   painted, with frames advancing. **T11**: the fixture extracts the published `buildPad` block
-  verbatim (`scripts/extract-tutorial-phone.mjs`, +1 harness line exporting it), serves it on its
+  verbatim (`fixtures/tutorial/phone-pad.ts`, +1 harness line exporting it), serves it on its
   own page, and probes the zones **point by point at 360 / 390 / 414 / 432 px** — every sampled
   point must belong to **at most one** zone, and all three zones must answer somewhere. The probe
   walks the pad instead of repeating the size formula, so it measures the doc, not the gate's copy
