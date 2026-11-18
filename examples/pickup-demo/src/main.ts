@@ -8,9 +8,10 @@ import { createWorld, type Entity } from "@fogrexon/glyph-arena-ecs";
 import { createGamepad, type GamepadState } from "@fogrexon/glyph-arena-gamepad";
 import { createInput } from "@fogrexon/glyph-arena-input";
 import { createLoop } from "@fogrexon/glyph-arena-loop";
-import { fitToWindow } from "@fogrexon/glyph-arena-screen";
+import { fitToWindow, measureCanvas, toCanvasPoint } from "@fogrexon/glyph-arena-screen";
 import { createForest, type Node } from "@fogrexon/glyph-arena-scene";
 import { createTimer } from "@fogrexon/glyph-arena-timer";
+import { createTouchControls, type TouchZone } from "@fogrexon/glyph-arena-touch";
 import { createTransform, type Matrix2D } from "@fogrexon/glyph-arena-transform";
 import { createTween } from "@fogrexon/glyph-arena-tween";
 
@@ -83,11 +84,22 @@ const HIT_BLINK_HZ = 10;
 const HIT_BLINK_ALPHA = 0.3;
 /** Hazards stay put for this long after the round starts (and after R), so the first hit is not a surprise. */
 const HAZARD_GRACE_SECONDS = 3;
-/** On-screen d-pad for touch devices: offset from the bottom-left corner and its radius (CSS px). */
+/** On-screen d-pad for touch devices: offset from the bottom-left corner and its drawn radius. */
 const TOUCH_PAD_MARGIN = 104;
 const TOUCH_PAD_RADIUS = 64;
-/** A touch inside this radius per axis counts as "no direction". */
+/**
+ * The circle that answers a touch, which is 2.5x the disc that is drawn. This is feel, not geometry:
+ * the thumb covers the disc it is aiming at, so a target the size of the drawing is a target you
+ * miss. Named rather than inlined because "why 160" has to have an answer.
+ */
+const TOUCH_PAD_REACH = TOUCH_PAD_RADIUS * 2.5;
+/** Movement smaller than this is no direction at all. */
 const TOUCH_PAD_DEADZONE = 14;
+/**
+ * How long a press survives after the last frame that saw the finger. The pad is sampled once per
+ * frame, so a tap that lands and lifts between two frames is not down at any sample.
+ */
+const TOUCH_HOLD_MS = 150;
 
 const COMPONENT_KIND = "kind";
 const COMPONENT_AABB = "aabb";
@@ -266,37 +278,30 @@ function padHasInput(pad: GamepadState): boolean {
   return directions.left || directions.right || directions.up || directions.down;
 }
 
-type TouchDirections = {
-  left: boolean;
-  right: boolean;
-  up: boolean;
-  down: boolean;
-};
-
-/** Maps a touch point onto the on-screen d-pad (bottom-left of the canvas). */
-function touchPadDirections(x: number, y: number, width: number, height: number): TouchDirections {
-  const centerX = TOUCH_PAD_MARGIN;
-  const centerY = height - TOUCH_PAD_MARGIN;
-  const dx = x - centerX;
-  const dy = y - centerY;
-
-  if (Math.hypot(dx, dy) < TOUCH_PAD_DEADZONE) {
-    return { left: false, right: false, up: false, down: false };
-  }
-
-  const withinPad = Math.hypot(dx, dy) <= TOUCH_PAD_RADIUS * 2.5;
-  if (!withinPad) {
-    return { left: false, right: false, up: false, down: false };
-  }
-
-  // Eight-way: each axis is independent, so a diagonal touch moves diagonally like the arrows do.
+/**
+ * The zones, in canvas pixels — the same units `toCanvasPoint` puts the pointers in. `screen` is the
+ * whole canvas: the title is "tap anywhere", and a phone user should not have to find a corner.
+ */
+function touchZones(): Record<string, TouchZone> {
   return {
-    left: dx < -TOUCH_PAD_DEADZONE,
-    right: dx > TOUCH_PAD_DEADZONE,
-    up: dy < -TOUCH_PAD_DEADZONE,
-    down: dy > TOUCH_PAD_DEADZONE,
+    move: {
+      kind: "circle",
+      x: TOUCH_PAD_MARGIN,
+      y: canvas.height - TOUCH_PAD_MARGIN,
+      radius: TOUCH_PAD_REACH,
+      deadZone: TOUCH_PAD_DEADZONE,
+    },
+    screen: { kind: "rect", x: 0, y: 0, w: canvas.width, h: canvas.height },
   };
 }
+
+/**
+ * The old version of this was a hand-rolled `hypot` against `TOUCH_PAD_RADIUS * 2.5` with a
+ * per-axis dead zone, and it looked at "the first pointer" — which on a two-thumb phone is whichever
+ * thumb landed first. The pads are the library's now: it owns the hit test, the dead zone, and which
+ * finger a stick is following.
+ */
+let touch = createTouchControls({ zones: touchZones(), holdMs: TOUCH_HOLD_MS });
 
 async function main(): Promise<void> {
   const assetBase = import.meta.env.BASE_URL;
@@ -638,7 +643,13 @@ async function main(): Promise<void> {
     { once: true },
   );
 
-  fitToWindow(canvas, window);
+  // The zones are canvas pixels, so they change when the canvas does. Rebuilding throws away a press
+  // in flight, which a resize can afford and a frame cannot.
+  fitToWindow(canvas, window, {
+    onResize: () => {
+      touch = createTouchControls({ zones: touchZones(), holdMs: TOUCH_HOLD_MS });
+    },
+  });
 
   const input = createInput();
   input.attach(window);
@@ -1346,28 +1357,33 @@ async function main(): Promise<void> {
 
       const snapshot = input.snapshot();
       const keys = new Set(snapshot.keys);
-      const touchPoint = touchEnabled ? snapshot.pointers[0] : undefined;
-      if (touchPoint !== undefined) {
+      // Every pointer, converted once per frame: the pad answers "is a finger on me", so it needs
+      // the whole set, not the first one that happened to land.
+      const measured = measureCanvas(canvas);
+      touch.update(
+        snapshot.pointers.map((point) => ({ ...toCanvasPoint(point, measured.box, measured.size), id: point.id })),
+        delta,
+      );
+      if (touchEnabled) {
         if (phase === "title") {
           // The start action is bound to Space; a tap rides the same binding instead of adding a new one.
-          keys.add("Space");
+          if (touch.down("screen")) {
+            keys.add("Space");
+          }
         } else {
-          const touchDirections = touchPadDirections(
-            touchPoint.x,
-            touchPoint.y,
-            canvas.width,
-            canvas.height,
-          );
-          if (touchDirections.left) {
+          // Eight-way: the two axes are independent, so a diagonal push moves diagonally like the
+          // arrows do. The dead zone is the zone's, not this loop's.
+          const stick = touch.axis("move");
+          if (stick.x < 0) {
             keys.add("ArrowLeft");
           }
-          if (touchDirections.right) {
+          if (stick.x > 0) {
             keys.add("ArrowRight");
           }
-          if (touchDirections.up) {
+          if (stick.y < 0) {
             keys.add("ArrowUp");
           }
-          if (touchDirections.down) {
+          if (stick.y > 0) {
             keys.add("ArrowDown");
           }
         }

@@ -145,6 +145,9 @@ importers:
       '@fogrexon/glyph-arena-timer':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-timer
+      '@fogrexon/glyph-arena-touch':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-touch
       '@fogrexon/glyph-arena-transform':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-transform

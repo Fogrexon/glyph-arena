@@ -769,22 +769,23 @@ async function runTouch(browser, baseUrl, errors) {
   await page.goto(`${baseUrl}/`, { waitUntil: "load" });
   check(await waitForText(page, "Tap — start", 15000), "I6: the title offers a tap to start");
 
-  const pointer = (type, x, y) =>
+  const pointerAs = (id, type, x, y) =>
     page.evaluate(
-      ([kind, clientX, clientY]) => {
+      ([pointerId, kind, clientX, clientY]) => {
         window.dispatchEvent(
           new PointerEvent(kind, {
-            pointerId: 1,
+            pointerId,
             pointerType: "touch",
-            isPrimary: true,
+            isPrimary: pointerId === 1,
             bubbles: true,
             clientX,
             clientY,
           }),
         );
       },
-      [type, x, y],
+      [id, type, x, y],
     );
+  const pointer = (type, x, y) => pointerAs(1, type, x, y);
 
   await pointer("pointerdown", 195, 420);
   await page.waitForTimeout(250);
@@ -825,6 +826,33 @@ async function runTouch(browser, baseUrl, errors) {
     Object.entries(reached)
       .map(([name, distance]) => `${name} ${distance.toFixed(0)}px`)
       .join(" / "),
+  );
+
+  // Two thumbs. The hand-written pad read `snapshot.pointers[0]` — whichever finger landed first —
+  // so a thumb resting anywhere else on the screen made the d-pad dead while the thumb on it did
+  // nothing. The pad owns "which finger am I following" now; this is the test for that.
+  await restartRound(page);
+  await page.waitForTimeout(200);
+  const twoBefore = await latestFrame(page);
+  await pointerAs(2, "pointerdown", canvas.width - 40, 80);
+  await page.waitForTimeout(80);
+  await pointer("pointerdown", padX - 40, padY);
+  await page.waitForTimeout(600);
+  await pointer("pointerup", padX - 40, padY);
+  await pointerAs(2, "pointerup", canvas.width - 40, 80);
+  await page.waitForTimeout(140);
+  const twoAfter = await latestFrame(page);
+  const twoMoved =
+    twoBefore && twoAfter
+      ? Math.hypot(
+          twoAfter.hazards[0].x - twoBefore.hazards[0].x,
+          twoAfter.hazards[0].y - twoBefore.hazards[0].y,
+        )
+      : Number.NaN;
+  check(
+    twoMoved >= 40,
+    "I6: a second thumb resting elsewhere does not steal the d-pad",
+    `${Number.isNaN(twoMoved) ? "sample missing" : `${twoMoved.toFixed(0)}px`} with a finger held at the top-right`,
   );
 
   if (process.env.E2E_KEEP) {
