@@ -6,6 +6,18 @@ export type PointerState = {
 };
 
 export type InputSnapshot = {
+  /**
+   * Keys that are down now, **plus** every key that went down since the previous `snapshot()`.
+   *
+   * The second half is the latch: a loop samples once per frame, so a keydown and keyup that both
+   * land between two samples were never down at all — which is why every mechanical test had to
+   * hold a press for 150 ms before releasing. A press that is gone by the time the frame runs still
+   * answers here for that one frame, so `actions.pressed()` sees the edge it was asked for.
+   *
+   * It is **one frame, not a hold**: a keyboard is discrete events, and nothing needs a key to
+   * stay down after the player let go. `snapshot()` consumes the latch — call it once per frame,
+   * as the loop does.
+   */
   keys: ReadonlySet<string>;
   pointers: readonly PointerState[];
 };
@@ -24,15 +36,22 @@ export function createInput(): Input {
   let target: EventTarget | null = null;
   let disposed = false;
   const keys = new Set<string>();
+  /** Keys that went down since the last snapshot: the press survives to the next frame, once. */
+  const latch = new Set<string>();
   const pointers = new Map<number, PointerState>();
 
   const clearState = () => {
     keys.clear();
+    latch.clear();
     pointers.clear();
   };
 
   const onKeyDown = (event: Event) => {
     if (event instanceof KeyboardEvent) {
+      // Auto-repeat fires keydown again while the key is held; only the first is a press.
+      if (!keys.has(event.code)) {
+        latch.add(event.code);
+      }
       keys.add(event.code);
     }
   };
@@ -136,8 +155,16 @@ export function createInput(): Input {
         return { keys: EMPTY_KEYS, pointers: EMPTY_POINTERS };
       }
 
+      // Down now, plus the presses the frame boundary would otherwise swallow. The latch is spent
+      // here: one frame is the whole life of a press that ended before the loop looked.
+      const frame = new Set(keys);
+      for (const code of latch) {
+        frame.add(code);
+      }
+      latch.clear();
+
       return {
-        keys: new Set(keys),
+        keys: frame,
         pointers: Array.from(pointers.values()),
       };
     },
