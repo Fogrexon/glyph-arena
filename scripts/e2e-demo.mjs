@@ -1080,10 +1080,23 @@ async function runParry(browser, errors) {
     await page.goto(`http://127.0.0.1:${PARRY_PORT}/?i12=1`, { waitUntil: "load" });
     await page.waitForTimeout(600);
     await pressOnce(page, "Space");
+    // Wait for the title to be left before reading anything else. `__parryState` is published at the
+    // top of the title branch, so the frame that starts the run still mirrors "title" — a one-frame
+    // press makes that window reachable, and treating it as "the run ended" is what failed here.
+    const drainStart = Date.now() + 5000;
+    let started = false;
+    while (Date.now() < drainStart) {
+      const s = await page.evaluate(() => window.__parryState);
+      if (s && s.phase === "play") {
+        started = true;
+        break;
+      }
+      await page.waitForTimeout(20);
+    }
     const drainDeadline = Date.now() + 15000;
     let drainState = null;
     let drained = false;
-    while (Date.now() < drainDeadline) {
+    while (started && Date.now() < drainDeadline) {
       const s = await page.evaluate(() => window.__parryState);
       if (!s) {
         await page.waitForTimeout(100);
@@ -1100,7 +1113,7 @@ async function runParry(browser, errors) {
     check(
       drained,
       "I12: an enemy leaves the field once it has resolved",
-      `enemyCount ${drainState?.enemyCount}, wave ${drainState?.wave}, lives ${drainState?.lives}, parried ${drainState?.parried}`,
+      `${started ? "" : "the run never started — "}enemyCount ${drainState?.enemyCount}, wave ${drainState?.wave}, lives ${drainState?.lives}, parried ${drainState?.parried}`,
     );
 
     // I13: the session keeps a best, and a better run moves it. Run one is left to die without a
