@@ -32,6 +32,32 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Changed
 
+- **`camp`: two camps, so the run is a run.** The level had one fight at the end of a walk: a bold
+  run was 7.2 s and eight tells, so the decision the fight is built around happened four times.
+  Now the enemies come in pairs twenty tiles apart — fight, walk, fight — with the second pair under
+  the hanging rocks and the wall at its back, so the same question is asked in a smaller room. Four
+  enemies, no new rule: the same spawn tag, twice over.
+
+  Two numbers moved with it, and both were forced by measurement rather than taste. **Hearts 3 -> 5**
+  is the run's expected damage: at three, an unbroken masher cleared the first camp and died at
+  8.4 s with the last enemy standing. **And enemy hp stayed at 4** — dropping it to 3 was the first
+  thing tried, and it made the longer run *safer* (`12 swings, 0 lunges, 0 damage`), because twelve
+  swings cancel every tell before it lands. Swings are exposure, so the health is the lever that
+  keeps "fast and hurt" a way to win.
+
+  Measured in a Pod (Chromium 156), three runs each, on the bundle the run reports
+  (`index-BTtthii5.js`):
+
+  ```
+  bold     10.33 /10.49 /10.59 s   hearts 1-2 (took 3-4)   clear 3/3
+  careful  36.26 /37.94 /40.89 s   hearts 5 (took 0)       clear 3/3
+  ```
+
+  **3.5x the time for zero damage**, and the tells say the same thing from the other side: bold
+  meets **8** of them, careful **22-25** — five times as many decisions, paid for in wall time. Before
+  the second camp existed the same two lines read 7.2 s / 4 tells against 18 s / 11.
+
+
 - **`pickup-demo`: the last hand-written pad is the library's, and it took a bug with it.** The
   oldest sample still carried its own hit test — `Math.hypot` against `TOUCH_PAD_RADIUS * 2.5` and a
   per-axis dead zone — and, more importantly, it read `snapshot.pointers[0]`: **whichever finger

@@ -109,7 +109,8 @@ async function playCamp(page, strategy) {
         let tells = 0;
         let lunges = 0;
         let lastPress = -999;
-        let lastHearts = 3;
+        // Read, not written: the game's own starting health, or the first hit is not a change.
+        let lastHearts = Number.POSITIVE_INFINITY;
         let frame = 0;
         const lost = [];
         const arrivals = [];
