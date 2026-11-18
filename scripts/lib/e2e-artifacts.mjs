@@ -3,8 +3,8 @@
  *
  * A gate that fails with nothing behind it fails the same way again: the log is gone with the
  * runner, and the next person starts by guessing. So a failure writes down the checks that failed,
- * the page's console, the page errors, the last frame it read, and a screenshot — in one directory
- * CI uploads when the job goes red (`E2E_ARTIFACTS` overrides the path).
+ * the page's console, the page errors, the last frame it read, and a screenshot — and prints the
+ * same summary, because a CI log keeps what an artifact upload needs a workflow-scoped token for.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -55,6 +55,9 @@ export async function writeFailureArtifacts({ name, root, page, checks, consoleL
     }
   }
 
+  // The files are for whoever opens the run afterwards; the log itself has to carry what a CI
+  // log keeps, because uploading needs a workflow-scoped token this repository's bot does not have.
+  console.log(lines.join("\n"));
   console.log(`artifacts: ${base}.log${screenshot ? `, ${screenshot}` : ""}`);
   return { log: `${base}.log`, screenshot };
 }
