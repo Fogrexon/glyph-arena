@@ -161,6 +161,20 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
   and only R5 red; deleting an export from `dist/index.d.ts` turns `check:readme-example` red,
   which is what proves that gate reads the published declarations rather than the sources.
 
+### Changed
+
+- **camp's overlap rule says what it is, and runner's design height says what it is not.** `overlaps`
+  is `overlapsHalfOpen` now. The library's `collide.overlaps` is **closed** (`a.x <= b.x + b.width`,
+  documented as "overlap or touch on an edge or corner") and pickup and parry use it; camp's is
+  half-open, so a blade whose tip is exactly on an enemy's edge has not arrived, and
+  `combat.test.ts` has pinned that rule since it was written. Merging them would move every hit one
+  frame earlier at the exact-touch boundary — a tuning change at the point CAMP was measured to,
+  not a cleanup, so the two rules stay and the names now say which is which. `LOGICAL_HEIGHT` in
+  runner is the design height (`scale() = canvas.height / 540`), not a screen scale: `screenScale`
+  is bitmap pixels per CSS pixel and is 1 on both axes here, because `fitToWindow` gives the canvas
+  a bitmap the size of the window. Behaviour unchanged — every changed line in this unit is an
+  identifier or a comment.
+
 ### Fixed
 
 - **Every runner level is closed on both sides.** The floor rows were solid at the edges and the rows

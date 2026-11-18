@@ -19,6 +19,7 @@ export type Attack = {
   facing: 1 | -1;
 };
 
+/** A box with **half-open** edges: `[left, right)` × `[top, bottom)`. See `overlapsHalfOpen`. */
 export type Box = { left: number; top: number; right: number; bottom: number };
 
 export const ATTACK = {
@@ -72,7 +73,16 @@ export function attackBox(body: { x: number; y: number; w: number; h: number }, 
     : { left: body.x - ATTACK.reachPx, top, right: body.x + 4, bottom };
 }
 
-export function overlaps(a: Box, b: Box): boolean {
+/**
+ * Overlap for this game's boxes: **touching edges do not connect**.
+ *
+ * This is not `collide.overlaps`, and the difference is one character. The library's rule is closed
+ * (`a.x <= b.x + b.width`), documented as "overlap or touch on an edge or corner", and pickup and
+ * parry use it. This game measured its reach with the half-open rule — a blade whose tip is exactly
+ * on an enemy's edge has not arrived — and the test below pins that. Swapping the two would move
+ * every hit one frame earlier at the exact-touch boundary: a tuning change, not a cleanup.
+ */
+export function overlapsHalfOpen(a: Box, b: Box): boolean {
   return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
 }
 
