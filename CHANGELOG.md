@@ -47,6 +47,15 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
   facing, centre-to-centre 58 px where left edges say 60, holes including `-Infinity`, the 32/33
   step boundary, two identical calls, and the probe direction) plus the runner's own numbers.
 
+- **`examples/camp/README.md` is the game's one page, and it is checked.** The loop, the three verbs
+  and what each of them costs (a 300 ms swing, a jump with no steering in the air, a 180 ms roll that
+  is invulnerable for 140 ms of it), the enemy queue, the rooms, and the acceptance numbers — bold
+  clears 3/3 in 11.9 s with one heart left, careful 6/6 in 42–54 s with no hits taken in 5 of 6.
+  `scripts/camp-readme.test.mjs` reads every value in the page's tables back out of the source, and it
+  searches **inside the named object**: `ENEMY_STATS.sightPx` and `ENEMY_AI.sightPx` are both 260, so
+  a whole-file search passes for either one — the reverse check produced exactly that before the page
+  was merged.
+
 ### Added
 
 - **The tutorial's phone program is compiled and walked, not just described.** `## The whole file,
