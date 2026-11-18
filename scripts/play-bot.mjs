@@ -111,8 +111,11 @@ async function playCamp(page, strategy) {
         let lastPress = -999;
         // Read, not written: the game's own starting health, or the first hit is not a change.
         let lastHearts = -1;
-        let dodges = 0;
-        let lastDodge = -999;
+
+        // The number this unit exists to find: how long between one commit starting and the next.
+        // With one enemy it is `restMs + windup`; with three it is whatever the stagger makes it,
+        // and a roll that locks steering for 180 ms only works if that number is bigger.
+        const lungeStarts = [];
         let frame = 0;
         const lost = [];
         const arrivals = [];
@@ -144,8 +147,9 @@ async function playCamp(page, strategy) {
           const s = window.__campState;
           resolve({
             phase: s.phase, hearts: s.hearts, hits: s.hits, kills: s.kills, simMs: s.simMs,
-            presses, tells, lunges, arrivals, lost, dodges,
+            presses, tells, lunges, arrivals, lost,
             camps: [...camps.values()].sort((a, b) => a.camp - b.camp),
+            dangerGapMs: lungeStarts.slice(1).map((at, index) => at - lungeStarts[index]),
           });
         };
 
@@ -210,6 +214,7 @@ async function playCamp(page, strategy) {
             }
             if (enemy.mode === "lunge") {
               lunges += 1;
+              lungeStarts.push(Math.round(s.simMs));
               if (camp !== undefined) stat(camp).lunges += 1;
             }
             if (enemy.mode === "rest") restStart.set(index, frame);
@@ -464,10 +469,15 @@ async function main() {
       if (game === "camp") {
         console.log(
           `run ${r.run}  ${r.phase}  hearts ${r.hearts}  hits ${r.hits}  kills ${r.kills}  ${r.simMs} ms  ` +
-            `tells ${r.tells}  lunges ${r.lunges}  presses ${r.presses}  dodges ${r.dodges}  arrived ${JSON.stringify(r.arrivals)}  ` +
+            `tells ${r.tells}  lunges ${r.lunges}  presses ${r.presses}  arrived ${JSON.stringify(r.arrivals)}  ` +
             `errors ${r.consoleErrors.length}  ${r.bundle}`,
         );
         console.log(`   camps ${JSON.stringify(r.camps)}`);
+        if (r.dangerGapMs.length > 0) {
+          const gaps = [...r.dangerGapMs].sort((a, b) => a - b);
+          const median = gaps[Math.floor(gaps.length / 2)];
+          console.log(`   danger gap: median ${median} ms  min ${gaps[0]}  n ${gaps.length}`);
+        }
         if (r.lost.length > 0) console.log(`   lost ${JSON.stringify(r.lost)}`);
       } else {
         const jump = Object.entries(r.jumps).map(([kind, n]) => `${kind} ${n}`).join(" ");
