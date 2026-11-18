@@ -75,3 +75,65 @@ export function attackBox(body: { x: number; y: number; w: number; h: number }, 
 export function overlaps(a: Box, b: Box): boolean {
   return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
 }
+
+/**
+ * The dodge: a roll with a short window you cannot be hit in.
+ *
+ * It exists because of a measurement, not a feeling. With three enemies committed into one window
+ * the careful play had no answer — it retreated from every tell and never got a window of its own
+ * (28 tells, 0 kills, sixty seconds). Attack and jump answer "hit it" and "leave"; neither answers
+ * "it is already on me". A roll is the third answer, and it is a *commitment*: it locks steering
+ * for its whole length, so spending it early is a mistake.
+ *
+ * The invulnerable window is shorter than the roll. That is the taste: you are buying the crossing,
+ * not immunity, and a roll that is still going when the window ends is a roll that can be caught.
+ */
+export const DODGE = {
+  /** How long the roll carries you, in ms. */
+  durationMs: 180,
+  /** How fast, px/s. Above the 300 px/s run — the point is to cross the commit, not to walk. */
+  speedPxPerSecond: 520,
+  /** The window where the commit cannot touch you, in ms. Shorter than the roll, on purpose. */
+  invulnerableMs: 140,
+  /** You cannot roll again until this is over, in ms. */
+  cooldownMs: 420,
+} as const;
+
+export type Dodge = {
+  /** How long the roll has been running, in ms; negative means not rolling. */
+  elapsedMs: number;
+  /** Time left before another roll, in ms. */
+  cooldownMs: number;
+  facing: 1 | -1;
+};
+
+export function beginDodge(dodge: Dodge, facing: 1 | -1): void {
+  dodge.elapsedMs = 0;
+  dodge.facing = facing;
+  dodge.cooldownMs = DODGE.cooldownMs;
+}
+
+export function stepDodge(dodge: Dodge, dtMs: number): void {
+  if (dodge.elapsedMs >= 0) {
+    dodge.elapsedMs += dtMs;
+    if (dodge.elapsedMs >= DODGE.durationMs) {
+      dodge.elapsedMs = -1;
+    }
+  }
+  dodge.cooldownMs = Math.max(0, dodge.cooldownMs - dtMs);
+}
+
+/** Rolling right now? Steering is locked for exactly this long. */
+export function dodgeRolling(elapsedMs: number): boolean {
+  return elapsedMs >= 0 && elapsedMs < DODGE.durationMs;
+}
+
+/** Can the commit touch you? Only inside the first `invulnerableMs` of a roll. */
+export function dodgeInvulnerable(elapsedMs: number): boolean {
+  return elapsedMs >= 0 && elapsedMs < DODGE.invulnerableMs;
+}
+
+/** Ready for a new roll: not rolling, and the cooldown is spent. */
+export function dodgeReady(dodge: Dodge): boolean {
+  return dodge.elapsedMs < 0 && dodge.cooldownMs <= 0;
+}
