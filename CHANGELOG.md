@@ -6,6 +6,14 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-18
+
+The version that adds a module — `@fogrexon/glyph-arena-chase` — and `tagIn(map, tag)` on the tile
+map. Adding exported names is a minor under 0.x, so this is `0.4.0` and not `0.3.1`. It also changes
+what a release *checks*: `e2e:published` P6 compiles the documents on `main` against the version npm
+actually serves, so a document that runs ahead of the registry is named (`PEND`) instead of shipped
+silently.
+
 ### Added
 
 - **`e2e:published` P6: the documents on main, compiled against the version npm serves.** P3 proves
