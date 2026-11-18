@@ -27,13 +27,10 @@ if (chase.walkable) enemy.x += chase.dir * speed * dt;
 
 It returns `{ noticed, dir, distancePx, walkable }`:
 
-- `distancePx` is **centre to centre** (target minus self). Measuring from left edges makes the
-  distance a box of different width notices at differ by half the width difference.
-- `dir` follows the sign of the distance, and **keeps `self.dir` when the centres coincide** — a
-  pursuer standing exactly on its target should not jitter.
+- `distancePx` is **centre to centre** (target minus self); measuring from left edges makes the distance a box of different width notices at differ by half the width difference.
+- `dir` follows the sign of the distance, and **keeps `self.dir` when the centres coincide** — a pursuer standing exactly on its target should not jitter.
 - `noticed` includes both ends: `|distancePx| <= sightPx`.
-- `groundAhead` is called **with the `dir` this call returns**, so the ground it checks is the ground
-  it will walk. A hole (`±Infinity`, `NaN`) is never walkable, and `walkable` implies `noticed`.
+- `groundAhead` is called **with the `dir` this call returns**, so the ground it checks is the ground it will walk; a hole (`±Infinity`, `NaN`) is never walkable, and `walkable` implies `noticed`.
 - `stepTolerancePx` is one number for both directions: `-32` is as walkable as `32`.
 
 Nothing else is in the package: no state (patrol, how long sight has been lost, attack modes are the
