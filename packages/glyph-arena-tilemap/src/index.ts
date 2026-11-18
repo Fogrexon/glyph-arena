@@ -86,6 +86,39 @@ export function hasTag(map: TileMap, column: number, row: number, tag: string): 
   return tagsAt(map, column, row).includes(tag);
 }
 
+/** A cell address: column and row, never pixels. A caller that wants pixels multiplies by `map.cell`. */
+export interface TileCell {
+  readonly column: number;
+  readonly row: number;
+}
+
+/**
+ * Every cell carrying `tag`, in reading order: row by row, left to right, top to bottom.
+ *
+ * `hasTag` answers about one cell, so "where are the spawn points" was a nested loop at the call
+ * site in every game that asked — two of them written twice, each repeating the row/column order
+ * and the `* cell`. Reading order is part of the answer and not an accident: the first spawn point
+ * in the text is the one a run starts at, so a set or an unordered walk would make the start a coin
+ * flip. For the same reason `cellsWithTag(...)[0]` is the first cell, and the common "where does
+ * this start" question needs no second function.
+ *
+ * Returns cells, not pixels, unlike the rest of this package: the map is the same map at any scale,
+ * so the pixels belong to whoever chose the scale — and `map.cell` is right there when it is needed.
+ */
+export function cellsWithTag(map: TileMap, tag: string): TileCell[] {
+  const cells: TileCell[] = [];
+
+  for (let row = 0; row < map.rows; row += 1) {
+    for (let column = 0; column < map.columns; column += 1) {
+      if (hasTag(map, column, row, tag)) {
+        cells.push({ column, row });
+      }
+    }
+  }
+
+  return cells;
+}
+
 /**
  * Is there a tile carrying `tag` anywhere in the pixel rectangle `[left, right)` × `[top, bottom)`?
  *

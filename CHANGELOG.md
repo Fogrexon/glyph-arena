@@ -8,6 +8,16 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Changed
 
+- **`tilemap`: finding cells by tag is the library's now.** `examples/runner/src/level.ts` and
+  `examples/camp/src/level.ts` each opened the map and walked `mapRows` × `mapColumns` looking for a
+  tag — the runner to find the first `@` (the start) and the goal, the camp to find every `@` and
+  `e` — and each multiplied by its own `TILE` at the call site. Both now call
+  `cellsWithTag(map, tag)`, which returns `{ column, row }` in reading order. Reading order is the
+  contract and not an accident: a run starts at the **first** spawn point in the text, so
+  `cellsWithTag(map, "at")[0]` is the start, and a set-ordered walk would make it a coin flip. This
+  is the half of `hasTag` that was missing — the package's own header promises that nobody outside
+  writes a cell↔pixel conversion, and an enumeration loop is that conversion written the long way.
+
 - **`input`: a click or a tap that ends between two frames is no longer lost.** `snapshot().pointers`
   now means "down now **or** landed since the previous snapshot", for exactly one frame, carrying the
   position it landed at. This is the third path with the hole the keyboard had: `pointerdown` +

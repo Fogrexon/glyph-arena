@@ -6,6 +6,7 @@
  * world pixels.
  */
 import {
+  cellsWithTag,
   createTileMap,
   hasTag,
   mapColumns,
@@ -70,13 +71,7 @@ export function isSolidTile(column: number, row: number): boolean {
 
 /** Every cell carrying `tag`, in world pixels (top-left of the cell). */
 function pointsOf(tag: string): Array<{ x: number; y: number }> {
-  const points: Array<{ x: number; y: number }> = [];
-  for (let row = 0; row < mapRows(MAP); row += 1) {
-    for (let column = 0; column < mapColumns(MAP); column += 1) {
-      if (hasTag(MAP, column, row, tag)) points.push({ x: column * TILE, y: row * TILE });
-    }
-  }
-  return points;
+  return cellsWithTag(MAP, tag).map((cell) => ({ x: cell.column * TILE, y: cell.row * TILE }));
 }
 
 /** Where the run starts, in world pixels (feet, not centre). */

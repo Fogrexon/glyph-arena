@@ -8,6 +8,7 @@
  * content is not what the line count is about.
  */
 import {
+  cellsWithTag,
   createTileMap,
   hasTag,
   mapColumns,
@@ -167,12 +168,10 @@ export function chaseSpawnLane(): { startX: number; endX: number } | null {
 
 /** The first cell carrying `tag`, in world pixels (top-left of the cell), or null. */
 function pointOf(tag: string): { x: number; y: number } | null {
-  for (let row = 0; row < levelRows(); row += 1) {
-    for (let column = 0; column < levelColumns(); column += 1) {
-      if (hasTag(map(), column, row, tag)) return { x: column * TILE, y: row * TILE };
-    }
-  }
-  return null;
+  // Reading order is the library's now: the first `@` in the text is the start, and the loop that
+  // used to say so is the one both games had written twice.
+  const cell = cellsWithTag(map(), tag)[0];
+  return cell === undefined ? null : { x: cell.column * TILE, y: cell.row * TILE };
 }
 
 /** Where the run starts, in world pixels (feet, not centre). */
