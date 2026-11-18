@@ -31,6 +31,7 @@ import { join, resolve } from "node:path";
 
 import { chromium } from "playwright-core";
 
+import { requireFresh } from "./lib/build-stamp.mjs";
 import { singleProgram } from "./lib/markdown-program.mjs";
 import { serveDist } from "./lib/static-server.mjs";
 import { wholeFileProgram } from "./lib/tutorial.mjs";
@@ -134,6 +135,12 @@ async function main() {
       .reverse()
       .find((line) => line.endsWith(".tgz"));
     if (!tarball) throw new Error(`pnpm pack did not report a tarball:\n${packed}`);
+
+    // The pack rebuilt `dist/` through `prepack`, so the stamp left behind is the one that describes
+    // these bytes. Checking it is what makes this gate stand on its own: a `prepack` that stopped
+    // stamping would leave a tarball nobody can attribute to a source tree, and P1 alone cannot see
+    // that (a stale `dist/` also ships).
+    requireFresh("package:glyph-arena", ROOT, { label: "e2e:published (umbrella)" });
 
     const listing = run("tar", ["-tzf", tarball], work).split("\n");
     const shipped = ["package/dist/index.js", "package/dist/index.d.ts"].every((file) =>
