@@ -17,6 +17,7 @@
   "dependencies": {
     "@fogrexon/glyph-arena-actions": "workspace:*",
     "@fogrexon/glyph-arena-body": "workspace:*",
+    "@fogrexon/glyph-arena-chase": "workspace:*",
     "@fogrexon/glyph-arena-input": "workspace:*",
     "@fogrexon/glyph-arena-loop": "workspace:*",
     "@fogrexon/glyph-arena-screen": "workspace:*",

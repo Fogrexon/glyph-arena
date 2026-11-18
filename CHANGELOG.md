@@ -8,6 +8,28 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Added
 
+- **`@fogrexon/glyph-arena-chase` — the pursuit rule both samples had written twice.** runner and
+  camp each measured the gap between centres, took its sign, and tested it against a sight radius,
+  and each learned the same two lessons on its own: a pursuer that walks off a ledge is not a
+  pursuer, and a pursuer that probes the ground in the direction it is *facing* rather than the
+  direction it is *about to walk* turns the wrong way. `chaseTarget(self, target, config,
+  groundAhead)` returns `{ noticed, dir, distancePx, walkable }` and nothing else — no state (patrol,
+  the wait before starting, how long sight has been lost are the caller's memory), no speed and no
+  `dt` (one game moves a plain `x`, the other feeds a body), no default numbers, and
+  `groundAhead` is called with the `dir` the call returns, so "the way it looks" and "the way it
+  walks" cannot disagree. Distance is centre to centre, `dir` keeps its current facing when the
+  centres coincide, and a hole (`±Infinity`, `NaN`) is never walkable. **Applied to runner**: the
+  two predicates and `CHASE.stepTolerancePx` are gone, and `enemy.ts` keeps only speed and memory.
+  **The runner's rule gets stricter in two visible ways**, which is the point of the unit: it no
+  longer starts from on top of a one-tile lip (tolerance is one number, and this game passes `0`),
+  and a pursuit ends when the runner leaves sight instead of walking on regardless. Umbrella
+  exports 19 → 20 modules; `check:package-entry-points` reads that count from `packages/`.
+  Tested by C1–C7 (the sight boundary at exactly `sightPx` and `+0.01`, the coincident-centre
+  facing, centre-to-centre 58 px where left edges say 60, holes including `-Infinity`, the 32/33
+  step boundary, two identical calls, and the probe direction) plus the runner's own numbers.
+
+### Added
+
 - **The tutorial's phone program is compiled and walked, not just described.** `## The whole file,
   on a phone` is the tutorial's second complete program: the same game wired to a pad. Until now the
   three things that only go wrong on a phone — `fitToWindow`'s `onResize` hook, `measureCanvas`, and
