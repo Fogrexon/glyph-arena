@@ -38,7 +38,7 @@ makes choosing one cost the others.
 | `ENEMY_AI.windupMs` | 260 | long enough to react to; the **first half** is cancellable, the second half is armoured |
 | `ENEMY_AI.lungeMs` | 300 | fixed distance in fixed time, so it can be learned rather than guessed |
 | `ENEMY_AI.lungeSpeedPxPerSecond` | 460 | 300 ms at 460 px/s = the 138 px the tell promises |
-| `ENEMY_AI.restMs` | 450 | must outlast the answer it asks for: reversing a retreat costs 125 ms and the swing 300 ms, so a 300 ms window was a window nobody could step into |
+| `ENEMY_AI.restMs` | 450 | must outlast the answer it asks for: reversing a retreat costs 125 ms and the swing 300 ms, so a 300 ms window was a window nobody could step into. **It is a floor, not a dial** — at 380 the careful play stops clearing (measured 11-18: 0/6, dead in the first room), because the swing it starts on arrival no longer finishes before the next tell |
 | `ENEMY_AI.commitSpacingMs` | 300 | **no two commits inside this window.** Measured with three bodies: the interval between lunges was median 1900 ms but **min 116 ms**, and 116 ms is shorter than the roll's 180 ms lockout — no verb could answer the second one. 300 ms is longer than that lockout, and the second tell now arrives while you are free |
 | `ENEMY_STATS.hp` | 4 | 4 swings ≈ 1.2 s of commitment; at 3 the fight got **easier** — 12 swings cancelled every tell before it completed (8 tells, 0 lunges, no damage) |
 | `ENEMY_STATS.contactDamage` | 1 | only a *lunging* enemy hurts; brushing past a walking one does not |
@@ -72,12 +72,9 @@ one strategy must not be free.
 | bold (mash) | 3/3 | 11.9 s | 1 | 4 |
 | careful (read the tell, punish the opening) | 6/6 | 42–54 s | 5 in 5 of 6 | 0 in 5 of 6 |
 
-Same level, same bundle (`index-D6_5OA_7.js`). Two bodies only:
-
-| bot | clears | time | commits apart (min) |
-| --- | --- | --- | --- |
-| bold | 2/2 | 10.4 s | 733 ms |
-| careful | 34 s (1 of 2 runs stalled — that was the open left edge) | | 1033 ms |
+Same level, same bundle (`index-D6_5OA_7.js`), two bodies only: bold clears 2/2 in 10.4 s with
+2 hearts left, the commits 733 ms apart; careful clears in 34 s with 5 hearts and 1033 ms apart
+(1 of its 2 runs stalled — that was the open left edge).
 
 With two bodies the queue never binds, which is why the two-body fight did not move when the rule
 landed.
@@ -106,8 +103,10 @@ A machine that plays is the acceptance harness: a number is a rerun, not a rewri
   lockout. That is the next thing to explain — record where the body stood when it happens.
 - **The roll is never required.** In the shipped fight the careful bot rolls zero times: standing
   and swinging still answers everything. The third verb exists, the third *decision* does not.
-- `ENEMY_AI.restMs` 450 → 380 is measured next, on hold until this page existed: the second room is
-  longer (15–21 tells) rather than harder (10–14 in the first), and the window is the lever.
+- **`restMs` was measured, and 450 stands.** 380 was tried on 11-18 and the careful bot died in the
+  first room in **6 of 6** runs (`hearts 0`, 8–12 tells, 0–1 kills): the window is what keeps the
+  careful answer alive, so it cannot be shortened to make a room harder. The second room is longer
+  (15–21 tells) rather than harder (10–14 in the first), and that has to change some other way.
 
 ## Controls
 
