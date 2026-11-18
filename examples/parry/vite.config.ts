@@ -5,5 +5,5 @@ import { defineConfig } from "vite";
  * keep serving /glyph-arena/. Anything else (dev, the verification pod) is "/".
  */
 export default defineConfig({
-  base: process.env.PARRY_BASE ?? "/",
+  base: process.env.GLYPH_BASE ?? "/",
 });

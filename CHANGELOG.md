@@ -8,6 +8,22 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Changed
 
+- **the gallery's pages come from their own declarations, so a new sample cannot ship
+  unreachable.** CAMP was built, deployed, and linked from **zero** pages: the nav was four
+  hand-written `<a>` lines copied into three `index.html` files, and the deploy carried four
+  hand-written `pnpm --filter … build` lines each with its own `PARRY_BASE` / `RUNNER_BASE` /
+  `CAMP_BASE`. Three lists that had to agree, and only two were updated. Now each example declares
+  `"glyphArenaPage": { "path": "/camp/", "label": "Camp" }` in its own `package.json` and that is the
+  only list: `scripts/build-examples.mjs` builds every declared example with the `GLYPH_BASE` its
+  path implies, `scripts/assemble-site.mjs` copies it **and injects the same nav into every page**
+  (a page with `<nav class="gallery-nav" data-glyph-nav></nav>` says where it goes; a page that says
+  nothing gets it before `</body>`). The workflow now names no example at all.
+  Verified by adding a temporary fifth sample: `node scripts/build-examples.mjs` built it without an
+  edit anywhere, and it appeared in all five navs — then the sample was deleted. `test:scripts` adds
+  `scripts/assemble-site.test.mjs` (12 tests: the declaration, the order, `aria-current`, the page
+  with no nav at all, the "add one sample, every page follows" case, and the refusals — a duplicate
+  path, the old one-word declaration, no root page, a declared page that was never built).
+
 - **`screen`: one place that knows the CSS box, the bitmap, and the ratio between them.**
   `@fogrexon/glyph-arena-screen` is the 19th package, and it exists because two samples wrote the
   same conversion and three wrote the same resize. `toCanvasPoint(point, box, size)` is the

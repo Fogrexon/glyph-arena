@@ -1,6 +1,9 @@
 {
   "name": "@fogrexon/glyph-arena-parry-demo",
-  "glyphArenaPage": "/parry/",
+  "glyphArenaPage": {
+    "path": "/parry/",
+    "label": "Parry"
+  },
   "private": true,
   "type": "module",
   "scripts": {
