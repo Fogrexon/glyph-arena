@@ -27,10 +27,15 @@ const LEGEND: Readonly<Record<string, readonly string[]>> = {
 /**
  * Wide enough for two camps, small enough that the first fight is the thing you meet.
  *
- * The enemies come in pairs, twenty tiles apart: the run is fight, walk, fight. One pair on open
- * ground and one under the hanging rocks with the wall at its back, because the second fight should
- * ask the same question in a smaller room — retreating is what the careful play spends, and the
- * corner is where it runs out. Four enemies, no new rule: the same spawn tag, twice over.
+ * A pair on open ground, then a walk of twelve tiles, then three under the hanging rocks: the
+ * second fight asks the same question in a smaller room with one more body, which is where the
+ * retreat runs out. Five enemies, one rule: the fight is a queue of commits (`canCommit`), so a
+ * third body adds a third decision, not a second unanswerable one.
+ *
+ * The first column is a wall, and it is load-bearing: the tilemap treats out-of-map cells as empty,
+ * so before it existed a knockback at the first camp could put the player past the left edge, where
+ * there is no ground — `measured 11-18: player x -104, every enemy in walk, 48 s of nothing` — and
+ * the fight could not end. A world the fight can leave is not a world.
  */
 const TEXT: readonly string[] = [
   "................................................................",
@@ -41,7 +46,7 @@ const TEXT: readonly string[] = [
   "................................................................",
   "................................................................",
   "................................................................",
-  "........@.....................e...e...........e....e...^^^......",
+  "#.......@.....................e...e...........e.e..e...^^^......",
   "################################################################",
   "################################################################",
 ];
