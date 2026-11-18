@@ -3,7 +3,14 @@ import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { describe, it } from "node:test";
 
-import { fogrexonImports, UMBRELLA_PACKAGE, wholeFileProgram, WHOLE_FILE_HEADING } from "./lib/tutorial.mjs";
+import {
+  fogrexonImports,
+  UMBRELLA_PACKAGE,
+  wholeFilePhoneProgram,
+  wholeFileProgram,
+  WHOLE_FILE_HEADING,
+  WHOLE_FILE_PHONE_HEADING,
+} from "./lib/tutorial.mjs";
 
 const ROOT = resolve(import.meta.dirname ?? new URL(".", import.meta.url).pathname, "..");
 const TUTORIAL = readFileSync(join(ROOT, "docs", "tutorial.md"), "utf8");
@@ -114,5 +121,57 @@ describe("the extractor refuses to guess", () => {
     const { code } = wholeFileProgram(doc);
 
     assert.doesNotMatch(code, /a different program/);
+  });
+});
+
+describe("the tutorial's phone program", () => {
+  const phoneProgram = () =>
+    program(
+      [
+        'import { createTouchControls, fitToWindow, measureCanvas, toCanvasPoint } from "@fogrexon/glyph-arena";',
+        "// the same game, driven by a thumb",
+        "canvas.addEventListener(\"touchstart\", () => {});",
+      ].join("\n"),
+    );
+
+  it("extracts the block under its own heading, and reports the line", () => {
+    const doc = documentWith(phoneProgram(), { heading: WHOLE_FILE_PHONE_HEADING });
+    const { code, line } = wholeFilePhoneProgram(doc);
+
+    assert.match(code, /createTouchControls/);
+    assert.equal(doc.split(/\r?\n/)[line - 1], code.split("\n")[0]);
+  });
+
+  it("fails when the heading is gone, and names it", () => {
+    assert.throws(
+      () => wholeFilePhoneProgram(documentWith(phoneProgram(), { heading: "## Phones" })),
+      new RegExp(`no "${WHOLE_FILE_PHONE_HEADING}" heading`),
+    );
+  });
+
+  it("refuses a second ts block, exactly like the desktop program", () => {
+    assert.throws(
+      () => wholeFilePhoneProgram(documentWith(`${phoneProgram()}\n\n${phoneProgram()}`, { heading: WHOLE_FILE_PHONE_HEADING })),
+      /has 2 ```ts blocks/,
+    );
+  });
+
+  it("is in docs/tutorial.md and uses the four things only a phone needs", () => {
+    const { code } = wholeFilePhoneProgram(TUTORIAL);
+
+    assert.deepEqual(fogrexonImports(code), [UMBRELLA_PACKAGE]);
+    for (const name of ["createTouchControls", "fitToWindow", "measureCanvas", "toCanvasPoint"]) {
+      assert.ok(code.includes(name), `${name} is used in the phone program`);
+    }
+    assert.match(code, /pad\.controls\.update\(/, "it feeds the pad it draws, every frame");
+    assert.match(code, /createInput|touch(start|move|end|cancel)|pointer(down|move|up)/, "it collects the fingers itself");
+  });
+
+  it("is a different program from the desktop one, not a copy", () => {
+    const desktop = wholeFileProgram(TUTORIAL).code;
+    const phone = wholeFilePhoneProgram(TUTORIAL).code;
+
+    assert.notEqual(phone, desktop);
+    assert.match(phone, /createTouchControls/, "the second program is the one with the pad");
   });
 });
