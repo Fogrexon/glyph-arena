@@ -8,6 +8,7 @@
 import { createActions } from "@fogrexon/glyph-arena-actions";
 import { createInput } from "@fogrexon/glyph-arena-input";
 import { createLoop } from "@fogrexon/glyph-arena-loop";
+import { createTouchControls, type TouchZone } from "@fogrexon/glyph-arena-touch";
 
 import { TILE, chaseSpawnLane, currentLevel, goalLineX, hazardWithin, isHazardTile, isSolidTile, levelColumns, levelCount, levelRows, loadLevel, patrolRange, solidAt, spawnPoint, surfaceBelow } from "./level";
 import { CHASE, keepsChasing, startsChasing } from "./enemy";
@@ -237,17 +238,21 @@ actions.bind("jump", ["Space", "ArrowUp", "KeyW", "KeyZ"]);
 actions.bind("retry", ["Escape"]);
 actions.bind("title", ["KeyR"]);
 
-const TOUCH = { size: 72, inset: 24 };
-
-function resize(): void {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
-resize();
-window.addEventListener("resize", resize);
+const TOUCH = {
+  size: 72,
+  inset: 24,
+  /**
+   * How long a press counts after the last frame that saw the finger, in ms. Without this a tap
+   * that lands and lifts inside one frame is invisible, and the harness has to hold every press
+   * for 150 ms — which is a longer press than the player ever makes.
+   */
+  holdMs: 150,
+};
 
 const scale = (): number => canvas.height / LOGICAL_HEIGHT;
 const viewWidth = (): number => canvas.width / scale();
+
+type Rect = { x: number; y: number; w: number; h: number };
 
 /** Touch buttons in canvas pixels, resolved from the drawing each frame. */
 function touchButtons(): { left: Rect; right: Rect; jump: Rect } {
@@ -262,11 +267,32 @@ function touchButtons(): { left: Rect; right: Rect; jump: Rect } {
   };
 }
 
-type Rect = { x: number; y: number; w: number; h: number };
-
-function inside(point: { x: number; y: number }, rect: Rect): boolean {
-  return point.x >= rect.x && point.x <= rect.x + rect.w && point.y >= rect.y && point.y <= rect.y + rect.h;
+/**
+ * The pads, in canvas pixels — the same units `toCanvas` below puts the pointers in. `screen` is the
+ * whole canvas: the title and the result screens are "tap anywhere", and a phone user should not have
+ * to find a corner before the first move.
+ */
+function touchZones(): Record<string, TouchZone> {
+  const buttons = touchButtons();
+  return {
+    left: { kind: "rect", ...buttons.left },
+    right: { kind: "rect", ...buttons.right },
+    jump: { kind: "rect", ...buttons.jump },
+    screen: { kind: "rect", x: 0, y: 0, w: canvas.width, h: canvas.height },
+  };
 }
+
+let touch = createTouchControls({ zones: touchZones(), holdMs: TOUCH.holdMs });
+
+function resize(): void {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  // The zones are canvas pixels, so they only change when the canvas does. Rebuild on resize, not
+  // on every frame: a rebuild drops a press in flight, which a resize can afford and a frame cannot.
+  touch = createTouchControls({ zones: touchZones(), holdMs: TOUCH.holdMs });
+}
+resize();
+window.addEventListener("resize", resize);
 
 // ---------------------------------------------------------------- drawing
 
@@ -672,8 +698,6 @@ function draw(): void {
 
 const touchEnabled = typeof navigator !== "undefined" && navigator.maxTouchPoints > 0;
 const touchState = { left: false, right: false, jump: false };
-let previousPointers = new Set<number>();
-let touchJumpPressed = false;
 
 /**
  * The one line the result screen shows and a harness can read back: where the last death was,
@@ -727,41 +751,28 @@ const loop = createLoop({
     const keys = new Set(snapshot.keys);
     const query = actions.tick(keys);
 
-    const freshTaps: Array<{ x: number; y: number }> = [];
-    for (const point of snapshot.pointers) {
-      if (!previousPointers.has(point.id)) {
-        freshTaps.push(point);
-      }
-    }
-    previousPointers = new Set(snapshot.pointers.map((point) => point.id));
     const rect = canvas.getBoundingClientRect();
     const toCanvas = (point: { x: number; y: number }) => ({
       x: (point.x - rect.left) * (rect.width === 0 ? 1 : canvas.width / rect.width),
       y: (point.y - rect.top) * (rect.height === 0 ? 1 : canvas.height / rect.height),
     });
-    const buttons = touchButtons();
-    let touchLeft = false;
-    let touchRight = false;
-    let touchJump = false;
-    for (const point of snapshot.pointers) {
-      const local = toCanvas(point);
-      if (inside(local, buttons.left)) touchLeft = true;
-      if (inside(local, buttons.right)) touchRight = true;
-      if (inside(local, buttons.jump)) touchJump = true;
-    }
-    touchState.left = touchLeft;
-    touchState.right = touchRight;
-    touchState.jump = touchJump;
-    touchJumpPressed = touchJump;
-    const tapped = freshTaps.some((point) => {
-      const local = toCanvas(point);
-      return inside(local, buttons.jump);
-    });
+    // The frame's pointers and the frame's `dt`. `holdMs` is what turns a tap that lands and lifts
+    // between two frames into a press the game can act on; without it the harness has to hold.
+    touch.update(
+      snapshot.pointers.map((point) => ({ ...toCanvas(point), id: point.id })),
+      dt,
+    );
+    // Movement is presence, not a press: a thumb that lifts has to stop the runner on that frame,
+    // or the hold would carry it 150 ms further — over the edge it was stopping for. The jump pad
+    // is the opposite case: it keeps the press, because a tap has to outlive the gap between frames.
+    touchState.left = touch.down("left");
+    touchState.right = touch.down("right");
+    touchState.jump = touch.held("jump");
     // The title screen is one button, not the jump pad. A first-time phone user reads
     // "Tap — start" and taps the middle of the screen; asking them to find the pad in the
     // corner first is a dead first move (QA measured exactly that). The pad still starts it,
     // because a tap on the pad is also a tap on the screen.
-    const tappedAnywhere = freshTaps.length > 0;
+    const tappedAnywhere = touch.down("screen");
 
     if (phase === "title") {
       if (query.pressed("jump") || tappedAnywhere) {
@@ -827,10 +838,10 @@ const loop = createLoop({
       stepBody(
         body,
         {
-          left: query.down("left") || touchLeft,
-          right: query.down("right") || touchRight,
-          jumpPressed: query.pressed("jump") || tapped,
-          jumpHeld: query.down("jump") || touchJump,
+          left: query.down("left") || touch.down("left"),
+          right: query.down("right") || touch.down("right"),
+          jumpPressed: query.pressed("jump") || touch.pressed("jump"),
+          jumpHeld: query.down("jump") || touch.held("jump"),
         },
         dt,
         solidAt,
@@ -852,7 +863,7 @@ const loop = createLoop({
       if (!wasGrounded && body.grounded) {
         play("land");
       }
-      if (query.pressed("jump") || tapped) {
+      if (query.pressed("jump") || touch.pressed("jump")) {
         ensureAudio();
         play("jump");
       }

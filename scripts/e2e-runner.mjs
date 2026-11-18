@@ -243,11 +243,23 @@ function pointer(page, type, x, y) {
 }
 
 async function pressAndRelease(page, keyName, ms) {
-  // The loop polls held keys once a frame, so a press+release inside one frame
-  // is invisible: hold for a few.
+  // Keyboard state is a set the loop reads once a frame, so a keydown+keyup inside
+  // one frame is invisible: hold for a few. (Taps on the pads do not need this —
+  // `createTouchControls` holds a press for the game, see `oneFrameTap`.)
   await page.keyboard.down(keyName);
   await page.waitForTimeout(ms);
   await page.keyboard.up(keyName);
+}
+
+/**
+ * One frame of finger, then up — the shortest press the page can possibly see. This is what the
+ * touch pad has to accept: if a tap has to be held for 150 ms to be noticed, every real tap that
+ * lands and lifts between two frames is lost.
+ */
+async function oneFrameTap(page, x, y) {
+  await pointer(page, "pointerdown", x, y);
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve(true))));
+  await pointer(page, "pointerup", x, y);
 }
 
 /**
@@ -888,23 +900,20 @@ async function runTouch(browser, baseUrl, errors) {
       // R7 (① on a phone): the whole title screen starts the run. QA measured the old
       // behaviour — the hint said "Tap — start", the middle of the screen did nothing, and
       // only the corner pad worked, so a first-time phone user was stuck on the first move.
-      await pointer(page, "pointerdown", viewport.width / 2, viewport.height / 2);
-      await page.waitForTimeout(150);
-      await pointer(page, "pointerup", viewport.width / 2, viewport.height / 2);
+      // One frame of finger, because `holdMs` is supposed to be what keeps the press alive.
+      await oneFrameTap(page, viewport.width / 2, viewport.height / 2);
       const centred = await until(page, (s) => s.phase === "play", { timeoutMs: 4000 });
       check(
         centred.hit,
-        "R7 (①): a tap in the middle of the title screen starts the run",
+        "R7 (①): a one-frame tap in the middle of the title screen starts the run",
         `phase ${centred.samples.at(-1)?.phase}`,
       );
       // Back to the title so the pad-start check below still proves the pad, not this tap.
       await pressAndRelease(page, "KeyR", 120);
       await until(page, (s) => s.phase === "title", { timeoutMs: 2000 });
-      await pointer(page, "pointerdown", pads.jump.x, pads.jump.y);
-      await page.waitForTimeout(180);
-      await pointer(page, "pointerup", pads.jump.x, pads.jump.y);
+      await oneFrameTap(page, pads.jump.x, pads.jump.y);
     } else {
-      check(true, "R7 (①): a tap in the middle of the title screen starts the run", "the page was already playing");
+      check(true, "R7 (①): a one-frame tap in the middle of the title screen starts the run", "the page was already playing");
     }
     const started = await until(page, (s) => s.phase === "play", { timeoutMs: 6000 });
     check(started.hit, "R5 (③): the pad starts the run", `phase ${started.samples.at(-1)?.phase}`);
@@ -950,6 +959,19 @@ async function runTouch(browser, baseUrl, errors) {
       touchJump.minVy <= -600,
       "R5 (③): the jump pad jumps",
       `minVy ${touchJump.minVy.toFixed(0)} px/s over ${touchJump.samples} samples`,
+    );
+
+    // The press that used to need a 150 ms hold: one frame of pointer, then up. Without the pad's
+    // hold the release between frames would erase the press before the loop ever sampled it, which
+    // is why every touch procedure in this file used to sleep 150 ms before lifting.
+    await until(page, (s) => s.grounded && s.phase === "play", { timeoutMs: 3000 });
+    await oneFrameTap(page, pads.jump.x, pads.jump.y);
+    const tapSamples = await sample(page, 140, 16);
+    const tapMinVy = tapSamples.length > 0 ? Math.min(...tapSamples.map((s) => s.vy)) : Number.NaN;
+    check(
+      tapMinVy <= -600,
+      "R5 (③): a one-frame tap on the jump pad still jumps (no 150 ms hold)",
+      `minVy ${tapMinVy.toFixed(0)} px/s over ${tapSamples.length} samples`,
     );
 
     if (process.env.E2E_KEEP) await page.screenshot({ path: join(ROOT, "e2e-runner-touch.png") });

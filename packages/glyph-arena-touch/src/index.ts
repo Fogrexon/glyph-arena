@@ -14,6 +14,14 @@
  *    else, so every zone looks at all pointers, and two zones that overlap both answer true —
  *    collapsing that to one would hide a layout mistake instead of showing it.
  *
+ * ## Three verbs, because they answer three different questions
+ *
+ * Using it from the samples added the third. A `held` that keeps answering for `holdMs` after the
+ * finger leaves is right for a button — a tap has to survive the gap between two frames — and wrong
+ * for a direction: the runner's right pad still said "held" 150 ms after the thumb lifted, so the
+ * runner kept walking into the pit it was stopping for. So `down` is presence with no hold, `held`
+ * is a press, `pressed` is the edge, and a game picks per zone.
+ *
  * ## What this package does not do
  *
  * No drawing: the zones are geometry, and `draw.rect` already draws rectangles. No DOM-to-canvas
@@ -61,6 +69,8 @@ export type TouchPointer = { readonly id: number; readonly x: number; readonly y
 export type TouchControls = {
   /** Feed this frame's pointers and the frame's `dt` in seconds. Call once per frame. */
   update: (pointers: readonly TouchPointer[], dtSeconds: number) => void;
+  /** Is a finger in this zone *right now*? No hold. Movement is this one. */
+  down: (name: string) => boolean;
   /** Is a finger in this zone, or a press still inside its hold? Overlapping zones both answer. */
   held: (name: string) => boolean;
   /** One frame only: the frame this zone went from nothing to something. */
@@ -84,6 +94,8 @@ function insideZone(zone: TouchZone, x: number, y: number): boolean {
 export function createTouchControls(config: TouchControlsConfig): TouchControls {
   /** Seconds of hold left, per zone. The zone is "down" while it is in this map. */
   const holdLeft = new Map<string, number>();
+  /** Zones a finger is inside *this* frame, before the hold. */
+  const inside = new Set<string>();
   /** The pointer a stick is following: the first one that entered, kept while it stays. */
   const tracked = new Map<string, number>();
   const fresh = new Set<string>();
@@ -94,6 +106,7 @@ export function createTouchControls(config: TouchControlsConfig): TouchControls 
     const step = Number.isFinite(dtSeconds) && dtSeconds > 0 ? dtSeconds : 0;
 
     fresh.clear();
+    inside.clear();
     axes.clear();
 
     // The hold runs out first: a press recorded last frame and not seen this one still has the
@@ -108,6 +121,7 @@ export function createTouchControls(config: TouchControlsConfig): TouchControls 
       const on = pointers.filter((pointer) => insideZone(zone, pointer.x, pointer.y));
 
       if (on.length > 0) {
+        inside.add(name);
         // An edge is "this zone had nothing and now has something". A second thumb arriving while
         // the first is still there is not a second press.
         if (!holdLeft.has(name)) fresh.add(name);
@@ -132,13 +146,15 @@ export function createTouchControls(config: TouchControlsConfig): TouchControls 
     }
   };
 
+  const down = (name: string): boolean => inside.has(name);
+
   const held = (name: string): boolean => holdLeft.has(name);
 
   const pressed = (name: string): boolean => fresh.has(name);
 
   const axis = (name: string): { x: number; y: number } => axes.get(name) ?? { x: 0, y: 0 };
 
-  return { update, held, pressed, axis };
+  return { update, down, held, pressed, axis };
 }
 
 /** Direction of a stick, normalised: inside the dead zone it is zero, at the rim it is length 1. */

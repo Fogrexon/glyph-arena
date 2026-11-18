@@ -10,6 +10,7 @@ import { createInput } from "@fogrexon/glyph-arena-input";
 import { createLoop } from "@fogrexon/glyph-arena-loop";
 import { createForest, type Node } from "@fogrexon/glyph-arena-scene";
 import { createTimer } from "@fogrexon/glyph-arena-timer";
+import { createTouchControls, type TouchZone } from "@fogrexon/glyph-arena-touch";
 import { createTransform, type Matrix2D } from "@fogrexon/glyph-arena-transform";
 import { createTween } from "@fogrexon/glyph-arena-tween";
 import { bestLine, bestOf, comparisonLine, isImprovement, isNewBest, type RunSummary } from "./history";
@@ -95,6 +96,15 @@ const DASH_SPEED = 430;
 /** Touch controls: the move pad bottom-left, the dash button bottom-right, same size. */
 const TOUCH_CONTROL_INSET = 104;
 const TOUCH_CONTROL_RADIUS = 64;
+/** The stick: this wide, and this far from centre before it means a direction. Both are feel. */
+const TOUCH_STICK_RADIUS = 160;
+const TOUCH_STICK_DEAD_ZONE = 14;
+/**
+ * How long a press counts after the last frame that saw the finger, in ms. A tap that lands and
+ * lifts inside one frame is how a phone is used, and a dash lasts 160 ms, so a tap has to be worth
+ * a dash and not one frame.
+ */
+const TOUCH_HOLD_MS = 150;
 const PARRY_REACH = 40;
 const PARRY_BOX = 56;
 const INVULN_SECONDS = 1;
@@ -501,17 +511,13 @@ async function main(): Promise<void> {
   actions.bind("start", ["Space", "Enter"]);
   actions.bind("restart", ["KeyR"]);
 
-  function resize(): void {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-  }
-  resize();
-  window.addEventListener("resize", resize);
-
   /**
    * Pointer coordinates in canvas pixels. The bitmap is `innerWidth x innerHeight` while the CSS box is
    * whatever the layout gives it, so on a phone those are not the same numbers - comparing a client position
    * against a canvas position puts the buttons somewhere the player cannot see.
+   *
+   * This is the one part of the pads that stays here: `createTouchControls` takes zones and pointers in
+   * the same units and deliberately does not decide what "the same units" means.
    */
   function toCanvasPoint(point: { x: number; y: number }): { x: number; y: number } {
     const rect = canvas.getBoundingClientRect();
@@ -520,24 +526,32 @@ async function main(): Promise<void> {
     return { x: (point.x - rect.left) * scaleX, y: (point.y - rect.top) * scaleY };
   }
 
-  function touchDirections(): { left: boolean; right: boolean; up: boolean; down: boolean } {
-    const snapshot = input.snapshot();
-    if (!touchEnabled) {
-      return { left: false, right: false, up: false, down: false };
-    }
-    const centerX = TOUCH_CONTROL_INSET;
-    const centerY = canvas.height - TOUCH_CONTROL_INSET;
-    // The pointer on the pad, not "the first pointer": the other thumb may be on DASH.
-    const point = snapshot.pointers
-      .map(toCanvasPoint)
-      .find((candidate) => Math.hypot(candidate.x - centerX, candidate.y - centerY) <= 160);
-    if (point === undefined) {
-      return { left: false, right: false, up: false, down: false };
-    }
-    const dx = point.x - centerX;
-    const dy = point.y - centerY;
-    return { left: dx < -14, right: dx > 14, up: dy < -14, down: dy > 14 };
+  /**
+   * The pads, in canvas pixels. Rebuilt on resize rather than every frame: the zones are geometry in
+   * canvas pixels, so they only change when the canvas does, and rebuilding throws away a press in
+   * flight - which a resize can afford and a frame cannot.
+   */
+  function touchZones(): Record<string, TouchZone> {
+    const padX = TOUCH_CONTROL_INSET;
+    const padY = canvas.height - TOUCH_CONTROL_INSET;
+    return {
+      move: { kind: "circle", x: padX, y: padY, radius: TOUCH_STICK_RADIUS, deadZone: TOUCH_STICK_DEAD_ZONE },
+      // A button, not a stick: nothing asks for its direction, so the dead zone is 0.
+      dash: { kind: "circle", x: canvas.width - padX, y: padY, radius: TOUCH_CONTROL_RADIUS, deadZone: 0 },
+      // Title and result are "tap anywhere" - a phone user should not have to find a corner first.
+      screen: { kind: "rect", x: 0, y: 0, w: canvas.width, h: canvas.height },
+    };
   }
+
+  let touch = createTouchControls({ zones: touchZones(), holdMs: TOUCH_HOLD_MS });
+
+  function resize(): void {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    touch = createTouchControls({ zones: touchZones(), holdMs: TOUCH_HOLD_MS });
+  }
+  resize();
+  window.addEventListener("resize", resize);
 
   function drawTouchPad(): void {
     if (!touchEnabled) {
@@ -865,8 +879,6 @@ async function main(): Promise<void> {
     resetRun();
   }
 
-  // Pointer ids seen on the previous frame, so a tap is an edge and not a held finger.
-  let seenPointerIds: ReadonlySet<number> = new Set<number>();
   // True while a finger is on the DASH button, so the button can show that it took the press.
   let touchDashHeld = false;
 
@@ -874,8 +886,6 @@ async function main(): Promise<void> {
     onFrame(time) {
       const delta = Math.min(time.delta, MAX_FRAME_DELTA);
       const snapshot = input.snapshot();
-      const freshTap = snapshot.pointers.some((point) => !seenPointerIds.has(point.id));
-      seenPointerIds = new Set(snapshot.pointers.map((point) => point.id));
       const keys = new Set(snapshot.keys);
       const pads = gamepad.snapshot();
       const pad = pads[0];
@@ -887,18 +897,19 @@ async function main(): Promise<void> {
         if (directions.down) keys.add("ArrowDown");
       }
       if (touchEnabled) {
-        touchDashHeld = false;
-        const touch = touchDirections();
-        if (touch.left) keys.add("ArrowLeft");
-        if (touch.right) keys.add("ArrowRight");
-        if (touch.up) keys.add("ArrowUp");
-        if (touch.down) keys.add("ArrowDown");
+        // The frame's pointers and the frame's `dt`. `holdMs` inside the pad is what turns a tap
+        // that lands and lifts between two frames into a press the game can act on.
+        touch.update(
+          snapshot.pointers.map((point) => ({ ...toCanvasPoint(point), id: point.id })),
+          delta,
+        );
+        const stick = touch.axis("move");
+        if (stick.x < 0) keys.add("ArrowLeft");
+        if (stick.x > 0) keys.add("ArrowRight");
+        if (stick.y < 0) keys.add("ArrowUp");
+        if (stick.y > 0) keys.add("ArrowDown");
         // The button is a Shift, injected where the keys come from, so the dash gate stays in one place.
-        const dashX = canvas.width - TOUCH_CONTROL_INSET;
-        const dashY = canvas.height - TOUCH_CONTROL_INSET;
-        touchDashHeld = snapshot.pointers
-          .map(toCanvasPoint)
-          .some((point) => Math.hypot(point.x - dashX, point.y - dashY) <= TOUCH_CONTROL_RADIUS);
+        touchDashHeld = touch.held("dash");
         if (touchDashHeld) {
           keys.add("ShiftLeft");
         }
@@ -907,7 +918,7 @@ async function main(): Promise<void> {
 
       if (phase === "title") {
         publishParryState();
-        if (query.pressed("start") || (touchEnabled && snapshot.pointers[0] !== undefined)) {
+        if (query.pressed("start") || (touchEnabled && touch.down("screen"))) {
           destroyTitle();
           startPlay();
         }
@@ -939,7 +950,7 @@ async function main(): Promise<void> {
       }
 
       // A phone has no R key: a fresh tap on the result screen restarts, through this same path.
-      if (query.pressed("restart") || (phase === "result" && freshTap)) {
+      if (query.pressed("restart") || (phase === "result" && touchEnabled && touch.pressed("screen"))) {
         resetRun();
         phase = "play";
       }

@@ -19,10 +19,19 @@ const pad = createTouchControls({
 });
 
 pad.update(pointers, dt); // every frame: this frame's pointers, and dt in seconds
+pad.down("jump"); // is a finger in it right now? no hold — use this for movement
 pad.held("jump"); // down now, or a press still inside its hold
 pad.pressed("jump"); // this frame only: it went from nothing to something
 pad.axis("stick"); // { x, y }, normalised to -1..1, zero inside the dead zone
 ```
+
+## `down` and `held` are different questions
+
+A direction and a button want opposite answers to "the thumb just lifted". A runner that reads `held` for
+its right pad keeps walking for `holdMs` after the thumb lifts — 150 ms at 320 px/s is 48 px, one and a
+half tiles, which is exactly the edge of the pit the player was stopping for. `down` is the finger,
+nothing more; `held` is a press that survives the gap between frames. The samples use `down` for
+movement and `held`/`pressed` for jump and dash.
 
 ## Why `holdMs` is required
 
