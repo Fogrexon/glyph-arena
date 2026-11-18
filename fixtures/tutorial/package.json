@@ -7,7 +7,7 @@
     "extract": "node ../../scripts/extract-tutorials.mjs",
     "dev": "node ../../scripts/extract-tutorials.mjs && vite",
     "typecheck": "node ../../scripts/extract-tutorials.mjs && tsc -p tsconfig.json --noEmit",
-    "build": "node ../../scripts/extract-tutorials.mjs && vite build"
+    "build": "node ../../scripts/extract-tutorials.mjs && vite build && node ../../scripts/stamp-dist.mjs tutorial"
   },
   "dependencies": {
     "@fogrexon/glyph-arena": "workspace:*"
