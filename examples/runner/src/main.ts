@@ -483,7 +483,9 @@ function stepEnemies(dt: number): void {
       // The rule — where the runner is, which way that is, and whether the ground ahead is floor —
       // comes from the library. What stays here is the memory: patrol, the wait, and giving up.
       const chase = chaseTarget(
-        { x: enemy.x, w: enemy.w, dir: enemy.dir },
+        // `Enemy.dir` is a plain number because the patrol lanes come from the level; the rule
+        // only knows left and right.
+        { x: enemy.x, w: enemy.w, dir: enemy.dir < 0 ? -1 : 1 },
         { x: body.x, w: body.w },
         { sightPx: CHASE.sightPx, stepTolerancePx: 0 },
         (dir) => stepAhead(enemy, dir),
