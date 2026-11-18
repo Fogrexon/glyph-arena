@@ -62,6 +62,12 @@ nothing, and no way for the run to end. `test/level.test.ts` holds the wall.
 Two bodies on open ground, a walk of twelve tiles, then three under the rocks and the wall at their
 back: the second room asks the same question with one more body, and the retreat runs out.
 
+The right edge needs no wall, and it has none: the rock line stands on the ground row from column 55
+to 57, past the last enemy, so there is nothing to walk through. Measured on 11-18 by holding right
+for 5 s: the body's furthest x was **848 px of 2048** — the fight stops you long before the edge.
+`test/level.test.ts` asserts that every column past the last enemy is closed, so moving the rocks
+fails a test instead of producing a fall nobody can explain.
+
 ## The pass line, and what it measured
 
 The line is **the careful play clears with no hits, and the bold play clears fast but bleeds** —
@@ -113,6 +119,11 @@ A machine that plays is the acceptance harness: a number is a rerun, not a rewri
   to `idle`/`active`, and the enemies committed less (5 → 2–3 lunges) because the cancellable half of
   the tell grew with it. Careful stayed 6/6 with no hit (38.8–42.9 s). Reading time only becomes a
   decision when the thing you can do with it does not also get longer.
+- **Space is not a lever either.** The third body of the second room was moved from the rocks to the
+  retreat side (column 48 → 44) on 11-18: careful stayed 6/6 but **5 of 6** with no hit — the same
+  line as before — while the runs got longer (42–56 s, up to 37 tells) and bold did not move
+  (12.5 s, 1 heart, 4 hits). Moving a body around inside a room changes *where* the fight happens,
+  not whether it asks anything.
 - **`restMs` was measured, and 450 stands.** 380 was tried on 11-18 and the careful bot died in the
   first room in **6 of 6** runs (`hearts 0`, 8–12 tells, 0–1 kills): the window is what keeps the
   careful answer alive, so it cannot be shortened to make a room harder. The second room is longer
