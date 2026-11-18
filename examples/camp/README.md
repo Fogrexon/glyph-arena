@@ -35,7 +35,7 @@ makes choosing one cost the others.
 | --- | --- | --- |
 | `ENEMY_STATS.sightPx` | 260 | far enough that the second room's three arrive as a group |
 | `ENEMY_AI.lungeRangePx` | 70 | the commit covers 138 px, so a 110 px trigger made every place you could stand a place it reached |
-| `ENEMY_AI.windupMs` | 260 | long enough to react to; the **first half** is cancellable, the second half is armoured |
+| `ENEMY_AI.windupMs` | 260 | long enough to react to; the **first half** is cancellable, the second half is armoured. **A longer tell does not create a decision**: at 300 ms bold's hits stayed on `blade: recovery` (4 → 2, none moved to `idle`/`active`) and the enemies simply stopped committing (lunges 5 → 2–3), because the cancellable half got longer too |
 | `ENEMY_AI.lungeMs` | 300 | fixed distance in fixed time, so it can be learned rather than guessed |
 | `ENEMY_AI.lungeSpeedPxPerSecond` | 460 | 300 ms at 460 px/s = the 138 px the tell promises |
 | `ENEMY_AI.restMs` | 450 | must outlast the answer it asks for: reversing a retreat costs 125 ms and the swing 300 ms, so a 300 ms window was a window nobody could step into. **It is a floor, not a dial** — at 380 the careful play stops clearing (measured 11-18: 0/6, dead in the first room), because the swing it starts on arrival no longer finishes before the next tell |
@@ -108,6 +108,11 @@ A machine that plays is the acceptance harness: a number is a rerun, not a rewri
   4 of 5 hearts and the enemies only committed once in the whole run (5 → 1 lunges), because a
   faster swing cancels the tell before it completes. Shortening a commitment does not move the
   damage somewhere else, it removes the thing the damage was paying for.
+- **A longer tell is not more judgement.** `windupMs` 260 → 300 was measured on 11-18: bold cleared
+  in 11.7 s taking 2 hits instead of 4, and **both were still `blade: recovery`** — no damage moved
+  to `idle`/`active`, and the enemies committed less (5 → 2–3 lunges) because the cancellable half of
+  the tell grew with it. Careful stayed 6/6 with no hit (38.8–42.9 s). Reading time only becomes a
+  decision when the thing you can do with it does not also get longer.
 - **`restMs` was measured, and 450 stands.** 380 was tried on 11-18 and the careful bot died in the
   first room in **6 of 6** runs (`hearts 0`, 8–12 tells, 0–1 kills): the window is what keeps the
   careful answer alive, so it cannot be shortened to make a room harder. The second room is longer
