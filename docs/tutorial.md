@@ -336,15 +336,12 @@ Next, in this order:
 
 ## On a phone
 
-**These four functions are newer than the release on npm today.** This prints `true` when your
-install has them:
+**These four functions arrived in `0.3.0`.** If your install predates that, this prints `false` and
+the section below does not apply — the block above runs on every version either way:
 
 ```bash
 node -e "import('@fogrexon/glyph-arena').then(m => console.log('createTouchControls' in m))"
 ```
-
-`false` means the release you installed predates this section: the block above runs on it either
-way, and this part waits for the next one.
 
 The file above reads the keyboard, and a phone has none. Four functions close that gap, and they come
 from the same import. This is the next five minutes, not a second tutorial: the block above stays the
