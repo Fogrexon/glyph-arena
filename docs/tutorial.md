@@ -94,10 +94,10 @@ size is yours:
 import { createTileMap, hasTag, solidInRect, surfaceRowBelow } from "@fogrexon/glyph-arena";
 
 const LEVEL = [
-  "................................",
-  "................................",
-  "..........#####.................",
-  "................................",
+  "#..............................#",
+  "#..............................#",
+  "#.........#####................#",
+  "#..............................#",
   "########.......################",
   "################################",
 ];
@@ -109,7 +109,9 @@ const map = createTileMap(LEVEL.join("\n"), {
 ```
 
 Row 5 is solid all the way across, so the gap in row 4 is a one-cell trench rather than a hole
-into nothing: falling into it costs a jump, not the game.
+into nothing: falling into it costs a jump, not the game. The first and last columns are solid for
+the same reason at the sides — the tile map treats everything outside it as empty, so without them
+the first press of `ArrowLeft` walks the body off the world and it falls forever.
 
 `mapColumns(map)` and `mapRows(map)` give the size, `hasTag(map, column, row, "solid")` asks about one
 cell, and `solidInRect(map, left, top, right, bottom, "solid")` asks about a box in pixels.
@@ -245,10 +247,10 @@ const input = createInput();
 input.attach(window);
 
 const LEVEL = [
-  "................................",
-  "................................",
-  "..........#####.................",
-  "................................",
+  "#..............................#",
+  "#..............................#",
+  "#.........#####................#",
+  "#..............................#",
   "########.......################",
   "################################",
 ];
@@ -434,10 +436,10 @@ const input = createInput();
 input.attach(window);
 
 const LEVEL = [
-  "................................",
-  "................................",
-  "..........#####.................",
-  "................................",
+  "#..............................#",
+  "#..............................#",
+  "#.........#####................#",
+  "#..............................#",
   "########.......################",
   "################################",
 ];
