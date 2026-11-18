@@ -333,3 +333,81 @@ Next, in this order:
 - [body](api-body.html) and [tilemap](api-tilemap.html) — the two modules you just used, in full.
 - [camera](api-camera.html), [draw](api-draw.html), [loop](api-loop.html) — the rest of the frame.
 - [ecs](api-ecs.html), [collide](api-collide.html), [scene](api-scene.html) — when one rectangle is not enough.
+
+## On a phone
+
+The file above reads the keyboard, and a phone has none. Four functions close that gap, and they come
+from the same import. This is the next five minutes, not a second tutorial: the block above stays the
+fast path, and nothing here changes it.
+
+The canvas has to be sized by the game rather than by CSS. `fitToWindow` sets the bitmap to the window
+and keeps it set; its `onResize` is where anything measured in canvas pixels — the touch pad below —
+has to be rebuilt, because the numbers it was built from just changed.
+
+```ts
+import { fitToWindow } from "@fogrexon/glyph-arena";
+
+let pad = buildPad(canvas.width, canvas.height);
+const fit = fitToWindow(canvas, window, {
+  onResize: () => {
+    pad = buildPad(canvas.width, canvas.height);
+  },
+});
+```
+
+Pointers arrive in **CSS** pixels — where the page put the canvas — while the game draws in **bitmap**
+pixels, and on a phone those are different numbers. `measureCanvas` reads the box, the size and the
+ratio in one go and `toCanvasPoint` converts. Measure once per frame and reuse it: `getBoundingClientRect`
+forces layout, and two thumbs on the same frame do not need it twice.
+
+```ts
+import { measureCanvas, toCanvasPoint } from "@fogrexon/glyph-arena";
+
+// in onFrame, before pad.update
+const measured = measureCanvas(canvas);
+const points = input.snapshot().pointers.map((pointer) => ({
+  id: pointer.id,
+  ...toCanvasPoint({ x: pointer.x, y: pointer.y }, measured.box, measured.size),
+}));
+```
+
+`createTouchControls` turns those points into zones, in the same pixels the game draws in. It needs
+`holdMs` because a tap can land and lift between two frames, and how long such a tap still counts is
+the game's call; `down` is "a finger is there right now", `held` outlives the finger by that window,
+`pressed` is true for one frame, and `axis` gives a stick's direction (a `circle` zone) rather than a
+position.
+
+```ts
+import { createTouchControls } from "@fogrexon/glyph-arena";
+
+function buildPad(width: number, height: number) {
+  const size = 120;
+  const y = height - size - 24;
+  return createTouchControls({
+    zones: {
+      left: { kind: "rect", x: 24, y, w: size, h: size },
+      right: { kind: "rect", x: 24 + size + 12, y, w: size, h: size },
+      jump: { kind: "rect", x: width - size - 24, y, w: size, h: size },
+    },
+    holdMs: 120,
+  });
+}
+```
+
+The frame then reads both sources into the same two variables, and the edge stays where it already
+was — one edge over "the button is down", whichever button that is:
+
+```ts
+pad.update(points, dt);
+
+const jumpHeld = keys.has("Space") || pad.held("jump");
+const jump = jumpHeld && !jumpWasHeld;
+jumpWasHeld = jumpHeld;
+
+const left = keys.has("ArrowLeft") || keys.has("KeyA") || pad.down("left");
+const right = keys.has("ArrowRight") || keys.has("KeyD") || pad.down("right");
+```
+
+Two things outside the library still matter. Give the canvas `touch-action: none` in CSS, or a drag
+scrolls the page instead of moving the character. And draw the pad yourself with `draw.rect`: the
+zones are where the fingers are, not what they look like, and the library has no opinion about that.
