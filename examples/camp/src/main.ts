@@ -23,8 +23,6 @@ import { TILE, currentMap, enemySpawns, isSolidTile, levelColumns, levelRows, so
 
 const VIEW_W = 640;
 const VIEW_H = 360;
-/** A tab that was asleep must not teleport the player through a rock. */
-const MAX_FRAME_DELTA = 0.05;
 
 /** The player's feel. Same family as the runner's, shorter reach and a touch slower. */
 const PLAYER_CONFIG: BodyConfig = {
@@ -377,8 +375,10 @@ function publish(): void {
 }
 
 const loop = createLoop({
+  // A tab that was asleep must not teleport the player through a rock: half the loop's default.
+  maxDelta: 0.05,
   onFrame(time) {
-    const dt = Math.min(time.delta, MAX_FRAME_DELTA);
+    const dt = time.delta;
     const query = actions.tick(new Set(input.snapshot().keys));
 
     if (query.pressed("retry") && (phase === "down" || phase === "clear")) {

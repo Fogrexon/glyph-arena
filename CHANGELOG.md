@@ -8,6 +8,19 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Changed
 
+- **`loop`: the step the world sees is the loop's.** `createLoop({ maxDelta })` sets the largest
+  step `delta` may report, in seconds (default `0.1`, unchanged). All four samples opened `onFrame`
+  with `Math.min(time.delta, MAX_FRAME_DELTA)` and their own constant — for `parry` and
+  `pickup-demo` that number was **exactly the loop's 0.1**, so the line was an identity dressed as
+  protection; `runner` (`1/30`) and `camp` (`0.05`) genuinely needed a narrower step, which the two
+  of them kept re-applying one frame after the loop had already clamped. Now `delta` **is** the step
+  the world sees. `elapsed` is still not clamped (the `Σdelta ≠ elapsed` trade after a stall is
+  unchanged), and `0`, negative and non-finite values throw a `RangeError` at construction — a zero
+  step is a game that silently never moves, and the constructor is the last place that is visible.
+  Verified locally (`pnpm -r typecheck` / `build` / `test` / every gate green; `loop` 15/15) and in
+  CI's browser steps (`e2e:demo`, `e2e:runner`). Reverse check: making the loop ignore `maxDelta`
+  turns exactly the new L5 red.
+
 - **`tilemap`: finding cells by tag is the library's now.** `examples/runner/src/level.ts` and
   `examples/camp/src/level.ts` each opened the map and walked `mapRows` × `mapColumns` looking for a
   tag — the runner to find the first `@` (the start) and the goal, the camp to find every `@` and

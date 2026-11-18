@@ -306,4 +306,69 @@ describe("createLoop", () => {
     assert.equal(deltas[1], 0);
     loop.stop();
   });
+
+  // ---- the game's own step (L5-L7): the clamp the samples used to write themselves ----
+  it("L5: maxDelta narrows the step, and elapsed still reports the real time", () => {
+    const harness = createTestHarness();
+    const frames: Array<{ elapsed: number; delta: number }> = [];
+
+    // The runner's number: 1/30 rather than the default 0.1, because its body moves faster.
+    const loop = createLoop({
+      onFrame: (time) => frames.push({ elapsed: time.elapsed, delta: time.delta }),
+      maxDelta: 1 / 30,
+      clock: harness.clock,
+      raf: harness.raf,
+      cancelRaf: harness.cancelRaf,
+    });
+
+    loop.start();
+    harness.flush();
+    harness.advance(5000);
+    harness.flush();
+
+    assert.equal(frames[1].delta, 1 / 30);
+    // The trade the header promises is unchanged: the step is clamped, the clock is not.
+    assert.equal(frames[1].elapsed, 5);
+    loop.stop();
+  });
+
+  it("L6: the default stays 0.1 when maxDelta is not given", () => {
+    const harness = createTestHarness();
+    const deltas: number[] = [];
+
+    const loop = createLoop({
+      onFrame: (time) => deltas.push(time.delta),
+      clock: harness.clock,
+      raf: harness.raf,
+      cancelRaf: harness.cancelRaf,
+    });
+
+    loop.start();
+    harness.flush();
+    harness.advance(5000);
+    harness.flush();
+
+    assert.equal(deltas[1], 0.1);
+    loop.stop();
+  });
+
+  it("L7: 0, negative and non-finite maxDelta are refused at construction", () => {
+    const harness = createTestHarness();
+    const make = (maxDelta: number) =>
+      createLoop({
+        onFrame: () => undefined,
+        maxDelta,
+        clock: harness.clock,
+        raf: harness.raf,
+        cancelRaf: harness.cancelRaf,
+      });
+
+    // 0 would be a game that silently never moves: the constructor is the last place it is visible.
+    assert.throws(() => make(0), RangeError);
+    assert.throws(() => make(-0.1), RangeError);
+    assert.throws(() => make(Number.NaN), RangeError);
+    assert.throws(() => make(Number.POSITIVE_INFINITY), RangeError);
+    // And a legal number is accepted: the guard names the bad values, not the option.
+    assert.equal(make(0.05).isRunning, false);
+  });
 });
