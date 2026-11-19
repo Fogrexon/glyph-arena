@@ -1,8 +1,10 @@
 # Runner
 
+**Play it:** [fogrexon.github.io/glyph-arena/runner/](https://fogrexon.github.io/glyph-arena/runner/)
+
 The self-drawn 2D platformer slice. One sentence: **run right, jump the gaps, do not touch the spikes or
 the walker, and reach the flag.** There are three levels and no randomness — each layout is a text grid in
-`src/level.ts`, so a diff shows it and a test checks its shape without a browser. A clear runs straight into
+`src/levels.json`, so a diff shows it and a test checks its shape without a browser. A clear runs straight into
 the next level (`LEVEL 2` / `LEVEL 3` for a moment, HUD `level k / 3`); the goal screen comes after the
 third flag.
 

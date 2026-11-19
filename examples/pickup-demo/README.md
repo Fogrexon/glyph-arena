@@ -1,5 +1,7 @@
 # Pickup Demo
 
+**Play it:** [fogrexon.github.io/glyph-arena/](https://fogrexon.github.io/glyph-arena/)
+
 Top-down pickup game sample for [Glyph Arena](https://github.com/Fogrexon/glyph-arena). Collect gems, avoid walls, and watch the camera follow the player. The player sprite faces the current move direction (`transform.rotation` from keyboard or gamepad input); collision stays axis-aligned on the player AABB. **ShiftLeft** triggers a **0.15s** move burst at **2×** speed (`360` px/s).
 
 **Flow:** boot **title** → **Space** / **Enter** starts **play** → **CLEAR** or **FAIL** shows **result** → **R** rematches **play** (title only returns on full page reload). The title states the goal and the controls before the round starts (`Collect 8 gems in 60s — 3 lives`, plus the arrow / Shift / R keys, or the touch wording on touch devices). Title and play swap scene subtrees under `screenRoot` via `createForest` destroy/`setParent`; play stays mounted through result so pickup FX can finish. On **result**, the HUD lists gems collected (`Score`), remaining round time (`Time`), and lives left (`Lives`), frozen at end-of-round values. A cleared round also shows `Clear: X.Xs` (time spent) and `Best: X.Xs` — the fastest clear since the page was loaded. The best is **round-scoped**: nothing is written to storage, and a page reload starts over. A new best labels the verdict `CLEAR — NEW BEST`.

@@ -23,7 +23,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
 
 const ROOT = resolve(import.meta.dirname ?? new URL(".", import.meta.url).pathname, "..");
-const DEFAULT_BASE = "https://fogrexon.github.io/glyph-arena";
+export const DEFAULT_BASE = "https://fogrexon.github.io/glyph-arena";
 
 /** The `index-*.js` a page's HTML names. Exactly one, or the page is not a single deploy. */
 export function bundlesInHtml(html) {

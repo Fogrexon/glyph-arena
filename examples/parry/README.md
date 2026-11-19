@@ -1,5 +1,7 @@
 # Parry Demo
 
+**Play it:** [fogrexon.github.io/glyph-arena/parry/](https://fogrexon.github.io/glyph-arena/parry/)
+
 Second sample for Glyph Arena. Enemies converge from a fixed script; **dash into one** and it is
 parried. A parry lands with a hitstop, a camera shake and a readout of how early the dash was.
 

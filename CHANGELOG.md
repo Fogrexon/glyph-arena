@@ -17,6 +17,17 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
   a line that is not a diagnostic), including the assertion that the raw line matches the annotation
   shape and the rewritten one does not.
 
+### Added
+
+- **The README opens with the four samples, and the table cannot go stale.** Pickup, Camp, Parry,
+  Runner and the API docs are one table at the top, and each sample's own `README.md` now links its
+  page. The table is read back against `glyphArenaPage` in each example's `package.json` — the same
+  declaration `assemble-site.mjs` publishes from — so a sample added without a row is red, a row for
+  a page nobody publishes is red, and a sample that stops linking its own page is red too
+  (`scripts/demo-links.test.mjs`, in `test:scripts`). The base URL is imported from
+  `check-served-bundles` rather than written twice, and the deploy keeps verifying that each built
+  page is the one the live site serves.
+
 ## [0.4.0] - 2026-11-18
 
 The version that adds a module — `@fogrexon/glyph-arena-chase` — and `tagIn(map, tag)` on the tile
