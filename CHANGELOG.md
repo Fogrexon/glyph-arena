@@ -6,6 +6,24 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+### Added
+
+- **`draw.setView` takes a projection — the three numbers a scrolling game already has — and camp
+  is drawn through it with a picture that did not move by a pixel.** `Projection` is `{ scale,
+  offsetX, offsetY, round? }`, applied as `[scale, 0, 0, scale, offsetX, offsetY]`; a
+  `camera.view()` matrix is still accepted and `null` still returns to screen coordinates. The
+  reason is counted, not guessed: camp, march and runner each wrote the same two lines by hand
+  (`Math.round(cameraX + shake)`, then subtract it from every x) and none of them called
+  `setView` — remembering a matrix only to hand it back cost as much as the arithmetic did.
+  - `round` rounds the **offset**, once, and never a point. Rounding points turns the 0.2px gap
+    between two tiles into 0 or 1, which is a one-pixel seam at every join of a tiled wall.
+  - **`rect` without a radius is `fillRect` / `strokeRect`, not a path.** Measured in Chromium: on a
+    fractional coordinate a path fill differs from `fillRect` by 2 pixels and a path stroke from
+    `strokeRect` by 12. The first version of this change drew every rectangle as a path and camp's
+    frame moved 172 pixels by 1/255; with the native call it is **0 differing pixels across nine
+    checkpoints** (boot, idle, walk, jump, attack, engage, dodge, push, death) against the previous
+    build at the same simulated frames, with the simulation state identical at every one.
+
 ### Changed
 
 - **`reset` reaches its fourth, fifth and sixth user — and the three holes it found were all the
