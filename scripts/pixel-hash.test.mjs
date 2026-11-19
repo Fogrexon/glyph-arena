@@ -60,7 +60,7 @@ describe("describeEnvironment", () => {
   it("names every field, so a refusal cannot hide a second difference behind the first", () => {
     const line = describeEnvironment(ENVIRONMENT);
 
-    for (const part of ["156.0.8078.79", "linux", "900x540", "dpr 1", "201.373046875"]) {
+    for (const part of ["156.0.8078.79", "linux", "900x540", "dpr 1", "210.5"]) {
       assert.ok(line.includes(part), `the environment line is missing ${part}: ${line}`);
     }
   });
