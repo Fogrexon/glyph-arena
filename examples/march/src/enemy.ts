@@ -73,7 +73,46 @@ export const ENEMY_AI = {
    * become eleven hits.
    */
   chaseSpeedPxPerSecond: 330,
+  /**
+   * How far out a **called** guard commits, px.
+   *
+   * Passing a guard used to cost one chase, and a chase is answerable with the roll you already
+   * spent to pass him. Measured on 11-19: the mixed line (roll the singles, fight the pairs) cleared
+   * the road in 41–52 s with **no hits at all**, faster than the careful 65–73 s and just as
+   * untouched — so going by still cost nothing, and the road had one best line rather than a choice.
+   *
+   * A guard who has been passed now **shouts ahead**: the next guard you will meet wakes, and
+   * commits from 190 px instead of 70. He is not aiming at where you stood — 190 is 52 px past his
+   * 138 px commit — he is lunging **into the road**, so the thing you arrive at is a body across it
+   * with your roll still cooling down. That is the cost of going by: not a heart, a spent verb.
+   */
+  alertRangePx: 190,
+  /**
+   * Two posts closer than this are a pair, so a call wakes both halves of one.
+   *
+   * The road's pairs stand 96 px apart (and its triples 64); the next beat is 320–448 away. This is
+   * the separation, not a tuning: `scripts/march-call.test.mjs` derives both edges from `level.ts`.
+   */
+  callPartnerPx: 130,
 } as const;
+
+/**
+ * Who hears a guard who has just been passed.
+ *
+ * The shout goes **forward**: the next post ahead wakes, and anyone standing close enough to be that
+ * guard's partner wakes with him (a pair that arrives one at a time is two singles, which is the
+ * thing the pairs exist to not be). Everyone else stays asleep — a call that reached the whole road
+ * would be a difficulty dial, and the point is a price attached to one decision.
+ *
+ * Pure, and in posts rather than bodies, so it can be read without a fight: a body is where a lunge
+ * left it, a post is where the guard lives.
+ */
+export function calledBy(posts: readonly number[], passedPost: number, partnerPx: number): number[] {
+  const ahead = posts.filter((post) => post > passedPost).sort((a, b) => a - b);
+  if (ahead.length === 0) return [];
+  const next = ahead[0];
+  return posts.filter((post) => Math.abs(post - next) < partnerPx);
+}
 
 /**
  * Is the way clear to begin a commit? One enemy may start a tell only if nobody else started one
