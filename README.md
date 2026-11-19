@@ -6,7 +6,7 @@ Each module below is a separate workspace member; `@fogrexon/glyph-arena` bundle
 
 ## Play it
 
-Four samples and the API docs, published from this repository — open the links, nothing to install:
+Five samples and the API docs, published from this repository — open the links, nothing to install:
 
 | Sample | What it is | Source |
 | --- | --- | --- |
