@@ -435,7 +435,10 @@ async function playMarch(page, strategy) {
             x: Math.round(s.x),
             hits: s.hits.length,
             hitLog: s.hits.map((hit) => `${hit.mode}@${hit.atMs}ms x${hit.x} ${hit.cause}`),
-            hitsFromBehind: s.hits.filter((hit) => hit.cause === "passing").length,
+            // `cause` is `"running" | "standing"` — which way the body was going when it landed.
+            // It has never meant "from behind": that label was read off this field by three people
+            // on 11-19 and was wrong for all of them. See `examples/march/src/readout.ts`.
+            hitsWhileRunning: s.hits.filter((hit) => hit.cause === "running").length,
             enemyCount: s.enemies.length,
             runs: s.runs,
             rolls,
@@ -798,7 +801,7 @@ async function main() {
       } else if (game === "march") {
         console.log(
           `run ${r.run}  ${r.phase}  hearts ${r.hearts}  passed ${r.passes}/${r.enemyCount}  killed ${r.killed}  ` +
-            `x ${r.x}  ${r.simMs} ms  hits ${r.hits} (${r.hitsFromBehind} from behind)  rolls ${r.rolls}  swings ${r.swings}  ` +
+            `x ${r.x}  ${r.simMs} ms  hits ${r.hits} (${r.hitsWhileRunning} while running)  rolls ${r.rolls}  swings ${r.swings}  ` +
             `retry ${r.retryFrames} frame(s)  kicks ${r.kicks}  errors ${r.consoleErrors.length}  ${r.bundle}`,
         );
         if (r.hitLog !== undefined && r.hitLog.length > 0) console.log(`   hits by mode: ${r.hitLog.join(" | ")}`);
