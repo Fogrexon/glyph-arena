@@ -8,6 +8,17 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Changed
 
+- **MARCH: the called guard announces himself for 600 ms before the quiet mark.** A price nobody
+  reads is not a price: a 2 x 7 px bar above a 20 x 44 px body is only visible to someone who
+  already knows to look, so a guard woken by the one you passed now wears a wide mark and a halo for
+  `ENEMY_AI.alertFlashMs` (600), then the quiet bar for the rest of the alert. Both ends are
+  derivable and gated: longer than a simple reaction to a shape change (> 250 ms), shorter than the
+  640 ms it takes to walk a beat (6 tiles at 300 px/s), so the cue belongs to the guard who shouted
+  rather than to the road (`test/enemy.test.ts`). Drawing only: nothing in the step changes.
+  The regression run found something else, in the hand rather than in the picture — see the entry
+  below — and it is filed rather than fixed here, because it is a different question.
+
+
 - **MARCH: the guard you walk past shouts ahead — going by finally costs something.** A passed guard
   wakes the next post (and that guard's partner, if he has one): the called guard commits from
   `ENEMY_AI.alertRangePx` (190) instead of `lungeRangePx` (70), so his 138 px lunge lands **52 px

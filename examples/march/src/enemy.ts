@@ -94,6 +94,16 @@ export const ENEMY_AI = {
    * the separation, not a tuning: `scripts/march-call.test.mjs` derives both edges from `level.ts`.
    */
   callPartnerPx: 130,
+  /**
+   * How long a called guard announces himself, ms.
+   *
+   * The mark that says "this one is awake" is a price, and a price nobody reads is not a price: a
+   * 2 x 7 px bar above a 20 x 44 px body is visible only if you already know to look. For the first
+   * 600 ms after the call he wears it **wide and bright**, then settles into the quiet bar for the
+   * rest of the alert. 600 is long enough to survive a glance and short enough that it never becomes
+   * scenery: at 300 px/s you cover 180 px inside it, which is one beat's walk.
+   */
+  alertFlashMs: 600,
 } as const;
 
 /**
