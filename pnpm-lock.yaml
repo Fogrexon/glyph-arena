@@ -46,6 +46,34 @@ importers:
         specifier: ^6.3.5
         version: 6.4.3(tsx@4.23.12)
 
+  examples/march:
+    dependencies:
+      '@fogrexon/glyph-arena-actions':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-actions
+      '@fogrexon/glyph-arena-body':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-body
+      '@fogrexon/glyph-arena-input':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-input
+      '@fogrexon/glyph-arena-loop':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-loop
+      '@fogrexon/glyph-arena-tilemap':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-tilemap
+      '@fogrexon/glyph-arena-tween':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-tween
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.3.5
+        version: 6.4.3(tsx@4.23.12)
+
   examples/parry:
     dependencies:
       '@fogrexon/glyph-arena-actions':
