@@ -10,6 +10,7 @@ import {
   environmentProblem,
   formatMismatch,
   goldenFileFor,
+  sceneNamesFor,
 } from "./pixel-hash.mjs";
 
 const ENVIRONMENT = environmentOf({
@@ -131,6 +132,39 @@ describe("the goldens in the repository", () => {
         scene.sampleFrames,
         `${name}: the golden has a sample for every frame, in order`,
       );
+    }
+  });
+});
+
+describe("sceneNamesFor", () => {
+  it("runs every scene when nothing is asked for, so CI covers a scene the day it is declared", () => {
+    // The alternative — a list of scene names in the workflow — goes green on a scene nobody runs.
+    assert.deepEqual(sceneNamesFor(undefined), Object.keys(SCENES));
+    assert.ok(sceneNamesFor(undefined).length >= 2, "the gate is meant to paint more than one projection");
+  });
+
+  it("runs exactly the one asked for, so a red can name a single scene", () => {
+    assert.deepEqual(sceneNamesFor("runner-1"), ["runner-1"]);
+  });
+});
+
+describe("the scenes", () => {
+  it("sample at least one frame, in ascending order, once each", () => {
+    for (const [name, scene] of Object.entries(SCENES)) {
+      const frames = scene.sampleFrames;
+      assert.ok(frames.length > 0, `${name}: samples nothing, so it compares nothing`);
+      assert.deepEqual([...frames].sort((left, right) => left - right), frames, `${name}: sample frames are out of order`);
+      assert.equal(new Set(frames).size, frames.length, `${name}: samples the same frame twice`);
+    }
+  });
+
+  it("put every input inside the frames they sample — an input after the last sample is never seen", () => {
+    for (const [name, scene] of Object.entries(SCENES)) {
+      const last = Math.max(...scene.sampleFrames);
+      for (const input of scene.inputs) {
+        assert.ok(input.frame > 0, `${name}: an input at frame ${input.frame} runs before the bundle has painted`);
+        assert.ok(input.frame <= last, `${name}: ${input.key} ${input.action} at frame ${input.frame} is after the last sample (${last})`);
+      }
     }
   });
 });
