@@ -33,6 +33,20 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
   `restart()` fails with the field's name; zeroing `simSeconds` by hand again in runner reports
   "zeroed 2 time(s) by hand".
 
+- **`scripts/reset-audit.mjs`: one scanner for the four reset gates — and the scanner has its own
+  gate.** march, parry, pickup and runner each keep a `*-reset.test.mjs`, and all four were the same
+  scan with a different KEPT list: four chances to write a slightly different scanner. The scan now
+  lives in one module, so a seventh slice's gate is its KEPT list, two one-line tests, and whatever
+  is that game's own business. The module's own tests are the point of the unit: a scanner that says
+  "nothing missing" for every input turns all four gates green forever and looks identical in the
+  logs, so it is fed fixtures that must be red — `x === 1` in the registrations is a comparison, not
+  a reset; a `let` a slice forgot is named; a KEPT entry that is also assigned fails; and a slice
+  that stopped calling `createReset()` fails loudly instead of reading as clean. Reverse-tested
+  against the four real slices: dropping parry's `wrapCount`, putting `score = 0` back into pickup's
+  `restart()`, deleting march's `dodge` registration (`the reset does not put back: dodge` — the
+  original CAMP bug, now caught by a gate instead of by hand) and zeroing runner's clock by hand all
+  go red.
+
 ### Fixed
 
 - **MARCH: a guard's post no longer walks down the road.** The lunge carries the body 138 px and

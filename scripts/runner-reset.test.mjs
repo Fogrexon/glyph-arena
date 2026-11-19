@@ -14,22 +14,15 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
+import { resetRegion } from "./reset-audit.mjs";
+
 const ROOT = new URL("..", import.meta.url).pathname;
 const source = readFileSync(`${ROOT}examples/runner/src/main.ts`, "utf8");
-
-function resetRegion() {
-  const start = source.indexOf("const reset = createReset();");
-  assert.ok(start >= 0, "runner no longer registers its resets with createReset");
-  const rest = source.slice(start);
-  const next = /\n\s*function /.exec(rest);
-  assert.ok(next !== null, "the registrations are not followed by a function");
-  return rest.slice(0, next.index);
-}
 
 test("the run clock is zeroed in exactly one place, and that place is the reset", () => {
   const zeroes = [...source.matchAll(/^\s*simSeconds\s*=\s*0\s*;/gm)];
   assert.equal(zeroes.length, 1, `simSeconds is zeroed ${zeroes.length} time(s) by hand`);
-  const region = resetRegion();
+  const region = resetRegion(source, "examples/runner/src/main.ts");
   assert.match(region, /^\s*simSeconds\s*=\s*0\s*;/m, "the one zeroing is not inside the registrations");
 });
 
@@ -59,6 +52,6 @@ test("both ways into a run call the reset", () => {
 test("what the reset deliberately keeps is what the run is measured by", () => {
   // `deaths` counts the session's deaths on the HUD — it is the number the slice exists to publish,
   // so it must not be reset by a run. Pinned as an absence so that "helpfully" adding it turns red.
-  const region = resetRegion();
+  const region = resetRegion(source, "examples/runner/src/main.ts");
   assert.doesNotMatch(region, /\bdeaths\s*=/, "`deaths` is the session's number; a run does not reset it");
 });

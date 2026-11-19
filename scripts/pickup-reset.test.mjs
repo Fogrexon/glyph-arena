@@ -13,23 +13,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
+import { auditReset } from "./reset-audit.mjs";
+
 const ROOT = new URL("..", import.meta.url).pathname;
 const source = readFileSync(`${ROOT}examples/pickup-demo/src/main.ts`, "utf8");
-
-/** `let`s at the slice's own scope: module scope and the top of `main()`. */
-function runScopedState() {
-  return [...source.matchAll(/^( {0,2})let\s+(\w+)/gm)].map((match) => match[2]);
-}
-
-/** The registrations: from `createReset()` up to the first function after them. */
-function resetRegion() {
-  const start = source.indexOf("const reset = createReset();");
-  assert.ok(start >= 0, "pickup no longer registers its resets with createReset");
-  const rest = source.slice(start);
-  const next = /\n\s*function /.exec(rest);
-  assert.ok(next !== null, "the registrations are not followed by a function");
-  return rest.slice(0, next.index);
-}
 
 const KEPT = {
   touch: "the touch device",
@@ -67,27 +54,11 @@ const KEPT = {
   lastPublishedDelta: "same",
 };
 
-test("every field a round owns is put back by the reset", () => {
-  const region = resetRegion();
-  const missed = [];
+const audit = auditReset(`${ROOT}examples/pickup-demo/src/main.ts`, KEPT);
 
-  for (const name of runScopedState()) {
-    if (name in KEPT) continue;
-    if (!new RegExp(`\\b${name}\\s*=`).test(region)) missed.push(name);
-  }
+test("every field a round owns is put back by the reset", () => audit.coversAll());
 
-  assert.deepEqual(missed, [], `the reset does not put back: ${missed.join(", ")}`);
-});
-
-test("the fields the reset keeps are the ones this file names, and they really are kept", () => {
-  const region = resetRegion();
-  const state = runScopedState();
-
-  for (const name of Object.keys(KEPT)) {
-    assert.ok(state.includes(name), `KEPT names \`${name}\`, which is not state this file declares`);
-    assert.doesNotMatch(region, new RegExp(`\\b${name}\\s*=`), `KEPT says \`${name}\` is kept, but the reset assigns it`);
-  }
-});
+test("the fields the reset keeps are the ones this file names, and they really are kept", () => audit.keepsKept());
 
 test("both ways into a round run the same reset", () => {
   // The two functions that start a round, and they must not hand-write the field list again.
