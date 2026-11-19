@@ -16,8 +16,6 @@ import { createTouchControls, type TouchZone } from "@fogrexon/glyph-arena-touch
 import { createTransform, type Matrix2D } from "@fogrexon/glyph-arena-transform";
 import { createTween } from "@fogrexon/glyph-arena-tween";
 
-type Matrix6 = [number, number, number, number, number, number];
-
 type Phase = "title" | "play" | "result";
 
 /**
@@ -149,10 +147,13 @@ function createRectSprite(
   return spriteCanvas;
 }
 
-function matrixToArgs(matrix: Matrix2D): Matrix6 {
-  return [matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f];
-}
-
+/**
+ * The view is applied through the library, not by writing the six numbers here.
+ *
+ * `multiplyMatrices` already hands back a `Matrix2D`, which is exactly what `draw.setView` takes —
+ * the tuple existed only to feed `ctx.setTransform`, and `setView` is the call that says "this is a
+ * camera".
+ */
 function multiplyMatrices(left: Matrix2D, right: Matrix2D): Matrix2D {
   return {
     a: left.a * right.a + left.c * right.b,
@@ -162,11 +163,6 @@ function multiplyMatrices(left: Matrix2D, right: Matrix2D): Matrix2D {
     e: left.a * right.e + left.c * right.f + left.e,
     f: left.b * right.e + left.d * right.f + left.f,
   };
-}
-
-function composeViewAndWorld(view: Matrix2D, world: Matrix2D): Matrix6 {
-  const composed = multiplyMatrices(view, world);
-  return matrixToArgs(composed);
 }
 
 function nodeAabb(x: number, y: number, width: number, height: number): Aabb {
@@ -1248,8 +1244,7 @@ async function main(): Promise<void> {
 
   function drawWorldSprite(drawable: Drawable, viewMatrix: Matrix2D): void {
     const worldMatrix = transform.world(drawable.node, forest.parent);
-    const [a, b, c, d, e, f] = composeViewAndWorld(viewMatrix, worldMatrix);
-    ctx.setTransform(a, b, c, d, e, f);
+    draw.setView(multiplyMatrices(viewMatrix, worldMatrix));
     draw.sprite({
       image: drawable.image,
       x: 0,
@@ -1261,8 +1256,7 @@ async function main(): Promise<void> {
 
   function drawPlayerSprite(drawable: Drawable, viewMatrix: Matrix2D): void {
     const worldMatrix = transform.world(drawable.node, forest.parent);
-    const [a, b, c, d, e, f] = composeViewAndWorld(viewMatrix, worldMatrix);
-    ctx.setTransform(a, b, c, d, e, f);
+    draw.setView(multiplyMatrices(viewMatrix, worldMatrix));
     const half = PLAYER_SIZE / 2;
     // Blink while invulnerable so the hit reads as "you were hit", not "the counter moved".
     const blinking =
@@ -1279,8 +1273,7 @@ async function main(): Promise<void> {
 
   function drawWallSprite(wall: Drawable, viewMatrix: Matrix2D): void {
     const worldMatrix = transform.world(wall.node, forest.parent);
-    const [a, b, c, d, e, f] = composeViewAndWorld(viewMatrix, worldMatrix);
-    ctx.setTransform(a, b, c, d, e, f);
+    draw.setView(multiplyMatrices(viewMatrix, worldMatrix));
     draw.sprite({
       image: wall.image,
       x: 0,
@@ -1290,8 +1283,7 @@ async function main(): Promise<void> {
 
   function drawPickupFxGem(fx: PickupFx, viewMatrix: Matrix2D): void {
     const worldMatrix = transform.world(fx.node, forest.parent);
-    const [a, b, c, d, e, f] = composeViewAndWorld(viewMatrix, worldMatrix);
-    ctx.setTransform(a, b, c, d, e, f);
+    draw.setView(multiplyMatrices(viewMatrix, worldMatrix));
     draw.sprite({
       image: gemImage,
       x: 0,
@@ -1323,7 +1315,7 @@ async function main(): Promise<void> {
     const centerX = TOUCH_PAD_MARGIN;
     const centerY = canvas.height - TOUCH_PAD_MARGIN;
 
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    draw.setView(null);
     ctx.globalAlpha = 0.2;
     ctx.fillStyle = "#e8eaed";
     ctx.beginPath();
@@ -1437,7 +1429,7 @@ async function main(): Promise<void> {
           beginPlayFromTitle();
         }
 
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        draw.setView(null);
         draw.clear("#0f1115");
         ctx.fillStyle = "#e8eaed";
         ctx.font = "28px system-ui, sans-serif";
@@ -1633,7 +1625,7 @@ async function main(): Promise<void> {
       const viewHeight = canvas.height;
       const viewMatrix = camera.view(viewWidth, viewHeight);
 
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      draw.setView(null);
       draw.clear("#0f1115");
 
       for (const wall of wallDrawables) {
@@ -1667,7 +1659,7 @@ async function main(): Promise<void> {
         drawPickupFxGem(fx, viewMatrix);
       }
 
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      draw.setView(null);
       ctx.fillStyle = "#e8eaed";
       ctx.font = "20px system-ui, sans-serif";
       if (phase === "play") {
