@@ -38,7 +38,7 @@ npm install @fogrexon/glyph-arena
 
 Every workspace module is bundled into this package and its value exports are re-exported flat, so a
 game writes one import instead of one per module: actions, assets, audio, body, camera, chase, collide, draw,
-ecs, gamepad, input, loop, scene, tilemap, timer, touch, transform, tween. The docs site lists each one's
+ecs, gamepad, input, loop, reset, scene, tilemap, timer, touch, transform, tween. The docs site lists each one's
 exports, and **the umbrella's export table is generated from the sources when the docs are built** — it
 is not a table typed here that goes stale the day a module is added.
 

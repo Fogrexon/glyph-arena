@@ -31,6 +31,7 @@ export * from "../../glyph-arena-ecs/src/index.js";
 export * from "../../glyph-arena-gamepad/src/index.js";
 export * from "../../glyph-arena-input/src/index.js";
 export * from "../../glyph-arena-loop/src/index.js";
+export * from "../../glyph-arena-reset/src/index.js";
 export * from "../../glyph-arena-scene/src/index.js";
 export * from "../../glyph-arena-screen/src/index.js";
 export * from "../../glyph-arena-tilemap/src/index.js";
