@@ -33,3 +33,21 @@ test("a spike on a plateau is deadly, because the plateau is the floor there", (
   assert.deepEqual(two.hazards.map((range) => [range.from, range.to]), [[1152, 1248]]);
   assert.equal(two.steps.length, 1, "the step up onto the plateau is a take-off too");
 });
+
+test("the march hand called `run` only runs: it never swings and never rolls", () => {
+  // The pass line is "you can clear by walking, but not untouched". Both halves of that sentence
+  // are only readable if the hand that measures it does nothing else: a swing is a fight, and a
+  // roll is what the other fast hand is made of — a hit taken mid-roll may be the roll's fault
+  // rather than the road's, which is exactly the ambiguity this hand was added to remove.
+  // A later "it does not clear, so let it roll" edit would quietly turn the measurement back into
+  // `bold`, so the property is checked instead of the number it produced.
+  const source = readFileSync(join(ROOT, "scripts/play-bot.mjs"), "utf8");
+  const body = /if \(mode === "run"\) \{([\s\S]*?)\n          \}/.exec(source)?.[1] ?? "";
+  assert.ok(body.length > 0, "the march `run` hand is gone from play-bot.mjs");
+  assert.match(body, /key\("ArrowRight", true\)/, "the `run` hand does not hold right");
+  assert.doesNotMatch(body, /press\(/, "the `run` hand presses a key — it is no longer the hand that only walks");
+  assert.doesNotMatch(body, /KeyJ|Shift/, "the `run` hand swings or rolls");
+
+  const hands = /const MARCH_HANDS = \[([^\]]*)\]/.exec(source)?.[1] ?? "";
+  assert.match(hands, /"run"/, "`march run` is no longer accepted on the command line");
+});
