@@ -8,6 +8,15 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Fixed
 
+- **MARCH's death screen said `hits 4 (4 from behind)`, and nothing measured a side.** The number
+  behind the label was `player.vx > 60` — *were you running at the goal when it landed* — so two
+  first-time players (11-19) reported "4 hits, all from behind" as the cause of death on runs that
+  had `passed 0/11`, where every guard is still in front of them. The person who wrote the label
+  read it the same way, twice, while tuning against it. `hits[].cause` is now `"running" |
+  "standing"`, the HUD prints `hits 4 (4 while running)`, `scripts/play-bot.mjs` prints the same
+  wording, and `examples/march/test/readout.test.ts` fails if a label names a side again. Same rule
+  as the `kicks` correction: **the instrument may not name a thing it did not measure.**
+
 - **The `march mixed` stall was the harness losing a key, not a guard blocking the road.** A run
   froze at `x 2526` for two minutes on 11-19 and the first reading was a body pushed into a guard who
   never committed. The captured state says no: `vx 0`, four hearts, and no living guard within
@@ -19,6 +28,19 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
   the wrong reading as the open question.
 
 ### Changed
+
+- **MARCH says what the roll does, because three first-time players never found it.** All three
+  finished their minute at `passed 0/11`: `A/D run · Space jump · J attack · Shift roll` reads as two
+  ways to hit things, so nobody learned that a roll is the only thing that crosses a body, and the
+  cost system was dead code for every player. The controls line is now two rows, the second being
+  `Shift rolls through a body — the guard you pass wakes the next one`.
+
+- **MARCH marks a woken guard on the screen edge when his body is off screen.** QA went over the
+  first guard deliberately: the pair woke on cue at 774 and 870 while the player stood at `x 406`,
+  which on the 640 px view with the camera at 42% is 637 px and 733 px — the last column of pixels,
+  and past it. A cue off screen is absent, not quiet. An alerted guard whose body is outside the
+  view now draws a 4 px cream bar on the edge he is off of (`edgeMarkFor` in `src/readout.ts`); a
+  visible body keeps its own mark, so one guard never reads as two.
 
 
 - **pickup's camera goes through `draw.setView`, not through six numbers.** Its four world drawers
