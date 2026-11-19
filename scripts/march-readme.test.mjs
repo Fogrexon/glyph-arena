@@ -108,6 +108,7 @@ test("the page keeps the rules that are not numbers", () => {
   assert.match(page, /only pushing into one costs a heart|only while .*pushed into/i, "the reach rule is gone");
   assert.match(page, /for its whole length, not just its window/i, "the roll rule is gone");
   assert.match(page, /the guard's post does not move/i, "the post rule is gone");
+  assert.match(page, /passing is a loan/i, "the pursuit rule is gone");
   assert.match(page, /^\*\*Play it:\*\* /m, "the page does not open with the demo link the nav uses");
 });
 
