@@ -6,7 +6,20 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+### Fixed
+
+- **The `march mixed` stall was the harness losing a key, not a guard blocking the road.** A run
+  froze at `x 2526` for two minutes on 11-19 and the first reading was a body pushed into a guard who
+  never committed. The captured state says no: `vx 0`, four hearts, and no living guard within
+  400 px — every one of the eleven dead or passed. The game derives `vx` from the keys it received
+  that frame, so a standing body on a clear road means no key, and the harness's held set never
+  re-sent it. `scripts/play-bot.mjs` now re-sends the key when the road is clear and the body is not
+  moving, and prints `kicks`; a non-zero count on a passing run is the evidence if it returns. The
+  note in `examples/march/README.md` is corrected to say so, because the page had already recorded
+  the wrong reading as the open question.
+
 ### Changed
+
 
 - **pickup's camera goes through `draw.setView`, not through six numbers.** Its four world drawers
   each composed the camera matrix with the node's world matrix and then called
