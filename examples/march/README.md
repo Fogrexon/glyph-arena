@@ -241,11 +241,15 @@ the tell retreating swings backwards and lands nothing (20 swings, 0 kills).
 - **The pairs are the only thing that makes the roll unsafe.** Every guard is the same body; the
   beats differ in count. A second guard type is the obvious next content, and it is also the thing
   that would make "roll the singles" a worse rule than it is.
-- **The mixed line can deadlock behind a guard who is not coming.** Measured once on 11-19: a
-  regression run of `march mixed` sat at `x 2526` for the full two minutes with one heart taken, not
-  moving — the body pushed into a guard that never committed, and the road has no verb for "walk
-  around". It is a *player cannot progress* bug, not a tuning question, so it is filed in the
-  backlog rather than patched here. **This is the next unit**: a stall is worse than a hard fight.
+- **The stall is in the harness, not in the road — and that is a correction.** The first reading was
+  "the body pushed into a guard that never committed". The captured state says otherwise: at
+  `x 2526` the player had **`vx 0`**, **four hearts**, and **no living guard within 400 px** — all
+  eleven were dead or passed. The game derives `vx` from the keys it received every frame, so it
+  cannot produce a standing body on a clear road; the harness's held-key set and the game's input had
+  disagreed, and the set never re-sent the key. The harness now re-sends it when the road is clear and
+  the body is not moving, and prints `kicks` — a non-zero count on a passing run is the proof rather
+  than a theory. It is intermittent (2 of 4 runs before the change, 0 of 8 after), so the counter is
+  the instrument that will show it if it comes back.
 - **The road is flat.** No pits, no steps. Terrain is the next thing a road can use and none of it
   is here.
 - **No sound.** The hit has hitstop and shake; it has no noise.
