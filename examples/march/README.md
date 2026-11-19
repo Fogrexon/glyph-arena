@@ -18,7 +18,8 @@ not rewritten here turns the gate red instead of the page quietly lying.
 
 1. Walk right. A guard holds his post: he does not come to you, and after a lunge he walks back to it.
 2. Inside 70 px he commits — a tell, then a lunge that crosses 138 px. **The tell is your window**:
-   strike it early (cancels the lunge) or leave.
+   strike it early (cancels the lunge) or leave. The blade reaches 52 px past your body, which is the
+   line he commits from, so the strike is a thing your hands can do from where you are standing.
 3. After the lunge he is open for 450 ms. That is when you swing.
 4. Decide, at every guard, which of the two things you are doing: **fight** (safe, slow) or **go
    by** (fast, and it costs a heart unless the roll is spent well).
@@ -56,7 +57,7 @@ nobody takes. The level says the rule instead of a tutorial: **under rock you fi
 | `ATTACK.windupMs` | 60 | the blade comes out after this long: the press has a cost or it is not a decision |
 | `ATTACK.activeMs` | 90 | the only window in which the blade is out |
 | `ATTACK.recoveryMs` | 150 | 300 ms of commitment in total, which is what the rest window has to cover |
-| `ATTACK.reachPx` | 30 | 26 px of gap is where a swing lands, so the fight happens inside the lunge's own reach |
+| `ATTACK.reachPx` | 52 | **the blade reaches the line he commits from.** A guard tells at 70 px centre to centre — a 50 px gap between the bodies — and at 30 px the blade could not touch him from that line, so "strike the tell" was a move the game asked for and did not allow. A first-time player (11-19) swung three times at range with the blade out and left the guard at full hp; two hits landed at a 20 px gap. Derived in `test/combat.test.ts` from the two body widths and the lunge range, and the same test keeps the other end: one pixel past the reach is a miss |
 | `ATTACK.damage` | 1 | three clean hits per guard, so the fight is about windows, not arithmetic |
 | `ATTACK.hitstopMs` | 70 | both bodies stop on contact so the eye catches the hit |
 | `DODGE.durationMs` | 180 | the roll carries you 94 px — enough to cross a 20 px body with margin |
@@ -79,6 +80,12 @@ question is *can I get by*, not *may I stand next to you*.
 the last 40 ms being shoved back out of the guard, so no roll ever finished a crossing: measured, the
 fast bot spent two rolls per guard, was pushed back out of every one, and died on the tenth. The
 window is what stops damage; the roll is what stops the wall.
+
+**A swing that lands nothing is drawn.** A press that goes through air used to look exactly like a
+dropped input: the blade was on screen for 150 ms of a 300 ms swing and then nothing. A miss now
+leaves the same box in the same place, grey and fading for 130 ms — the picture says *the blade went
+there and he was not in it*, which is the only way a player learns a distance. `whiff` is published
+with the rest of the state so a harness can tell a miss from a key the game never saw.
 
 **The guard's post does not move, only his body does.** The rule above — he does not come to you —
 was half true: the lunge carried him 138 px toward you and nothing carried him back, so the road
@@ -114,10 +121,17 @@ heart at `x 34` on the first guard. Chasing that hit is what found that a guard'
 every lunge (the third rule, above). A table written as a single number cannot tell a fix from a
 lucky run.
 
+The row above was re-measured after `ATTACK.reachPx` went 30 → 52 (a first-time player could not
+land a swing from the line the guard commits from), and the careful crossing moved with it:
+**61.8–66.5 s → 66.3–74.4 s**, still 0 hits. A longer blade is not a faster fight here — the careful
+line swings on the rest window either way, and the reach changed which swings land, so "advance,
+hold, swing" settled onto a different rhythm. What is worth keeping is the shape: careful clears
+with no hits, bold bleeds four and dies at the same four places.
+
 | bot | result | time | hearts left | hits taken |
 | --- | --- | --- | --- | --- |
-| careful (fight every guard) | **clear 11/11, 3 of 3 runs** | 61.8–66.5 s | 4 | **0** |
-| bold (roll through every guard) | **down at 9/11, 3 of 3 runs** | 7.77–7.81 s | 0 | 4, **all four while running at the goal** |
+| careful (fight every guard) | **clear 11/11, 3 of 3 runs** | 66.3–74.4 s | 4 | **0** |
+| bold (roll through every guard) | **down at 9/11, 3 of 3 runs** | 7.80–7.86 s | 0 | 4, **all four while running at the goal** |
 
 **bold dies at the same four places on every run** (`x 851`, `1267`, `1843`, `2291`): the roll carries
 73 px and the pairs stand 96 px apart, so rolling past the first of a pair lands the body inside the
@@ -147,7 +161,7 @@ the tell retreating swings backwards and lands nothing (20 swings, 0 kills).
 
 ## What is still open
 
-- **62–66 s is not a minute.** The careful crossing is honest but long. Cutting course length would
+- **66–74 s is not a minute.** The careful crossing is honest but long. Cutting course length would
   cut the number of decisions, so the lever is `ENEMY_STATS.hp` — and the line to stop at is a
   person saying it feels unfair, not a bot taking fewer hits. The bot's numbers prove *there is a
   choice*; they cannot prove *it is fun*. **Nobody has played this yet who can say which it is** —
