@@ -12,6 +12,7 @@ Four samples and the API docs, published from this repository — open the links
 | --- | --- | --- |
 | [Pickup](https://fogrexon.github.io/glyph-arena/) | Top-down collection: 8 gems in 60 s, three lives | `examples/pickup-demo` |
 | [Camp](https://fogrexon.github.io/glyph-arena/camp/) | A side-on duel in two rooms: three verbs, and enemies that take turns | `examples/camp` |
+| [March](https://fogrexon.github.io/glyph-arena/march/) | Eleven guards on a 92-column road: fight each one, or roll through it — one minute, instant retry | `examples/march` |
 | [Parry](https://fogrexon.github.io/glyph-arena/parry/) | Dash into an enemy to parry it; 20 waves from a fixed script | `examples/parry` |
 | [Runner](https://fogrexon.github.io/glyph-arena/runner/) | Side-scrolling platformer: three levels, no randomness | `examples/runner` |
 | [API Docs](https://fogrexon.github.io/glyph-arena/docs/) | One page per package, and the front page this README becomes | `docs/` |
