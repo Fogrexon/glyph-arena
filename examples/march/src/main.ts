@@ -92,6 +92,8 @@ const ENEMY_STATS = { hp: 3, contactDamage: 1 };
 
 /** How long the result stands before mashing a play button counts as "again". */
 const RESTART_AFTER_MS = 350;
+/** How long a swing that landed nothing is drawn, in ms — long enough to see, short enough to mash. */
+const WHIFF_MS = 130;
 
 const canvas = document.querySelector("canvas");
 if (canvas === null) {
@@ -146,6 +148,8 @@ let hearts = PLAYER_STATS.hearts;
 let invulnerableMs = 0;
 let hitstopMs = 0;
 let shakeMs = 0;
+/** How long a swing that hit nothing stays visible, in ms. */
+let whiffMs = 0;
 let kills = 0;
 let passes = 0;
 let simMs = 0;
@@ -215,6 +219,9 @@ reset.add("hitstop", () => {
 });
 reset.add("shake", () => {
   shakeMs = 0;
+});
+reset.add("whiff", () => {
+  whiffMs = 0;
 });
 reset.add("hits", () => {
   hits = [];
@@ -379,7 +386,14 @@ function stepWorld(dt: number, dtMs: number, moveLeft: boolean, moveRight: boole
   }
 
   if (attack.elapsedMs >= 0) {
+    const wasSwinging = attack.elapsedMs >= 0;
     stepAttack(attack, dtMs);
+    // A swing that ends without landing is drawn for a moment, in the place it went: without it,
+    // "I pressed the key and nothing happened" is indistinguishable from a dropped input. A
+    // first-time player (11-19) learned nothing from their first swings because of exactly that.
+    if (wasSwinging && attack.elapsedMs < 0 && !attack.hasHit) {
+      whiffMs = WHIFF_MS;
+    }
     if (attackPhase(attack.elapsedMs) === "active" && !attack.hasHit) {
       const blade = attackBox(player, attack.facing);
       for (const enemy of enemies) {
@@ -393,6 +407,7 @@ function stepWorld(dt: number, dtMs: number, moveLeft: boolean, moveRight: boole
   }
 
   invulnerableMs = Math.max(0, invulnerableMs - dtMs);
+  whiffMs = Math.max(0, whiffMs - dtMs);
   if (phase === "play" && invulnerableMs === 0 && !invulnerable) {
     for (const enemy of enemies) {
       if (!enemy.alive || !overlapsHalfOpen(boxOf(player), boxOf(enemy.body))) continue;
@@ -593,6 +608,11 @@ function draw(): void {
     const blade = attackBox(player, attack.facing);
     ctx.fillStyle = bladePhase === "active" ? "#ffe9a8" : "#5a5f6b";
     ctx.fillRect(blade.left - fromX, blade.top + 4, blade.right - blade.left, blade.bottom - blade.top - 8);
+  } else if (whiffMs > 0) {
+    // The same box, in the same place, fading: this is where the blade went and it went through air.
+    const blade = attackBox(player, facing);
+    ctx.fillStyle = `rgba(200, 205, 215, ${0.32 * Math.min(1, whiffMs / WHIFF_MS)})`;
+    ctx.fillRect(blade.left - fromX, blade.top + 6, blade.right - blade.left, blade.bottom - blade.top - 12);
   }
 
   drawHud();
@@ -612,6 +632,7 @@ type MarchState = {
   goalX: number;
   progress: number;
   blade: string;
+  whiff: boolean;
   dodge: "roll" | "idle" | "cooldown";
   cameraX: number;
   runs: number;
@@ -635,6 +656,7 @@ function publish(): void {
     goalX: GOAL_X,
     progress: GOAL_X === 0 ? 1 : Math.min(1, player.x / GOAL_X),
     blade: attackPhase(attack.elapsedMs),
+    whiff: whiffMs > 0,
     dodge: dodgeRolling(dodge.elapsedMs) ? "roll" : dodgeReady(dodge) ? "idle" : "cooldown",
     cameraX,
     runs,
