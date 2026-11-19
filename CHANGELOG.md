@@ -6,6 +6,24 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+### Fixed
+
+- **MARCH: a guard's post no longer walks down the road.** The lunge carries the body 138 px and
+  nothing carried it back, so every commit left the guard that much closer to the spawn wall.
+  Measured by holding right at the first guard — no attack, no roll — the post went 454 → 329 → 204 →
+  79, the body was pushed 434 → 309 → 184 → 59, and the run ended at the wall in 4.2 s having decided
+  nothing: the road under the fight was being rewritten by the guard the player was trying to get
+  past. It is CAMP's "the enemy walks you into the wall", one layer down — that fix stopped the walk,
+  this one makes the step he *does* take come back. A guard now returns to the post he committed
+  from at `ENEMY_AI.returnPxPerSecond` (300 — the player's own speed, so the walk home cannot be
+  chased down) and will not begin a tell until he is standing on it.
+  Measured after: careful **clear 11/11, 3 of 3 runs, 61.8–66.5 s, 0 hits** — the heart it used to
+  lose at `x 34` is gone, and this is the first time that row is honest rather than the best of two
+  runs. Bold unchanged: **down at 9/11, 7.77–7.81 s, 4 hits, all four while running at the goal, at
+  the same four places**. The page's pass line is now three runs quoted as a range, and
+  `scripts/march-readme.test.mjs` fails if it is written as one number again, while the new
+  `scripts/march-post.test.mjs` fails if the walk stops reading `homeX` or a tell is allowed off-post.
+
 ## [0.5.0] - 2026-11-19
 
 The version that adds a module — `@fogrexon/glyph-arena-reset` — so that a retry cannot inherit
