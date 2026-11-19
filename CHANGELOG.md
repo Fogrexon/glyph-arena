@@ -66,6 +66,20 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Changed
 
+- **The runner draws its world at world coordinates; the projection is the library's.** It imports
+  `@fogrexon/glyph-arena-draw` and draws the level, the walkers and the player at `column * TILE`, not
+  at `(column * TILE - cameraX) * s` — `paint.setView({ scale, offsetX: -cameraX * s, offsetY })`
+  owns the map from world to screen, and the sky, the parallax and the HUD go back to
+  `setView(null)`. `offsetY` lives in the projection and nowhere else (the first attempt at this,
+  on 2026-11-19, added it to the coordinates as well and moved 129,214 pixels instead of none).
+  The one screen pixel of overlap between tiles became `1 / scale` world units, so the seam it
+  exists for stays one pixel wide at every scale. Measured with `e2e:pixel`: **`runner-1` (s = 1) is
+  identical on all three frames**, and `runner-scale` (s = 1.296…) differs on **one** of them —
+  frame 120, **83 pixels in a single column (x = 21, y 537–619), maxΔ 2/255**. That is not geometry:
+  `(x - cameraX) * s` and `x * s + (-cameraX * s)` round differently in the last bits, so one tile
+  edge's antialiasing falls on the other side. The golden was rewritten for that frame with
+  `--write`; the diff is reviewable, and the other two frames prove nothing else moved.
+
 - **MARCH: a guard you walked past turns and follows — passing is a loan, not a free pass.** With the
   guard holding his post the road behind you was empty, so the fast line was faster *and* safer:
   measured on 11-19 by three players, 15.0 s to clear by running against 28.5 s by fighting, which is

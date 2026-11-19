@@ -7,6 +7,7 @@
  */
 import { createActions } from "@fogrexon/glyph-arena-actions";
 import { chaseTarget } from "@fogrexon/glyph-arena-chase";
+import { createDraw } from "@fogrexon/glyph-arena-draw";
 import { createInput } from "@fogrexon/glyph-arena-input";
 import { createLoop } from "@fogrexon/glyph-arena-loop";
 import { createReset } from "@fogrexon/glyph-arena-reset";
@@ -118,6 +119,14 @@ if (context2d === null) {
   throw new Error("no 2d context");
 }
 const ctx: CanvasRenderingContext2D = context2d;
+/**
+ * The library owns the map from world to screen. Every world pixel below is drawn at its *world*
+ * coordinate and the projection does the multiply — the runner used to write
+ * `(column * TILE - cameraX) * s` at each call site, and the difference between that and
+ * `x * s - cameraX * s` is invisible at scale 1 and not at 1.296, where the e2e:pixel scene
+ * `runner-scale` looks.
+ */
+const paint = createDraw({ context: ctx });
 
 function hazardAt(body: Body): boolean {
   return hazardWithin(body.x, body.y, body.w, body.h);
@@ -373,45 +382,46 @@ function drawParallax(): void {
 }
 
 function drawLevel(): void {
-  const s = scale();
   // Which columns a view covers is the library's question now: `margin: 1` is the one column of
   // slack this drawing wants at each edge, and it is the caller's number, not the library's default.
   const view = visibleColumns(currentMap(), cameraX, viewWidth(), { margin: 1 });
-  const offsetY = (LOGICAL_HEIGHT - worldHeight) * 0.5;
+  // One screen pixel of overlap between tiles, said in world units: the projection multiplies it
+  // back, so the seam the overlap exists for stays one pixel wide at every scale.
+  const overlap = 1 / scale();
   for (let column = view.first; column < view.end; column += 1) {
     for (let row = 0; row < levelRows(); row += 1) {
-      const x = (column * TILE - cameraX) * s;
-      const y = (row * TILE + offsetY) * s;
+      const x = column * TILE;
+      const y = row * TILE;
       if (isSolidTile(column, row)) {
         const shade = 0.85 + hash(column * 31 + row * 7) * 0.15;
         ctx.fillStyle = `rgb(${Math.round(60 * shade)}, ${Math.round(90 * shade)}, ${Math.round(70 * shade)})`;
-        ctx.fillRect(x, y, TILE * s + 1, TILE * s + 1);
+        ctx.fillRect(x, y, TILE + overlap, TILE + overlap);
         if (!isSolidTile(column, row - 1)) {
           ctx.fillStyle = PALETTE.groundCap;
-          ctx.fillRect(x, y, TILE * s + 1, 4 * s);
+          ctx.fillRect(x, y, TILE + overlap, 4);
         }
       } else if (isHazardTile(column, row)) {
         ctx.fillStyle = PALETTE.spike;
         ctx.beginPath();
         for (let spike = 0; spike < 3; spike += 1) {
-          const baseX = x + spike * (TILE / 3) * s;
-          ctx.moveTo(baseX, y + TILE * s);
-          ctx.lineTo(baseX + (TILE / 6) * s, y + 5 * s);
-          ctx.lineTo(baseX + (TILE / 3) * s, y + TILE * s);
+          const baseX = x + spike * (TILE / 3);
+          ctx.moveTo(baseX, y + TILE);
+          ctx.lineTo(baseX + TILE / 6, y + 5);
+          ctx.lineTo(baseX + TILE / 3, y + TILE);
         }
         ctx.fill();
       }
     }
   }
-  const gx = (goal.x - cameraX) * s;
-  const gy = (3 * TILE + offsetY) * s;
+  const gx = goal.x;
+  const gy = 3 * TILE;
   ctx.fillStyle = "#d9dee5";
-  ctx.fillRect(gx + 6 * s, gy - 10 * s, 3 * s, (3.4 * TILE) * s);
+  ctx.fillRect(gx + 6, gy - 10, 3, 3.4 * TILE);
   ctx.fillStyle = PALETTE.scarf;
   ctx.beginPath();
-  ctx.moveTo(gx + 9 * s, gy - 8 * s);
-  ctx.lineTo(gx + 46 * s, gy + 6 * s);
-  ctx.lineTo(gx + 9 * s, gy + 20 * s);
+  ctx.moveTo(gx + 9, gy - 8);
+  ctx.lineTo(gx + 46, gy + 6);
+  ctx.lineTo(gx + 9, gy + 20);
   ctx.closePath();
   ctx.fill();
 }
@@ -556,52 +566,48 @@ function stepEnemies(dt: number): void {
 }
 
 function drawEnemy(enemy: Enemy): void {
-  const s = scale();
-  const offsetY = (LOGICAL_HEIGHT - worldHeight) * 0.5;
-  const x = (enemy.x - cameraX) * s;
-  const y = (enemy.y + offsetY) * s;
+  const x = enemy.x;
+  const y = enemy.y;
   // A pursuer reads hotter than a walker: same silhouette, different colour, so a player can tell
   // "that one is coming" from across the level without reading the state.
   ctx.fillStyle = enemy.mode === "chase" ? PALETTE.accent : PALETTE.enemy;
   ctx.beginPath();
-  ctx.roundRect(x, y, enemy.w * s, enemy.h * s, 6 * s);
+  ctx.roundRect(x, y, enemy.w, enemy.h, 6);
   ctx.fill();
   ctx.beginPath();
-  ctx.moveTo(x + 3 * s, y);
-  ctx.lineTo(x + 8 * s, y - 8 * s);
-  ctx.lineTo(x + 12 * s, y);
-  ctx.moveTo(x + 12 * s, y);
-  ctx.lineTo(x + 17 * s, y - 8 * s);
-  ctx.lineTo(x + 21 * s, y - 0.5 * s);
+  ctx.moveTo(x + 3, y);
+  ctx.lineTo(x + 8, y - 8);
+  ctx.lineTo(x + 12, y);
+  ctx.moveTo(x + 12, y);
+  ctx.lineTo(x + 17, y - 8);
+  ctx.lineTo(x + 21, y - 0.5);
   ctx.fill();
   ctx.fillStyle = PALETTE.outline;
   ctx.beginPath();
-  ctx.arc(x + 8 * s, y + 10 * s, 2 * s, 0, Math.PI * 2);
-  ctx.arc(x + 17 * s, y + 10 * s, 2 * s, 0, Math.PI * 2);
+  ctx.arc(x + 8, y + 10, 2, 0, Math.PI * 2);
+  ctx.arc(x + 17, y + 10, 2, 0, Math.PI * 2);
   ctx.fill();
 }
 
 function drawPlayer(): void {
-  const s = scale();
-  const offsetY = (LOGICAL_HEIGHT - worldHeight) * 0.5;
   const air = !body.grounded;
   const moving = Math.abs(body.vx) > 12;
   const pose = air ? "air" : moving ? "run" : "idle";
   const bob = pose === "run" ? Math.sin(clock * 18) * 2 : pose === "idle" ? Math.sin(clock * 3) * 1 : 0;
   const squash = Math.max(-0.22, Math.min(0.22, body.vy / 2600));
-  const width = body.w * s * (1 - squash * 0.5);
-  const height = body.h * s * (1 + squash * 0.5);
-  const left = (body.x - cameraX) * s + (body.w * s - width) / 2;
-  const top = (body.y + offsetY) * s + (body.h * s - height) + bob * s;
+  const width = body.w * (1 - squash * 0.5);
+  const height = body.h * (1 + squash * 0.5);
+  const left = body.x + (body.w - width) / 2;
+  const top = body.y + (body.h - height) + bob;
 
   ctx.fillStyle = PALETTE.outline;
   ctx.beginPath();
-  ctx.roundRect(left - 2 * s, top - 2 * s, width + 4 * s, height + 4 * s, 7 * s);
+  ctx.roundRect(left - 2, top - 2, width + 4, height + 4, 7);
   ctx.fill();
 
   ctx.fillStyle = PALETTE.player;
   ctx.beginPath();
-  ctx.roundRect(left, top, width, height, 5 * s);
+  ctx.roundRect(left, top, width, height, 5);
   ctx.fill();
 
   const facing = Math.sign(body.vx) || 1;
@@ -609,29 +615,29 @@ function drawPlayer(): void {
   ctx.beginPath();
   ctx.moveTo(left + width * 0.5, top + height * 0.34);
   ctx.lineTo(
-    left + width * 0.5 - facing * (pose === "air" ? 22 : 14) * s,
-    top + height * 0.34 + Math.sin(clock * 10) * 3 * s,
+    left + width * 0.5 - facing * (pose === "air" ? 22 : 14),
+    top + height * 0.34 + Math.sin(clock * 10) * 3,
   );
   ctx.lineTo(left + width * 0.5, top + height * 0.56);
   ctx.closePath();
   ctx.fill();
 
   ctx.strokeStyle = PALETTE.outline;
-  ctx.lineWidth = 3 * s;
-  const swing = pose === "run" ? Math.sin(clock * 18) * 4 * s : 0;
+  ctx.lineWidth = 3;
+  const swing = pose === "run" ? Math.sin(clock * 18) * 4 : 0;
   ctx.beginPath();
   ctx.moveTo(left + width * 0.3, top + height);
-  ctx.lineTo(left + width * 0.3 + swing, top + height + 4 * s);
+  ctx.lineTo(left + width * 0.3 + swing, top + height + 4);
   ctx.moveTo(left + width * 0.7, top + height);
-  ctx.lineTo(left + width * 0.7 - swing, top + height + 4 * s);
+  ctx.lineTo(left + width * 0.7 - swing, top + height + 4);
   ctx.stroke();
 
   ctx.fillStyle = PALETTE.outline;
   const eyeY = top + height * 0.3;
-  const eyeX = left + width * 0.5 + facing * 2 * s;
+  const eyeX = left + width * 0.5 + facing * 2;
   ctx.beginPath();
-  ctx.arc(eyeX - 3 * s, eyeY, 1.7 * s, 0, Math.PI * 2);
-  ctx.arc(eyeX + 3 * s, eyeY, 1.7 * s, 0, Math.PI * 2);
+  ctx.arc(eyeX - 3, eyeY, 1.7, 0, Math.PI * 2);
+  ctx.arc(eyeX + 3, eyeY, 1.7, 0, Math.PI * 2);
   ctx.fill();
 }
 
@@ -660,13 +666,28 @@ function drawTouch(): void {
   label(buttons.jump, "\u25b2", touchState.jump);
 }
 
-function draw(): void {
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  drawSky();
-  drawParallax();
+/**
+ * The world through the library's projection, then the screen back.
+ *
+ * `offsetY` is in the projection and nowhere else: the vertical centring of a short level is part of
+ * the map from world to screen, and adding it to the coordinates as well is how the first attempt at
+ * this moved 129,214 pixels instead of none.
+ */
+function drawWorld(): void {
+  const s = scale();
+  const offsetY = (LOGICAL_HEIGHT - worldHeight) * 0.5;
+  paint.setView({ scale: s, offsetX: -cameraX * s, offsetY: offsetY * s });
   drawLevel();
   for (const enemy of enemies) drawEnemy(enemy);
   drawPlayer();
+  paint.setView(null);
+}
+
+function draw(): void {
+  paint.setView(null);
+  drawSky();
+  drawParallax();
+  drawWorld();
   const s = scale();
   if (phase === "title") {
     ctx.fillStyle = "rgba(13, 22, 38, 0.55)";
