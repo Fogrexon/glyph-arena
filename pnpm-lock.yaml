@@ -26,6 +26,9 @@ importers:
       '@fogrexon/glyph-arena-body':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-body
+      '@fogrexon/glyph-arena-draw':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-draw
       '@fogrexon/glyph-arena-input':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-input

@@ -33,6 +33,28 @@ export type ViewMatrix = {
   f: number;
 };
 
+/**
+ * A view written as the numbers a game already has: how much to scale the world, and where its
+ * origin sits on screen. This exists because a game that scrolls a flat world owns a camera x and
+ * nothing else — it has no `Camera` object, and remembering a matrix only to pass it here was the
+ * reason `setView` went unused.
+ */
+export type Projection = {
+  /** `1` draws at native size, `2` doubles it. */
+  scale: number;
+  /** Screen pixels: `-100` puts world x = 0 at screen x = -100. */
+  offsetX: number;
+  offsetY: number;
+  /**
+   * Rounds the **offset** to whole pixels, once — never each point on its way through.
+   *
+   * The difference shows at a tile edge: a world coordinate of 0.4 and one of 0.6 are 0.2 apart,
+   * and rounding every point instead puts them 1 apart, which is a seam at every join of a wall
+   * made of tiles. A game that scrolls rounds its camera once and subtracts it — which is this.
+   */
+  round?: boolean;
+};
+
 export type RectOptions = {
   x: number;
   y: number;
@@ -88,8 +110,13 @@ export type Draw = {
   text: (options: TextOptions) => void;
   /** The width the text would take at that size, and the size as its height. */
   measureText: (options: MeasureTextOptions) => TextMetricsSize;
-  /** Apply a camera matrix (`camera.view()`), or `null` to go back to screen coordinates. */
-  setView: (matrix: ViewMatrix | null) => void;
+  /**
+   * Apply a camera matrix (`camera.view()`), a `Projection`, or `null` for screen coordinates.
+   *
+   * A projection is the matrix `[scale, 0, 0, scale, offsetX, offsetY]`; the last call wins, so a
+   * frame that draws the world through a projection and the HUD after `null` needs no save/restore.
+   */
+  setView: (view: ViewMatrix | Projection | null) => void;
 };
 
 function getCanvasSize(context: DrawContext): { width: number; height: number } {
@@ -308,8 +335,21 @@ export function createDraw({ context }: CreateDrawOptions): Draw {
     return { width, height: size };
   };
 
-  const setView = (matrix: ViewMatrix | null): void => {
-    const view = matrix ?? IDENTITY;
+  const setView = (view: ViewMatrix | Projection | null): void => {
+    if (view === null) {
+      context.setTransform(IDENTITY.a, IDENTITY.b, IDENTITY.c, IDENTITY.d, IDENTITY.e, IDENTITY.f);
+      return;
+    }
+
+    // A matrix names `a`..`f`; a projection names `scale`. One of the two is always there, and the
+    // matrix' shape is the one `camera.view()` returns, so nothing else has to change.
+    if ("scale" in view) {
+      const offsetX = view.round === true ? Math.round(view.offsetX) : view.offsetX;
+      const offsetY = view.round === true ? Math.round(view.offsetY) : view.offsetY;
+      context.setTransform(view.scale, 0, 0, view.scale, offsetX, offsetY);
+      return;
+    }
+
     context.setTransform(view.a, view.b, view.c, view.d, view.e, view.f);
   };
 

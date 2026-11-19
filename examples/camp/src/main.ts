@@ -12,6 +12,7 @@
  */
 import { createActions } from "@fogrexon/glyph-arena-actions";
 import { createBody, stepBody, type Body, type BodyConfig } from "@fogrexon/glyph-arena-body";
+import { createDraw } from "@fogrexon/glyph-arena-draw";
 import { createInput } from "@fogrexon/glyph-arena-input";
 import { createLoop } from "@fogrexon/glyph-arena-loop";
 import { createReset } from "@fogrexon/glyph-arena-reset";
@@ -39,6 +40,9 @@ import { TILE, currentMap, enemySpawns, isSolidTile, levelColumns, levelRows, so
 
 const VIEW_W = 640;
 const VIEW_H = 360;
+
+/** The HUD's type. Canvas' default is 10px sans-serif, which reads as a mistake rather than a font. */
+const HUD_FONT = "ui-monospace, monospace";
 
 /** The player's feel. Same family as the runner's, shorter reach and a touch slower. */
 const PLAYER_CONFIG: BodyConfig = {
@@ -79,6 +83,12 @@ if (context2d === null) {
   throw new Error("no 2d context");
 }
 const ctx: CanvasRenderingContext2D = context2d;
+
+/**
+ * Every rectangle and line of text on screen. `ctx` is still here for one thing — `globalAlpha`
+ * during a roll — because opacity on a rect is not in `draw` yet (two of three samples ask).
+ */
+const paint = createDraw({ context: ctx });
 
 const input = createInput();
 input.attach(window);
@@ -348,92 +358,107 @@ function stepWorld(dt: number, dtMs: number, moveLeft: boolean, moveRight: boole
   simMs += dtMs;
 }
 
-function drawTiles(fromX: number): void {
+function drawTiles(left: number): void {
   // The one column of slack at each edge is this drawing's number (`margin`), not the library's
   // default — the same call the runner makes, so both samples ask the question in one place.
-  const view = visibleColumns(currentMap(), fromX, VIEW_W, { margin: 1 });
+  // `left` is the world x at the left edge of the screen, before the projection rounds it: the
+  // margin is a whole column, so a sub-pixel difference cannot change which columns are drawn.
+  const view = visibleColumns(currentMap(), left, VIEW_W, { margin: 1 });
   for (let row = 0; row < levelRows(); row += 1) {
     for (let column = view.first; column < view.end; column += 1) {
       if (!isSolidTile(column, row)) continue;
       const above = row > 0 && isSolidTile(column, row - 1);
-      ctx.fillStyle = above ? "#39414f" : "#4a5468";
-      ctx.fillRect(column * TILE - fromX, row * TILE, TILE, TILE);
+      paint.rect({ x: column * TILE, y: row * TILE, w: TILE, h: TILE, fill: above ? "#39414f" : "#4a5468" });
       if (!above) {
-        ctx.fillStyle = "#5c6880";
-        ctx.fillRect(column * TILE - fromX, row * TILE, TILE, 3);
+        paint.rect({ x: column * TILE, y: row * TILE, w: TILE, h: 3, fill: "#5c6880" });
       }
     }
   }
 }
 
 function drawHud(): void {
-  ctx.fillStyle = "#e8edf6";
-  ctx.font = "12px ui-monospace, monospace";
-  ctx.textBaseline = "top";
   for (let i = 0; i < PLAYER_STATS.hearts; i += 1) {
-    ctx.fillStyle = i < hearts ? "#e0574f" : "#3a4150";
-    ctx.fillRect(12 + i * 14, 12, 10, 10);
+    paint.rect({ x: 12 + i * 14, y: 12, w: 10, h: 10, fill: i < hearts ? "#e0574f" : "#3a4150" });
   }
-  ctx.fillStyle = "#9aa5b8";
-  ctx.fillText(`hits ${hits}  kills ${kills}/${enemies.length}`, 12, 30);
-  ctx.fillText("A/D or arrows · Space jump · J attack", 12, VIEW_H - 22);
+  paint.text({ text: `hits ${hits}  kills ${kills}/${enemies.length}`, x: 12, y: 30, size: 12, font: HUD_FONT, fill: "#9aa5b8" });
+  paint.text({ text: "A/D or arrows · Space jump · J attack", x: 12, y: VIEW_H - 22, size: 12, font: HUD_FONT, fill: "#9aa5b8" });
   if (phase === "clear") {
-    ctx.fillStyle = "#e8edf6";
-    ctx.font = "16px ui-monospace, monospace";
-    ctx.fillText("camp cleared — R to go again", VIEW_W / 2 - 130, VIEW_H / 2 - 20);
+    paint.text({ text: "camp cleared — R to go again", x: VIEW_W / 2 - 130, y: VIEW_H / 2 - 20, size: 16, font: HUD_FONT, fill: "#e8edf6" });
   }
   if (phase === "down") {
-    ctx.fillStyle = "#e0574f";
-    ctx.font = "16px ui-monospace, monospace";
-    ctx.fillText("down — R to try again", VIEW_W / 2 - 100, VIEW_H / 2 - 20);
+    paint.text({ text: "down — R to try again", x: VIEW_W / 2 - 100, y: VIEW_H / 2 - 20, size: 16, font: HUD_FONT, fill: "#e0574f" });
   }
 }
 
 function draw(): void {
-  ctx.fillStyle = "#0b0e13";
-  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  paint.clear("#0b0e13");
+
+  // The camera, as three numbers: `round` rounds this one offset, so the tile edges land on whole
+  // pixels without rounding every corner of every rectangle into a seam.
   const shake = shakeMs > 0 ? Math.sin(simMs * 0.08) * 3 : 0;
-  const fromX = Math.round(cameraX + shake);
-  drawTiles(fromX);
+  const left = cameraX + shake;
+  paint.setView({ scale: 1, offsetX: -left, offsetY: 0, round: true });
+  drawTiles(left);
 
   for (const enemy of enemies) {
     if (!enemy.alive) continue;
-    const x = enemy.body.x - fromX;
     const tell = enemy.mode === "windup" ? Math.floor(enemy.modeMs / 70) % 2 === 0 : false;
-    ctx.fillStyle = enemy.flashMs > 0 ? "#ffffff" : tell ? "#ff9c6e" : enemy.mode === "lunge" ? "#ff7a5c" : "#e0574f";
-    ctx.fillRect(x, enemy.body.y, enemy.body.w, enemy.body.h);
+    paint.rect({
+      x: enemy.body.x,
+      y: enemy.body.y,
+      w: enemy.body.w,
+      h: enemy.body.h,
+      fill: enemy.flashMs > 0 ? "#ffffff" : tell ? "#ff9c6e" : enemy.mode === "lunge" ? "#ff7a5c" : "#e0574f",
+    });
     if (enemy.mode === "windup") {
-      ctx.strokeStyle = "#ffd0a8";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(x - 3, enemy.body.y - 3, enemy.body.w + 6, enemy.body.h + 6);
+      paint.rect({ x: enemy.body.x - 3, y: enemy.body.y - 3, w: enemy.body.w + 6, h: enemy.body.h + 6, stroke: "#ffd0a8", lineWidth: 2 });
     }
-    ctx.fillStyle = enemy.flashMs > 0 ? "#ffd9d6" : "#8f3733";
-    for (let i = 0; i < enemy.hp; i += 1) ctx.fillRect(x + i * 5, enemy.body.y - 7, 4, 3);
+    const pip = enemy.flashMs > 0 ? "#ffd9d6" : "#8f3733";
+    for (let i = 0; i < enemy.hp; i += 1) {
+      paint.rect({ x: enemy.body.x + i * 5, y: enemy.body.y - 7, w: 4, h: 3, fill: pip });
+    }
   }
 
   if (dodgeRolling(dodge.elapsedMs)) {
-    ctx.fillStyle = "rgba(110, 168, 254, 0.28)";
-    ctx.fillRect(player.x - fromX - dodge.facing * 18, player.y + 2, 14, player.h - 4);
+    paint.rect({
+      x: player.x - dodge.facing * 18,
+      y: player.y + 2,
+      w: 14,
+      h: player.h - 4,
+      fill: "rgba(110, 168, 254, 0.28)",
+    });
   }
 
+  // Opacity is the one drawing state this game still sets on the context: `draw` has no `alpha`
+  // on a rect, because only two of the three samples asked for it.
   const rolling = dodgeRolling(dodge.elapsedMs);
   const blinking = invulnerableMs > 0 && Math.floor(simMs / 90) % 2 === 0;
   if (rolling) ctx.globalAlpha = dodgeInvulnerable(dodge.elapsedMs) ? 0.55 : 0.9;
   if (!blinking) {
-    ctx.fillStyle = "#6ea8fe";
-    ctx.fillRect(player.x - fromX, player.y, player.w, player.h);
-    ctx.fillStyle = "#dbe9ff";
-    ctx.fillRect(facing === 1 ? player.x - fromX + player.w - 7 : player.x - fromX + 3, player.y + 6, 4, 4);
+    paint.rect({ x: player.x, y: player.y, w: player.w, h: player.h, fill: "#6ea8fe" });
+    paint.rect({
+      x: facing === 1 ? player.x + player.w - 7 : player.x + 3,
+      y: player.y + 6,
+      w: 4,
+      h: 4,
+      fill: "#dbe9ff",
+    });
   }
   ctx.globalAlpha = 1;
 
   const bladePhase = attackPhase(attack.elapsedMs);
   if (bladePhase === "windup" || bladePhase === "active") {
     const blade = attackBox(player, attack.facing);
-    ctx.fillStyle = bladePhase === "active" ? "#ffe9a8" : "#5a5f6b";
-    ctx.fillRect(blade.left - fromX, blade.top + 4, blade.right - blade.left, blade.bottom - blade.top - 8);
+    paint.rect({
+      x: blade.left,
+      y: blade.top + 4,
+      w: blade.right - blade.left,
+      h: blade.bottom - blade.top - 8,
+      fill: bladePhase === "active" ? "#ffe9a8" : "#5a5f6b",
+    });
   }
 
+  paint.setView(null);
   drawHud();
 }
 

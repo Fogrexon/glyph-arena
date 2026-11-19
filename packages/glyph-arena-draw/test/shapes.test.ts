@@ -184,3 +184,92 @@ describe("setView", () => {
     ]);
   });
 });
+
+/**
+ * Where a `rect` call lands on the canvas, through the transform that was in force when it ran.
+ *
+ * The projection tests have to read this rather than only `setTransform`: six right numbers with
+ * the rect drawn somewhere else would pass a test that stopped at the numbers, and the point of
+ * the option is the pixels.
+ */
+function deviceRects(
+  calls: Call[],
+  transformIndex: number,
+): { x: number; y: number; w: number; h: number }[] {
+  const [a, b, c, d, e, f] = argsOf(calls, "setTransform")[transformIndex] as number[];
+
+  return argsOf(calls, "rect").map(([x, y, w, h]) => ({
+    x: a * x + c * y + e,
+    y: b * x + d * y + f,
+    w: a * w,
+    h: d * h,
+  }));
+}
+
+describe("setView with a projection", () => {
+  it("D9: doubles and shifts — a rect at (60, 30) lands at (20, 40) and is 20×20", () => {
+    const { calls, context } = createContext();
+    const draw = createDraw({ context });
+
+    draw.setView({ scale: 2, offsetX: -100, offsetY: -20 });
+    draw.rect({ x: 60, y: 30, w: 10, h: 10, fill: "#fff" });
+
+    // `[scale, 0, 0, scale, offsetX, offsetY]`, the one matrix a projection means.
+    assert.deepEqual(argsOf(calls, "setTransform"), [[2, 0, 0, 2, -100, -20]]);
+    assert.deepEqual(deviceRects(calls, 0), [{ x: 20, y: 40, w: 20, h: 20 }]);
+  });
+
+  it("D10: round rounds the offset, and never a point — two rects 0.2 apart stay 0.2 apart", () => {
+    // Both offsets land on a fraction, so "rounded or not" is visible in the transform itself.
+    const plain = createContext();
+    const plainDraw = createDraw({ context: plain.context });
+    plainDraw.setView({ scale: 1, offsetX: -100.4, offsetY: -20.6 });
+    plainDraw.rect({ x: 0.4, y: 0, w: 1, h: 1, fill: "#fff" });
+    plainDraw.rect({ x: 0.6, y: 0, w: 1, h: 1, fill: "#fff" });
+
+    const rounded = createContext();
+    const roundedDraw = createDraw({ context: rounded.context });
+    roundedDraw.setView({ scale: 1, offsetX: -100.4, offsetY: -20.6, round: true });
+    roundedDraw.rect({ x: 0.4, y: 0, w: 1, h: 1, fill: "#fff" });
+    roundedDraw.rect({ x: 0.6, y: 0, w: 1, h: 1, fill: "#fff" });
+
+    assert.deepEqual(argsOf(plain.calls, "setTransform"), [[1, 0, 0, 1, -100.4, -20.6]]);
+    assert.deepEqual(argsOf(rounded.calls, "setTransform"), [[1, 0, 0, 1, -100, -21]]);
+
+    // The rects themselves are passed through untouched: what a half-open wall would look like
+    // if the points were rounded instead is `-100` and `-100` — one edge, no gap, a seam.
+    const plainRects = deviceRects(plain.calls, 0);
+    const roundedRects = deviceRects(rounded.calls, 0);
+    const gap = (rects: { x: number; y: number; w: number; h: number }[]): number =>
+      rects[1]!.x - rects[0]!.x;
+
+    assert.ok(Math.abs(gap(plainRects) - 0.2) < 1e-9, `the plain gap is ${gap(plainRects)}`);
+    assert.ok(
+      Math.abs(gap(roundedRects) - 0.2) < 1e-9,
+      `the rounded gap is ${gap(roundedRects)} — rounding the points would make it 0 or 1`,
+    );
+    assert.deepEqual(
+      argsOf(rounded.calls, "rect"),
+      [
+        [0.4, 0, 1, 1],
+        [0.6, 0, 1, 1],
+      ],
+      "the points are not rounded on the way in",
+    );
+  });
+
+  it("D11: a projection after a matrix wins, and null still means screen coordinates", () => {
+    const { calls, context } = createContext();
+    const draw = createDraw({ context });
+
+    draw.setView({ a: 1.5, b: 0, c: 0, d: 1.5, e: -120, f: -40 });
+    draw.setView({ scale: 3, offsetX: 7, offsetY: 9 });
+    draw.setView(null);
+
+    assert.deepEqual(argsOf(calls, "setTransform"), [
+      [1.5, 0, 0, 1.5, -120, -40],
+      [3, 0, 0, 3, 7, 9],
+      [1, 0, 0, 1, 0, 0],
+    ]);
+  });
+});
