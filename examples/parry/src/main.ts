@@ -8,6 +8,7 @@ import { createWorld, type Entity } from "@fogrexon/glyph-arena-ecs";
 import { createGamepad, type GamepadState } from "@fogrexon/glyph-arena-gamepad";
 import { createInput } from "@fogrexon/glyph-arena-input";
 import { createLoop } from "@fogrexon/glyph-arena-loop";
+import { createReset } from "@fogrexon/glyph-arena-reset";
 import { fitToWindow, measureCanvas, toCanvasPoint } from "@fogrexon/glyph-arena-screen";
 import { createForest, type Node } from "@fogrexon/glyph-arena-scene";
 import { createTimer } from "@fogrexon/glyph-arena-timer";
@@ -469,29 +470,72 @@ async function main(): Promise<void> {
     phase = "result";
   }
 
-  function resetRun(): void {
+  /**
+   * Every field a run owns, registered next to the state it resets.
+   *
+   * This was one hand-written function with eighteen straight assignments, and moving it here found
+   * two the hand-written version had dropped — the same way CAMP dropped `dodge`:
+   *
+   * - **`wrapCount`** is published to the harness, and a new run reported the previous run's wraps.
+   * - **the punch** (`punchX`, `punchY`) is driven by a tween, and the tween was never cancelled: a
+   *   kick still in flight when the run ended carried into the next run's first frame.
+   *
+   * `scripts/parry-reset.test.mjs` walks this file's `let`s and fails on any field that is neither
+   * registered here nor named in its KEPT list, so the next field has to be decided, not forgotten.
+   */
+  const reset = createReset();
+  reset.add("enemies", () => {
     for (let index = enemies.length - 1; index >= 0; index -= 1) {
       removeEnemy(index);
     }
     enemies.length = 0;
+    // The frame each enemy wrapped on is keyed by entity: the entities are gone, the keys are not.
+    wrappedOnFrame.clear();
+  });
+  reset.add("lives", () => {
     lives = INITIAL_LIVES;
+  });
+  reset.add("score", () => {
     parried = 0;
     attempts = 0;
     score = 0;
     parryStreak = 0;
     waveIndex = 0;
+    wrapCount = 0;
+  });
+  reset.add("errorSamples", () => {
     lastErrorMs = null;
     errorSamples.length = 0;
+  });
+  reset.add("windows", () => {
     dashUntil = 0;
     invulnerableUntil = 0;
     hitstopUntil = 0;
     shakeUntil = 0;
     scheduleSeconds = 0;
+  });
+  reset.add("punch", () => {
+    if (punchHandle !== null) {
+      tween.cancel(punchHandle);
+      punchHandle = null;
+    }
+    punchX = 0;
+    punchY = 0;
+  });
+  reset.add("result", () => {
+    resultText = "";
+  });
+  reset.add("player", () => {
     const center = playerAabbAtCenter(WORLD_WIDTH / 2, WORLD_HEIGHT / 2);
     setAabb(playerEntity, center);
     transform.set(playerDrawable.node, { rotation: 0 });
     facingX = 0;
     facingY = -1;
+  });
+
+  /** One run, from the top. The title screen and the result screen both come through here. */
+  function resetRun(): void {
+    reset.run();
   }
 
   function spawnPlayer(): void {

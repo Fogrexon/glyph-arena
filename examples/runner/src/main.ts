@@ -9,6 +9,7 @@ import { createActions } from "@fogrexon/glyph-arena-actions";
 import { chaseTarget } from "@fogrexon/glyph-arena-chase";
 import { createInput } from "@fogrexon/glyph-arena-input";
 import { createLoop } from "@fogrexon/glyph-arena-loop";
+import { createReset } from "@fogrexon/glyph-arena-reset";
 import { fitToWindow, measureCanvas, toCanvasPoint } from "@fogrexon/glyph-arena-screen";
 import { visibleColumns } from "@fogrexon/glyph-arena-tilemap";
 import { createTouchControls, type TouchZone } from "@fogrexon/glyph-arena-touch";
@@ -142,6 +143,24 @@ let clock = 0;
 let simSeconds = 0;
 /** The last place the runner stood safely: a death returns there. */
 let safe = { x: body.x, y: body.y };
+
+/**
+ * What a **run** owns, as opposed to what a level owns.
+ *
+ * A level is rebuilt by `loadLevelAt` and that has always been one path. The run's own clock was
+ * not: the title screen zeroed `simSeconds` by hand and the goal screen — "run it again" — did not,
+ * so a second run started with the previous run's clock and every jump in it was measured against a
+ * time that had already run out. Two entry points into a run, one of them stale: the shape
+ * `@fogrexon/glyph-arena-reset` exists for. `scripts/runner-reset.test.mjs` fails if either path
+ * stops calling `reset.run()`, or if the clock is zeroed anywhere else.
+ */
+const reset = createReset();
+reset.add("clock", () => {
+  simSeconds = 0;
+});
+reset.add("respawn", () => {
+  respawnSeconds = 0;
+});
 
 /**
  * How much clear ground a respawn point needs around it: 300 ms of running at 320 px/s. A death
@@ -797,10 +816,10 @@ const loop = createLoop({
       if (query.pressed("jump") || tappedAnywhere) {
         ensureAudio();
         phase = "play";
-        simSeconds = 0;
         // A new run always starts at level 1, even if the last one died on level 2.
         loadLevelAt(0);
         levelBannerSeconds = 0;
+        reset.run();
       }
       publish();
       draw();
@@ -823,6 +842,7 @@ const loop = createLoop({
         phase = "play";
         loadLevelAt(level);
         levelBannerSeconds = 0;
+        reset.run();
       } else {
         respawn(true);
         phase = "play";

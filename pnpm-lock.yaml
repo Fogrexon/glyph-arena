@@ -112,6 +112,9 @@ importers:
       '@fogrexon/glyph-arena-loop':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-loop
+      '@fogrexon/glyph-arena-reset':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-reset
       '@fogrexon/glyph-arena-scene':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-scene
@@ -170,6 +173,9 @@ importers:
       '@fogrexon/glyph-arena-loop':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-loop
+      '@fogrexon/glyph-arena-reset':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-reset
       '@fogrexon/glyph-arena-scene':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-scene
@@ -213,6 +219,9 @@ importers:
       '@fogrexon/glyph-arena-loop':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-loop
+      '@fogrexon/glyph-arena-reset':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-reset
       '@fogrexon/glyph-arena-screen':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-screen
