@@ -15,7 +15,7 @@
  *   node scripts/play-bot.mjs camp bold   [--runs 2] [--json]
  *   node scripts/play-bot.mjs camp careful [--runs 2] [--json]
  *   node scripts/play-bot.mjs runner      [--runs 1] [--json]
- *   node scripts/play-bot.mjs march bold|careful [--runs 2] [--json]
+ *   node scripts/play-bot.mjs march bold|careful|run|rush [--runs 2] [--json]
  *
  * Needs a built slice (`pnpm -r build`). `E2E_CHROMIUM=/path/to/chrome` picks the browser, the
  * same variable the e2e scripts read. Exit code is 0 only when every run met its expectation:
@@ -324,7 +324,13 @@ async function playCamp(page, strategy) {
 }
 
 /* -------------------------------------------------------------------------------------------- *
- * March: the same road twice — fight every guard, or roll through all of them.                  *
+ * March: the same road four ways — fight every guard, roll through all of them, just walk, or    *
+ * run with the roll spent on every cooldown.                                                    *
+ *                                                                                               *
+ * `run` and `rush` exist to split one sentence into two measurements, because "can you clear by  *
+ * running" is two questions: does walking pass a body at all (`run`: no swing, no roll), and is   *
+ * the roll enough when it is always available (`rush`: roll on cooldown). `bold` answers neither  *
+ * — it rolls only when a body is 22 px away, so its 7.4 s death at the pairs could be timing.     *
  * -------------------------------------------------------------------------------------------- */
 
 async function playMarch(page, strategy) {
@@ -402,6 +408,7 @@ async function playMarch(page, strategy) {
             passes: s.passes,
             killed: s.kills,
             simMs: s.simMs,
+            x: Math.round(s.x),
             hits: s.hits.length,
             hitLog: s.hits.map((hit) => `${hit.mode}@${hit.atMs}ms x${hit.x} ${hit.cause}`),
             hitsFromBehind: s.hits.filter((hit) => hit.cause === "passing").length,
@@ -441,6 +448,30 @@ async function playMarch(page, strategy) {
 
           // A run that never ends is a measurement that lies: stop it and say so.
           if (s.simMs > 120000) return finish();
+
+          if (mode === "run") {
+            // One key, for the whole road. This hand exists to answer exactly one question — can
+            // the road be cleared without fighting anything — so it must not borrow the answers
+            // the other two hands are built on: no swing (that is `careful`), no roll (that is
+            // `bold`). Both would make the result unreadable: a hit taken during a roll may be the
+            // roll's fault, and a kill is a fight. If walking cannot clear the road, that is the
+            // measurement, not a broken hand.
+            key("ArrowRight", true);
+            return requestAnimationFrame(tick);
+          }
+
+          if (mode === "rush") {
+            // `run`, with the roll spent as fast as it comes back. This is the hand that answers
+            // "is the roll enough": `bold` spends it only when a body is 22 px away, so its death
+            // at the pairs could be a timing mistake. Rolling on every cooldown takes the timing
+            // out of the question — whatever this still dies at is geometry, not the press.
+            key("ArrowRight", true);
+            if (s.dodge === "idle") {
+              rolls += 1;
+              press("ShiftLeft");
+            }
+            return requestAnimationFrame(tick);
+          }
 
           const ahead = s.enemies
             .filter((enemy) => enemy.alive && enemy.x + 20 > s.x)
@@ -645,8 +676,15 @@ async function main() {
   const json = process.argv.includes("--json");
   if (game !== "camp" && game !== "runner" && game !== "march") {
     console.error(
-      "usage: play-bot.mjs camp <bold|careful> [--runs N] [--json] | play-bot.mjs runner [--runs N] [--json] | play-bot.mjs march <bold|careful> [--runs N] [--json]",
+      "usage: play-bot.mjs camp <bold|careful> [--runs N] [--json] | play-bot.mjs runner [--runs N] [--json] | play-bot.mjs march <bold|careful|run|rush> [--runs N] [--json]",
     );
+    process.exit(2);
+  }
+  // A strategy the game does not have is a silently different measurement: `march rum` would fall
+  // through every branch to "walk to the next guard and hold", which is `careful` without a sword.
+  const MARCH_HANDS = ["bold", "careful", "run", "rush"];
+  if (game === "march" && !MARCH_HANDS.includes(strategy)) {
+    console.error(`march has no hand called "${strategy}": ${MARCH_HANDS.join(", ")}`);
     process.exit(2);
   }
 
@@ -716,7 +754,7 @@ async function main() {
       } else if (game === "march") {
         console.log(
           `run ${r.run}  ${r.phase}  hearts ${r.hearts}  passed ${r.passes}/${r.enemyCount}  killed ${r.killed}  ` +
-            `${r.simMs} ms  hits ${r.hits} (${r.hitsFromBehind} from behind)  rolls ${r.rolls}  swings ${r.swings}  ` +
+            `x ${r.x}  ${r.simMs} ms  hits ${r.hits} (${r.hitsFromBehind} from behind)  rolls ${r.rolls}  swings ${r.swings}  ` +
             `retry ${r.retryFrames} frame(s)  errors ${r.consoleErrors.length}  ${r.bundle}`,
         );
         if (r.hitLog !== undefined && r.hitLog.length > 0) console.log(`   hits by mode: ${r.hitLog.join(" | ")}`);

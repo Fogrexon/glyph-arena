@@ -6,7 +6,21 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
-### Changed
+### Added
+
+- **MARCH: two more hands in the harness, because "can you clear by running" was two questions.**
+  `scripts/play-bot.mjs march` now takes `run` (never swings, never rolls) and `rush` (walks, spends
+  the roll on every cooldown), next to `careful` and `bold`. They split what one probe had been asked
+  to answer at once: does walking pass a body at all, and is the roll enough when it is always
+  available. Measured on the same build (`index-BO-GvoxH.js`), three runs each: `run` **down at 0/11,
+  4.60–4.62 s**, `rush` **down at 8/11, 7.28–7.31 s**, `bold` **down at 9/11, 7.76–7.83 s**. So
+  **"clear by running" is not expensive, it is unavailable**: a body is a wall and the roll is the
+  only way through it, and the pairs' 96 px spacing against the roll's 73 px of travel kills both roll
+  timings in the same four places. The 15.0 s clear by running does not reproduce with either hand.
+  `run`'s property is gated — `scripts/play-bot.test.mjs` turns a `press(` inside that hand red, so a
+  later "it does not clear, let it roll" edit cannot quietly turn the measurement back into `bold` —
+  and the pass-line range rule derives its rows from the page instead of naming two
+  (`scripts/march-readme.test.mjs`).
 
 - **`scripts/pixel-hash.mjs`: the first gate that reads the picture.** Every browser gate here reads
   `window.__runnerState` or a DOM property, so a change that keeps every number and moves 172 pixels
@@ -22,6 +36,8 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
   way to change a golden, so a picture change is a diff in the pull request. Reverse-tested:
   shifting the tiles by 0.4 px turns all three frames red, reverting returns them green, and a
   normal run leaves the golden file untouched.
+
+### Changed
 
 - **MARCH: a guard you walked past turns and follows — passing is a loan, not a free pass.** With the
   guard holding his post the road behind you was empty, so the fast line was faster *and* safer:

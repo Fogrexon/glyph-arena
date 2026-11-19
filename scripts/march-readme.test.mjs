@@ -112,16 +112,23 @@ test("the page keeps the rules that are not numbers", () => {
   assert.match(page, /^\*\*Play it:\*\* /m, "the page does not open with the demo link the nav uses");
 });
 
-test("the pass line is quoted as a range, not as one run", () => {
+test("the pass line is quoted as a range, for every hand in it", () => {
   // The page said `clear, 0 hits, 74.3 s` — one run, the lucky one. The next run took a heart at
   // x 34, and that hit is what found the guard whose post walked. A single number cannot tell a fix
   // from a good run, so the table has to say how many runs it is and give both ends of the time.
+  //
+  // Every row, not the two that happened to exist when this was written: a hand added to the table
+  // (a fifth strategy, a different probe) is exactly the row most likely to be typed from a single
+  // run, and a gate that names two rows would wave it through. The rows are derived from the table.
   const page = read("examples/march/README.md");
-  const row = /^\| careful \(fight every guard\) \|([^\n]*)\|/m.exec(page)?.[1] ?? "";
-  assert.ok(row.length > 0, "the pass line no longer has a careful row");
-  assert.match(row, /3 of 3 runs/, `the careful row does not say how many runs it is: ${row.trim()}`);
-  assert.match(row, /\d+(?:\.\d+)?–\d+(?:\.\d+)? s/, `the careful time is a single number again: ${row.trim()}`);
-  const bold = /^\| bold \(roll through every guard\) \|([^\n]*)\|/m.exec(page)?.[1] ?? "";
-  assert.match(bold, /3 of 3 runs/, `the bold row does not say how many runs it is: ${bold.trim()}`);
-  assert.match(bold, /\d+(?:\.\d+)?–\d+(?:\.\d+)? s/, `the bold time is a single number again: ${bold.trim()}`);
+  const table = /^\| bot \|[^\n]*\n\| --- [^\n]*\n((?:\|[^\n]*\n)+)/m.exec(page)?.[1] ?? "";
+  assert.ok(table.length > 0, "the pass line table is gone");
+  const rows = table.trim().split("\n").filter(Boolean);
+  assert.ok(rows.length >= 2, `the pass line should quote more than one hand, found ${rows.length}`);
+  for (const row of rows) {
+    const name = (row.split("|")[1] ?? "").trim();
+    assert.match(name, /^[a-z]+ \(/, `a pass-line row does not name a hand: ${row}`);
+    assert.match(row, /\d+ of \d+ runs/, `${name}: the row does not say how many runs it is`);
+    assert.match(row, /\d+(?:\.\d+)?–\d+(?:\.\d+)? s/, `${name}: the time is a single number again`);
+  }
 });
