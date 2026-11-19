@@ -408,6 +408,14 @@ async function playMarch(page, strategy) {
         const SWING_MARGIN_MS = 40;
 
         let rolls = 0;
+        // A held set that says "pressed" is not the same as the game having heard it. Measured on
+        // 11-19: a `march mixed` run froze at x 2526 with the road clear and `vx 0` — no guard
+        // within 400 px, hearts 4 — which the game cannot produce from input it received. So when
+        // the road ahead is clear and the body is not moving, re-send the key instead of trusting
+        // the set. `kicks` is printed: a non-zero count means the harness lost a key, and the run
+        // that needed it is the evidence, not a guess.
+        let stuckFrames = 0;
+        let kicks = 0;
         let swings = 0;
         let ended = null;
         let pressedRetry = false;
@@ -432,6 +440,7 @@ async function playMarch(page, strategy) {
             runs: s.runs,
             rolls,
             swings,
+            kicks,
             retryFrames: pressedRetry ? retryFrames : null,
             runsAfter,
           });
@@ -494,6 +503,13 @@ async function playMarch(page, strategy) {
             .sort((a, b) => a.x - b.x);
           const target = ahead[0];
           if (target === undefined) {
+            if (Math.abs(s.vx) < 1) stuckFrames += 1;
+            else stuckFrames = 0;
+            if (stuckFrames > 30) {
+              kicks += 1;
+              stuckFrames = 0;
+              key("ArrowRight", false);
+            }
             key("ArrowRight", true);
             return requestAnimationFrame(tick);
           }
@@ -783,7 +799,7 @@ async function main() {
         console.log(
           `run ${r.run}  ${r.phase}  hearts ${r.hearts}  passed ${r.passes}/${r.enemyCount}  killed ${r.killed}  ` +
             `x ${r.x}  ${r.simMs} ms  hits ${r.hits} (${r.hitsFromBehind} from behind)  rolls ${r.rolls}  swings ${r.swings}  ` +
-            `retry ${r.retryFrames} frame(s)  errors ${r.consoleErrors.length}  ${r.bundle}`,
+            `retry ${r.retryFrames} frame(s)  kicks ${r.kicks}  errors ${r.consoleErrors.length}  ${r.bundle}`,
         );
         if (r.hitLog !== undefined && r.hitLog.length > 0) console.log(`   hits by mode: ${r.hitLog.join(" | ")}`);
       } else {
