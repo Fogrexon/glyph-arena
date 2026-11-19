@@ -6,6 +6,23 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+### Changed
+
+- **`scripts/pixel-hash.mjs`: the first gate that reads the picture.** Every browser gate here reads
+  `window.__runnerState` or a DOM property, so a change that keeps every number and moves 172 pixels
+  is invisible to all of them — measured on the first attempt at moving a game onto
+  `draw.setView({ round: true })`, which matched on all nine checkpoints while the canvas moved.
+  The gate takes time away from the page (`requestAnimationFrame`, `performance.now`, `Date.now`,
+  `Math.random`, `devicePixelRatio`), applies input at **frame numbers**, and hashes the canvas'
+  RGBA bytes — never a PNG — at three frames of a 180-frame runner scene. It runs the scene three
+  times first and requires the three hashes to agree, so a scene that reads the wall clock fails
+  before it is compared with anything. The golden carries the environment it was written in: a
+  differing Chromium major, platform, viewport or font probe **refuses to compare** and names the
+  difference, instead of producing a red that means "the browser changed". `--write` is the only
+  way to change a golden, so a picture change is a diff in the pull request. Reverse-tested:
+  shifting the tiles by 0.4 px turns all three frames red, reverting returns them green, and a
+  normal run leaves the golden file untouched.
+
 ### Fixed
 
 - **MARCH: the blade now reaches the line the guard commits from, and a swing that hits nothing is
