@@ -6,6 +6,24 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+### Changed
+
+- **MARCH: the guard you walk past shouts ahead — going by finally costs something.** A passed guard
+  wakes the next post (and that guard's partner, if he has one): the called guard commits from
+  `ENEMY_AI.alertRangePx` (190) instead of `lungeRangePx` (70), so his 138 px lunge lands **52 px
+  short of where you stood** and across the road you are running down — you arrive at his body with
+  the roll still cooling. With the pursuit alone the **mixed** line (roll the singles, fight the
+  pairs) cleared in **41.0–51.9 s with no hits**, faster *and* safer than fighting everything
+  (65–73 s), so the road still had one best line. With the shout the same hand clears in
+  **34.1–47.1 s taking 1–2 hearts**, while careful stays **68.1–72.6 s untouched**: half the time for
+  a heart, which is the choice the road was built to ask. The pure roll lines get worse as they
+  should — `rush` down at 8/11 → **7/11** (6.58–6.62 s), `bold` down at 9/11 and slower
+  (**8.70–8.73 s**) — and `run` is unchanged at 4.58–4.62 s because it never passes anybody, which is
+  the control this needed. The called guard is drawn with a mark above his head: a price has to be
+  visible before it is paid. `calledBy` is pure and in posts, so the rule is read by the test without
+  a fight (`test/enemy.test.ts`: passing 448 wakes the 768/864 pair and nothing else; 190 is further
+  than the commit reaches and closer than the distance a guard normally holds).
+
 ### Added
 
 - **The pixel gate now paints a scale that is not 1.** `runner-scale` runs the same 180 frames, the
