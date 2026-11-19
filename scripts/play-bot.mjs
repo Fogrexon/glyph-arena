@@ -15,10 +15,12 @@
  *   node scripts/play-bot.mjs camp bold   [--runs 2] [--json]
  *   node scripts/play-bot.mjs camp careful [--runs 2] [--json]
  *   node scripts/play-bot.mjs runner      [--runs 1] [--json]
+ *   node scripts/play-bot.mjs march bold|careful [--runs 2] [--json]
  *
  * Needs a built slice (`pnpm -r build`). `E2E_CHROMIUM=/path/to/chrome` picks the browser, the
  * same variable the e2e scripts read. Exit code is 0 only when every run met its expectation:
- * a cleared camp, or `goal` at the last runner level.
+ * a cleared camp, `goal` at the last runner level, or — for march, which is a measurement rather
+ * than a pass/fail on winning — a run that ended either way and could be restarted in a frame.
  */
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -322,6 +324,209 @@ async function playCamp(page, strategy) {
 }
 
 /* -------------------------------------------------------------------------------------------- *
+ * March: the same road twice — fight every guard, or roll through all of them.                  *
+ * -------------------------------------------------------------------------------------------- */
+
+async function playMarch(page, strategy) {
+  await page.waitForFunction("() => window.__marchState && window.__marchState.phase", null, { timeout: 20000 });
+  return page.evaluate(
+    (mode) =>
+      new Promise((resolve) => {
+        const held = new Set();
+        const key = (code, down) => {
+          if (down && !held.has(code)) {
+            held.add(code);
+            window.dispatchEvent(new KeyboardEvent("keydown", { code, bubbles: true }));
+          } else if (!down && held.has(code)) {
+            held.delete(code);
+            window.dispatchEvent(new KeyboardEvent("keyup", { code, bubbles: true }));
+          }
+        };
+        // A press has to outlive one game tick. The game's frame is not this frame: a keydown that
+        // is released inside the frame it was sent in is a press the game never samples — measured
+        // on this harness, a one-frame `R` left a dead run dead for 31 frames and the retry looked
+        // broken when it was the instrument. Three frames is one press and no auto-repeat.
+        const pulses = new Map();
+        const PULSE_FRAMES = 3;
+        const press = (code) => pulses.set(code, PULSE_FRAMES);
+        const runPulses = () => {
+          for (const [code, left] of [...pulses]) {
+            if (left === PULSE_FRAMES) key(code, true);
+            if (left <= 1) {
+              key(code, false);
+              pulses.delete(code);
+            } else pulses.set(code, left - 1);
+          }
+        };
+
+        // Read off the game, not tuned here. The roll's invulnerable window is 140 ms of 520 px/s
+        // = 73 px of travel, and a 20 px body is clear of a 20 px guard once its left edge reaches
+        // the guard's right edge — that costs `gap + 40` px, so the roll has to start near 20 px
+        // of gap to have margin. Later and it ends touching; earlier and the window is spent in
+        // the air before the bodies meet.
+        const ROLL_GAP = 22;
+        // The fight has to answer one thing CAMP's fight never asked: a body you push into costs a
+        // heart, so the line you hold between commits is a distance the next tell has to cross
+        // badly. The lunge covers 138 px from a 70 px trigger, so 110 px held is 40 px of margin.
+        const HIT_GAP = 26;
+        // A guard commits at 70 and does not walk, so the line to hold is inside his trigger — 60
+        // is close enough to start the tell on purpose and far enough that the tell is the thing
+        // you are reading, not the first frame of the lunge.
+        const WAIT_GAP = 60;
+        const TELL_GAP = 120;
+        // Retreat only for the first ~third of the commit: back off for all 300 ms and the guard
+        // stops 200 px away, and 450 ms of rest cannot buy that distance back. Standing for the
+        // rest of the commit is what leaves the guard 40 px away with the window just opened.
+        const LUNGE_RUN_MS = 200;
+        // A swing is 300 ms (60 windup + 90 active + 150 recovery) and the rest is 450 ms. Start one
+        // with less than that left and the recovery is still out when the next tell begins — the
+        // body cannot steer, so it stands in the 138 px commit and takes it.
+        const SWING_MS = 300;
+        const REST_MS = 450;
+        const SWING_MARGIN_MS = 40;
+
+        let rolls = 0;
+        let swings = 0;
+        let ended = null;
+        let pressedRetry = false;
+        let retryFrames = 0;
+        let runsAfter = null;
+
+        const finish = () => {
+          for (const code of [...held]) key(code, false);
+          pulses.clear();
+          const s = ended ?? window.__marchState;
+          resolve({
+            phase: s.phase,
+            hearts: s.hearts,
+            passes: s.passes,
+            killed: s.kills,
+            simMs: s.simMs,
+            hits: s.hits.length,
+            hitLog: s.hits.map((hit) => `${hit.mode}@${hit.atMs}ms x${hit.x} ${hit.cause}`),
+            hitsFromBehind: s.hits.filter((hit) => hit.cause === "passing").length,
+            enemyCount: s.enemies.length,
+            runs: s.runs,
+            rolls,
+            swings,
+            retryFrames: pressedRetry ? retryFrames : null,
+            runsAfter,
+          });
+        };
+
+        const tick = () => {
+          const s = window.__marchState;
+          if (!s) return requestAnimationFrame(tick);
+          runPulses();
+
+          // The retry is one press and one frame: this is the number a one-minute game lives on,
+          // and it is measured rather than asserted. The "it came back" check has to run BEFORE
+          // the play branch, or a successful retry is read as "keep playing" and the run never
+          // ends (measured: a working retry reported as 31 dead frames).
+          if (pressedRetry && s.phase === "play") {
+            runsAfter = s.runs;
+            return finish();
+          }
+          if (s.phase !== "play") {
+            if (!pressedRetry) {
+              ended = s;
+              pressedRetry = true;
+              press("KeyR");
+              return requestAnimationFrame(tick);
+            }
+            retryFrames += 1;
+            if (retryFrames > 30) return finish();
+            return requestAnimationFrame(tick);
+          }
+
+          // A run that never ends is a measurement that lies: stop it and say so.
+          if (s.simMs > 120000) return finish();
+
+          const ahead = s.enemies
+            .filter((enemy) => enemy.alive && enemy.x + 20 > s.x)
+            .sort((a, b) => a.x - b.x);
+          const target = ahead[0];
+          if (target === undefined) {
+            key("ArrowRight", true);
+            return requestAnimationFrame(tick);
+          }
+          const gap = target.x - (s.x + 20);
+
+          if (mode === "bold") {
+            // Go by everything: never swing, never stop. The roll is the only way through a body,
+            // so this run is "is the fast road affordable" and its hearts are the answer.
+            key("ArrowRight", true);
+            // Roll at any mode: the window starts on the frame the roll does, so crossing a
+            // commit and crossing a standing guard are the same 73 px of travel. Refusing the
+            // lunge was measured worse — the bot ran into the commit instead of through it.
+            if (gap <= ROLL_GAP && gap > -8 && s.dodge === "idle") {
+              rolls += 1;
+              press("ShiftLeft");
+            }
+          } else if (gap < 0) {
+            // Already inside it — the only way out of a body is forward.
+            key("ArrowLeft", false);
+            key("ArrowRight", true);
+          } else if (target.mode === "windup") {
+            // Back off through the tell until the 138 px commit cannot reach.
+            if (gap < TELL_GAP) {
+              key("ArrowRight", false);
+              key("ArrowLeft", true);
+            } else {
+              key("ArrowLeft", false);
+              key("ArrowRight", false);
+            }
+          } else if (target.mode === "lunge") {
+            // Back off for the first two thirds, then stand and let it come: the commit is 138 px
+            // against a 70 px trigger, so a body that keeps running spends the whole commit and
+            // ends the rest two hundred pixels away — too far to reach inside 450 ms. Standing for
+            // the last third is what arrives with the guard in front of you and the window open.
+            if (target.modeMs < LUNGE_RUN_MS) {
+              key("ArrowRight", false);
+              key("ArrowLeft", true);
+            } else {
+              key("ArrowLeft", false);
+              key("ArrowRight", false);
+            }
+          } else if (target.mode === "rest") {
+            // The window that pays: step in and spend it, immediately.
+            key("ArrowLeft", false);
+            if (gap > HIT_GAP) key("ArrowRight", true);
+            else if (target.modeMs + SWING_MS + SWING_MARGIN_MS > REST_MS) {
+              // No room for a swing in what is left of the window: hold, do not start one whose
+              // recovery would still be out when the guard wakes up.
+              key("ArrowRight", false);
+            } else if (s.facing !== 1) {
+              // The blade comes out of the side the body is facing, and this bot spends the tell
+              // retreating — so the guard arrives in front of a body still facing the way it ran.
+              // Measured: 20 swings and not one kill, because every one of them was thrown
+              // backwards. Turn first, then swing.
+              key("ArrowRight", true);
+            } else {
+              key("ArrowRight", false);
+              if (s.blade === "idle") {
+                swings += 1;
+                press("KeyJ");
+              }
+            }
+          } else if (gap > WAIT_GAP) {
+            // Close the distance, then hold by standing still — never by backing away, or a guard
+            // that does not walk is walked away from forever.
+            key("ArrowLeft", false);
+            key("ArrowRight", true);
+          } else {
+            key("ArrowRight", false);
+            key("ArrowLeft", false);
+          }
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }),
+    strategy,
+  );
+}
+
+/* -------------------------------------------------------------------------------------------- *
  * Runner: three levels, taking off from windows derived from the level data.                    *
  * -------------------------------------------------------------------------------------------- */
 
@@ -438,8 +643,10 @@ async function main() {
   const runsFlag = process.argv.indexOf("--runs");
   const runs = runsFlag >= 0 ? Number(process.argv[runsFlag + 1]) : 1;
   const json = process.argv.includes("--json");
-  if (game !== "camp" && game !== "runner") {
-    console.error("usage: play-bot.mjs camp <bold|careful> [--runs N] [--json] | play-bot.mjs runner [--runs N] [--json]");
+  if (game !== "camp" && game !== "runner" && game !== "march") {
+    console.error(
+      "usage: play-bot.mjs camp <bold|careful> [--runs N] [--json] | play-bot.mjs runner [--runs N] [--json] | play-bot.mjs march <bold|careful> [--runs N] [--json]",
+    );
     process.exit(2);
   }
 
@@ -456,7 +663,8 @@ async function main() {
       page.on("pageerror", (error) => errors.push(String(error)));
       await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "domcontentloaded" });
       const ident = await bundleOf(page);
-      const result = game === "camp" ? await playCamp(page, strategy) : await playRunner(page);
+      const result =
+        game === "camp" ? await playCamp(page, strategy) : game === "march" ? await playMarch(page, strategy) : await playRunner(page);
       results.push({ run: run + 1, ...ident, ...result, consoleErrors: errors });
       await page.close();
     }
@@ -465,13 +673,24 @@ async function main() {
     await new Promise((done) => server.close(done));
   }
 
+  // March is a measurement, not a pass/fail on winning: a run that ends either way is a result,
+  // but a run that ends and cannot be restarted in a frame is a broken game, so that is required.
   const ok =
     game === "camp"
       ? results.every((r) => r.phase === "clear" && r.consoleErrors.length === 0)
-      : results.every((r) => r.phase === "goal" && r.level === r.levelCount && r.consoleErrors.length === 0);
+      : game === "march"
+        ? results.every(
+            (r) =>
+              (r.phase === "clear" || r.phase === "down") &&
+              r.consoleErrors.length === 0 &&
+              r.retryFrames !== null &&
+              r.retryFrames <= 3 &&
+              r.runsAfter === r.runs + 1,
+          )
+        : results.every((r) => r.phase === "goal" && r.level === r.levelCount && r.consoleErrors.length === 0);
 
   if (json) {
-    console.log(JSON.stringify({ game, strategy: game === "camp" ? strategy : null, ok, results }, null, 1));
+    console.log(JSON.stringify({ game, strategy: game === "camp" || game === "march" ? strategy : null, ok, results }, null, 1));
   } else {
     for (const r of results) {
       if (game === "camp") {
@@ -494,6 +713,13 @@ async function main() {
           console.log(`   commit gap: median ${median} ms  min ${gaps[0]}  n ${gaps.length}`);
         }
         if (r.lost.length > 0) console.log(`   lost ${JSON.stringify(r.lost)}`);
+      } else if (game === "march") {
+        console.log(
+          `run ${r.run}  ${r.phase}  hearts ${r.hearts}  passed ${r.passes}/${r.enemyCount}  killed ${r.killed}  ` +
+            `${r.simMs} ms  hits ${r.hits} (${r.hitsFromBehind} from behind)  rolls ${r.rolls}  swings ${r.swings}  ` +
+            `retry ${r.retryFrames} frame(s)  errors ${r.consoleErrors.length}  ${r.bundle}`,
+        );
+        if (r.hitLog !== undefined && r.hitLog.length > 0) console.log(`   hits by mode: ${r.hitLog.join(" | ")}`);
       } else {
         const jump = Object.entries(r.jumps).map(([kind, n]) => `${kind} ${n}`).join(" ");
         console.log(
@@ -502,7 +728,7 @@ async function main() {
         );
       }
     }
-    console.log(`${game}${game === "camp" ? ` ${strategy}` : ""}: ${ok ? "ok" : "FAILED"}`);
+    console.log(`${game}${game === "camp" || game === "march" ? ` ${strategy}` : ""}: ${ok ? "ok" : "FAILED"}`);
   }
   process.exit(ok ? 0 : 1);
 }
