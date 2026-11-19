@@ -6,6 +6,26 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+### Fixed
+
+- **MARCH: the blade now reaches the line the guard commits from, and a swing that hits nothing is
+  drawn.** `ATTACK.reachPx` was 30 px past the body while a guard starts his tell at
+  `ENEMY_AI.lungeRangePx` — 70 px centre to centre, a **50 px gap** — so "the tell is your window:
+  strike it early, which cancels the lunge" was a move the game asked for and did not allow. The only
+  way to hit a tell was to walk inside the lunge first, which is the thing the tell exists to let you
+  avoid. A first-time player found it on 11-19: three swings at range with `blade: active` on screen,
+  the guard's hp untouched; two hits at a 20 px gap. **A rule nobody can see is not a lost fight** —
+  the reach is now 52, which clears the 50 px line with 2 px to spare, and `test/combat.test.ts`
+  derives the 50 from the two body widths and the lunge range, so moving the trigger re-opens the
+  question instead of quietly reinstating it. The same test keeps the other end honest: one pixel past
+  the reach is still a miss, because a reach without an end turns the fight into "press J from
+  anywhere". A swing that lands nothing now leaves its box on screen, grey and fading for 130 ms — a
+  miss used to look exactly like a dropped keypress, which is what the player had to learn from — and
+  `whiff` is published with the rest of the state so a harness can tell the two apart.
+  Re-measured, same build, three runs each: careful **clear 11/11, 66.3–74.4 s, 0 hits** (was
+  61.8–66.5 s), bold **down at 9/11, 7.80–7.86 s, 4 hits at the same four places**. `hp` and `hearts`
+  are untouched, as agreed: those wait for a person's end of a run.
+
 ## [0.6.0] - 2026-11-19
 
 The version that moves `draw.setView` from a matrix to a projection — `{ scale, offsetX, offsetY,
