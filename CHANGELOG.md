@@ -8,6 +8,20 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Added
 
+- **The pixel gate now paints a scale that is not 1.** `runner-scale` runs the same 180 frames, the
+  same level and the same input column as `runner-1`, at 900×700 instead of 900×540 — `700 / 540 =
+  1.296…`, so the world lands on fractional device pixels. The single scene was blind exactly where
+  the next migration lives: at 900×540 the runner's own `LOGICAL_HEIGHT` makes `scale()` **1**, and
+  `(column * TILE - cameraX) * s` and a canvas transform of `s` differ by a multiplication by one, so
+  moving the runner onto `draw.setView` could have been green while the code path that scales was
+  never drawn. Reverse check in a Debian chromium 156 Pod, with `scale()` mutated to
+  `Math.round(canvas.height / LOGICAL_HEIGHT)`: **`runner-scale` 3 of 3 frames red**, and `runner-1`
+  byte-identical — the three hashes it measured are the three in the golden (`37f3ca1d…`,
+  `eb4de4b3…`, `004af59c…`), which also re-confirms that 156 and 157 render this scene the same.
+  `pnpm e2e:pixel` now runs **every** scene by default, derived from `SCENES` rather than listed in
+  the workflow, so a scene added later is covered the day it is declared; `--scene` still narrows to
+  one for a red that names a single cause.
+
 - **MARCH: the mixed hand — roll the singles, fight the pairs — and the post it needs to say which is
   which.** `scripts/play-bot.mjs march mixed` spends the roll on a guard who is alone and fights one
   who is not; the pair test reads **posts**, because a guard mid-lunge is 138 px from his post and a

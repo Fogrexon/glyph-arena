@@ -30,9 +30,9 @@
  * depended on the wall clock, that check fails first and the comparison is meaningless anyway.
  *
  * Usage:
- *   pnpm e2e:pixel                  # compare against fixtures/pixel/<scene>.json
- *   pnpm e2e:pixel --write          # replace the golden with what this run measured
- *   pnpm e2e:pixel --scene runner-1
+ *   pnpm e2e:pixel                  # every scene, against fixtures/pixel/<scene>.json
+ *   pnpm e2e:pixel --write          # replace the goldens with what this run measured
+ *   pnpm e2e:pixel --scene runner-1 # one scene only (a red that names one cause)
  *   E2E_CHROMIUM=/usr/bin/chromium pnpm e2e:pixel     # a browser outside the packaged one
  *   E2E_CHANNEL=chrome pnpm e2e:pixel                 # CI: the runner's preinstalled Chrome
  */
@@ -52,6 +52,21 @@ const GOLDEN_DIR = join(ROOT, "fixtures", "pixel");
 const FRAME_MS = 1000 / 60;
 
 /**
+ * The run both runner scenes paint: the title screen's "Space — start" at frame 6, then right for
+ * the rest of the scene with two jumps. Shared on purpose — the two scenes differ only in the
+ * viewport, so a difference between them can only be the projection.
+ */
+const RUNNER_INPUTS = [
+  { frame: 6, key: "Space", action: "down" },
+  { frame: 9, key: "Space", action: "up" },
+  { frame: 20, key: "ArrowRight", action: "down" },
+  { frame: 70, key: "Space", action: "down" },
+  { frame: 74, key: "Space", action: "up" },
+  { frame: 120, key: "Space", action: "down" },
+  { frame: 124, key: "Space", action: "up" },
+];
+
+/**
  * The scenes. Each one is a page, a viewport, a list of frame-numbered inputs and the frames to
  * hash.
  *
@@ -60,6 +75,14 @@ const FRAME_MS = 1000 / 60;
  *
  * Start with one scene per example. Three samples from one runner scene costs 180 frames of work;
  * adding camp and march before this has gone red once would give one red that names three causes.
+ *
+ * **A second scene exists for the scale, not for the page.** 900x540 is exactly the runner's own
+ * `LOGICAL_HEIGHT`, so `scale()` is 1 there — and at 1 the difference between `(column * TILE -
+ * cameraX) * s` and a canvas transform of `s` is a multiplication by one, which no scene can see.
+ * `runner-scale` paints the same run at a height that is not a multiple of 540, so the world lands
+ * on fractional device pixels and the two ways of writing the projection stop agreeing. Without
+ * it, a migration to `draw.setView` could be green while the code path that actually scales was
+ * never drawn once.
  */
 export const SCENES = {
   "runner-1": {
@@ -68,20 +91,22 @@ export const SCENES = {
     viewport: { width: 900, height: 540 },
     deviceScaleFactor: 1,
     sampleFrames: [60, 120, 180],
-    /**
-     * The title screen is "Space — start", so frame 6 starts the run; from frame 20 the player runs
-     * right for the whole scene, with two jumps. The camera is following by frame 60, which is the
-     * thing the projection work changes.
-     */
-    inputs: [
-      { frame: 6, key: "Space", action: "down" },
-      { frame: 9, key: "Space", action: "up" },
-      { frame: 20, key: "ArrowRight", action: "down" },
-      { frame: 70, key: "Space", action: "down" },
-      { frame: 74, key: "Space", action: "up" },
-      { frame: 120, key: "Space", action: "down" },
-      { frame: 124, key: "Space", action: "up" },
-    ],
+    inputs: RUNNER_INPUTS,
+  },
+  /**
+   * The same run at `700 / 540 = 1.296…`, a scale that is neither 1 nor a binary fraction: `s` is
+   * inexact, so `(x - cameraX) * s` and `x * s - cameraX * s` round differently in the last bits,
+   * and a tile edge that sat on a pixel centre lands on the other side of it. Nothing else about
+   * the scene changes — same level, same inputs, same frames — so a difference here is the
+   * projection and nothing else.
+   */
+  "runner-scale": {
+    kind: "runner",
+    dist: "examples/runner/dist",
+    viewport: { width: 900, height: 700 },
+    deviceScaleFactor: 1,
+    sampleFrames: [60, 120, 180],
+    inputs: RUNNER_INPUTS,
   },
 };
 
@@ -296,31 +321,22 @@ const readFlag = (name) => {
   return index === -1 ? undefined : process.argv[index + 1];
 };
 
-async function main() {
-  const write = process.argv.includes("--write");
-  const sceneName = readFlag("--scene") ?? "runner-1";
-  const scene = SCENES[sceneName];
-
-  if (scene === undefined) {
-    console.error(`FAIL unknown scene ${sceneName} — scenes: ${Object.keys(SCENES).join(", ")}`);
-    process.exitCode = 1;
-    return;
-  }
-
+/**
+ * One scene, from the build stamp to the verdict. `true` means the scene painted what the golden
+ * says it paints.
+ *
+ * The server is opened per scene rather than per file: a scene may point at its own `dist`, and a
+ * gate that quietly served the wrong build would report the picture of a page nobody asked about.
+ */
+async function checkScene(browser, sceneName, scene, { write, port }) {
   const dist = join(ROOT, scene.dist);
   if (!existsSync(dist)) {
     console.error(`FAIL ${sceneName}: no build at ${scene.dist} — run \`pnpm -r build\` first`);
-    process.exitCode = 1;
-    return;
+    return false;
   }
   requireFresh(scene.kind, ROOT, { dist, label: `e2e:pixel ${sceneName}` });
 
-  const port = Number(process.env.PIXEL_PORT ?? 4327);
   const { server, missing } = await serveDist({ root: dist, port });
-  const executablePath = process.env.E2E_CHROMIUM;
-  const browser = executablePath
-    ? await chromium.launch({ ...launchOptions(), executablePath })
-    : await chromium.launch({ ...launchOptions(), channel: process.env.E2E_CHANNEL ?? "chrome" });
 
   try {
     const runs = [];
@@ -331,8 +347,7 @@ async function main() {
     for (const run of runs) {
       if (run.errors.length > 0) {
         console.error(`FAIL ${sceneName}: the page threw — ${run.errors[0]}`);
-        process.exitCode = 1;
-        return;
+        return false;
       }
     }
 
@@ -347,8 +362,7 @@ async function main() {
           console.error(
             `FAIL ${sceneName} frame ${sample.frame}: run ${index + 2} measured ${sample.sha256.slice(0, 16)} but run 1 measured ${String(reference?.sha256).slice(0, 16)} — the scene is not deterministic`,
           );
-          process.exitCode = 1;
-          return;
+          return false;
         }
       }
     }
@@ -356,8 +370,7 @@ async function main() {
 
     if (missing.length > 0) {
       console.error(`FAIL ${sceneName}: the page asked for ${missing.length} file(s) that were not there — ${missing.join(", ")}`);
-      process.exitCode = 1;
-      return;
+      return false;
     }
 
     const goldenFile = goldenFileFor(sceneName);
@@ -373,7 +386,7 @@ async function main() {
       mkdirSync(dirname(goldenFile), { recursive: true });
       writeFileSync(goldenFile, `${JSON.stringify(document, null, 2)}\n`);
       console.log(`wrote ${goldenFile.replace(`${ROOT}/`, "")} — ${first.samples.length} sample(s) from chromium ${first.environment.chromium}`);
-      return;
+      return true;
     }
 
     if (golden === null) {
@@ -381,8 +394,7 @@ async function main() {
       console.error(`     this run is ${describeEnvironment(first.environment)}`);
       console.error("     and it measured:");
       for (const sample of first.samples) console.error(`     frame ${sample.frame}: ${sample.sha256}`);
-      process.exitCode = 1;
-      return;
+      return false;
     }
 
     // PH3 — refuse to compare across environments, and say which side is which.
@@ -393,8 +405,7 @@ async function main() {
       console.error(`     this run is ${describeEnvironment(first.environment)}`);
       console.error("     and it measured:");
       for (const sample of first.samples) console.error(`     frame ${sample.frame}: ${sample.sha256}`);
-      process.exitCode = 1;
-      return;
+      return false;
     }
 
     // PH2 — the one thing the gate is for.
@@ -402,16 +413,63 @@ async function main() {
     if (mismatches.length > 0) {
       for (const mismatch of mismatches) console.error(formatMismatch(sceneName, mismatch));
       console.error(`e2e:pixel: ${mismatches.length} of ${first.samples.length} frame(s) changed`);
-      process.exitCode = 1;
-      return;
+      return false;
     }
 
     console.log(
       `PASS ${sceneName}: ${first.samples.length} frame(s) match the golden (chromium ${first.environment.chromium}, ${first.environment.viewport})`,
     );
+    return true;
+  } finally {
+    server.close();
+  }
+}
+
+/**
+ * The scenes to run, derived from `SCENES` rather than listed here.
+ *
+ * `undefined` means "all of them", which is what CI asks for by passing no flag.
+ */
+export function sceneNamesFor(requested) {
+  return requested === undefined ? Object.keys(SCENES) : [requested];
+}
+
+/**
+ * Every scene, in the order they are declared, unless `--scene` names one.
+ *
+ * The default is derived from `SCENES` rather than written out: the day a scene is added, the run
+ * CI performs covers it without anyone remembering to edit a list here — a gate that has to be told
+ * about new scenes goes green on a scene nobody runs.
+ */
+async function main() {
+  const write = process.argv.includes("--write");
+  const sceneNames = sceneNamesFor(readFlag("--scene"));
+  const unknown = sceneNames.filter((name) => SCENES[name] === undefined);
+
+  if (unknown.length > 0) {
+    console.error(`FAIL unknown scene ${unknown.join(", ")} — scenes: ${Object.keys(SCENES).join(", ")}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  const executablePath = process.env.E2E_CHROMIUM;
+  const browser = executablePath
+    ? await chromium.launch({ ...launchOptions(), executablePath })
+    : await chromium.launch({ ...launchOptions(), channel: process.env.E2E_CHANNEL ?? "chrome" });
+
+  try {
+    const basePort = Number(process.env.PIXEL_PORT ?? 4327);
+    for (const [index, sceneName] of sceneNames.entries()) {
+      // A port per scene: closing and reopening the same one between scenes invites a bind that
+      // fails for a reason that has nothing to do with the picture.
+      const ok = await checkScene(browser, sceneName, SCENES[sceneName], { write, port: basePort + index });
+      if (!ok) {
+        process.exitCode = 1;
+        return;
+      }
+    }
   } finally {
     await browser.close();
-    server.close();
   }
 }
 
