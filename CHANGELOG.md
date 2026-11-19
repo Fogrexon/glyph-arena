@@ -6,6 +6,33 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+### Changed
+
+- **`reset` reaches its fourth, fifth and sixth user — and the three holes it found were all the
+  same shape: two ways into a run, one of them written later.** `@fogrexon/glyph-arena-reset` was in
+  camp and march; it is now in parry, pickup and runner too, which takes it from "the slice CAMP
+  happens to use" to the thing every game reaches for. The point of the package is not the lines it
+  saves, it is that a run has **one** reset and every entry point calls it — and each of these three
+  had hand-written that reset twice.
+  - **runner**: the title screen zeroed the run clock by hand and the goal screen — "run it again" —
+    did not. A second run started at the previous run's `simSeconds`, so every jump in it was
+    measured against a clock that had already run out. One registration now owns the clock, and both
+    ways into a run call `reset.run()`.
+  - **pickup**: `beginPlayFromTitle` and `restart` each wrote their own list of the same
+    assignments, and the lists had already drifted: only the title path cleared `paused`, and only
+    the restart path cancelled a punch tween in flight (a kick from the last round carried into the
+    next one's first frame). The zoom handles had the same split. One registration covers both
+    paths, with `armRoundTimer` as the last entry because it is the round's own start.
+  - **parry**: the hand-written body had dropped two fields. `wrapCount` is published to the
+    harness, so a new run reported the last run's wraps; and the punch's tween was never cancelled,
+    so a kick still in flight when the run ended bled into the next run.
+  Each slice has a gate that walks its own `let`s and fails on a field that is neither put back nor
+  named in a KEPT list with a reason (`scripts/{parry,pickup,runner}-reset.test.mjs`), plus the
+  "both entry points call the same reset" check, which is the actual lesson. Reverse-tested: dropping
+  `wrapCount` from parry's registrations names it; putting `score = 0` back into pickup's
+  `restart()` fails with the field's name; zeroing `simSeconds` by hand again in runner reports
+  "zeroed 2 time(s) by hand".
+
 ### Fixed
 
 - **MARCH: a guard's post no longer walks down the road.** The lunge carries the body 138 px and
