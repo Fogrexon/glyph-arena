@@ -101,11 +101,26 @@ test("the page's road is the level's — size, guards, beats and goal", () => {
   assert.match(page, new RegExp(`goal at column ${goal}`), `the goal is at column ${goal}; the page says something else`);
 });
 
-test("the page keeps the two rules that are not numbers", () => {
-  // These two are the design; a rewrite that drops them leaves a page describing a game with one
+test("the page keeps the rules that are not numbers", () => {
+  // These are the design; a rewrite that drops them leaves a page describing a game with one
   // answer. Cheap to hold, and they are the paragraphs a future editor is most likely to trim.
   const page = read("examples/march/README.md");
   assert.match(page, /only pushing into one costs a heart|only while .*pushed into/i, "the reach rule is gone");
   assert.match(page, /for its whole length, not just its window/i, "the roll rule is gone");
+  assert.match(page, /the guard's post does not move/i, "the post rule is gone");
   assert.match(page, /^\*\*Play it:\*\* /m, "the page does not open with the demo link the nav uses");
+});
+
+test("the pass line is quoted as a range, not as one run", () => {
+  // The page said `clear, 0 hits, 74.3 s` — one run, the lucky one. The next run took a heart at
+  // x 34, and that hit is what found the guard whose post walked. A single number cannot tell a fix
+  // from a good run, so the table has to say how many runs it is and give both ends of the time.
+  const page = read("examples/march/README.md");
+  const row = /^\| careful \(fight every guard\) \|([^\n]*)\|/m.exec(page)?.[1] ?? "";
+  assert.ok(row.length > 0, "the pass line no longer has a careful row");
+  assert.match(row, /3 of 3 runs/, `the careful row does not say how many runs it is: ${row.trim()}`);
+  assert.match(row, /\d+(?:\.\d+)?–\d+(?:\.\d+)? s/, `the careful time is a single number again: ${row.trim()}`);
+  const bold = /^\| bold \(roll through every guard\) \|([^\n]*)\|/m.exec(page)?.[1] ?? "";
+  assert.match(bold, /3 of 3 runs/, `the bold row does not say how many runs it is: ${bold.trim()}`);
+  assert.match(bold, /\d+(?:\.\d+)?–\d+(?:\.\d+)? s/, `the bold time is a single number again: ${bold.trim()}`);
 });
