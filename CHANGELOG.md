@@ -8,6 +8,25 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Added
 
+- **`@fogrexon/glyph-arena-reset` — one list of "put this back", run where it was written.** Every
+  slice hand-wrote its own reset and every one had the same hole: a state field is added, and the
+  line that resets it is added somewhere else — or not at all. Nothing throws; the previous round's
+  value stays, and the second run reads as a game bug. **`examples/camp` had already lost one**:
+  `dodge` was never reset, so dying mid-roll came back mid-roll and still invulnerable.
+  `createReset()` returns `{ add(name, fn), run() }`: register next to the state, and boot and retry
+  call the same `run()`, because two entry points into a round is how one of them goes stale. A
+  duplicate name throws, a registration during `run()` throws, a re-entrant `run()` throws, and a
+  failing entry stops the list and rethrows — a half-reset state that looks normal is worse than a
+  crash, because the next frame reads it as a real round. `run()` is synchronous (a one-minute game
+  cannot spend its retry on a scene change) and returns the count, which is deliberately **not** a
+  gate: the number changes whenever a subsystem is added. Applied to camp: fifteen registrations
+  replace the fifteen-line function, and `dodge` is reset again. Umbrella exports 20 → 21 modules.
+  Tested by R1–R6 (order and count, idempotence, duplicate name, add during run, run during run, a
+  failure stopping the rest and leaving the reset usable) plus R8 in a real browser: after a death
+  and an `R`, `phase` / `hearts` / `hits` / `simMs` / `lastCommitMs` are all back to their first-frame
+  values — and with the `commitClock` registration removed, `lastCommitMs` stays at the previous
+  match's 6227 ms, which is the failure this package exists to make impossible.
+
 - **MARCH: the second sample, and the first one that is not a room.** `examples/march` is eleven
   guards on a 92-column road — one minute, death, and a one-frame retry — played by
   `pnpm march:bot march bold|careful`. The question it exists to ask is *fight it or go by it*, and

@@ -32,6 +32,9 @@ importers:
       '@fogrexon/glyph-arena-loop':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-loop
+      '@fogrexon/glyph-arena-reset':
+        specifier: workspace:*
+        version: link:../../packages/glyph-arena-reset
       '@fogrexon/glyph-arena-tilemap':
         specifier: workspace:*
         version: link:../../packages/glyph-arena-tilemap
@@ -268,6 +271,7 @@ importers:
   packages/glyph-arena-body: {}
 
   packages/glyph-arena-camera: {}
+
   packages/glyph-arena-chase: {}
 
   packages/glyph-arena-collide: {}
@@ -285,6 +289,8 @@ importers:
         version: 17.6.3
 
   packages/glyph-arena-loop: {}
+
+  packages/glyph-arena-reset: {}
 
   packages/glyph-arena-scene: {}
 

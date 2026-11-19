@@ -14,6 +14,7 @@ import { createActions } from "@fogrexon/glyph-arena-actions";
 import { createBody, stepBody, type Body, type BodyConfig } from "@fogrexon/glyph-arena-body";
 import { createInput } from "@fogrexon/glyph-arena-input";
 import { createLoop } from "@fogrexon/glyph-arena-loop";
+import { createReset } from "@fogrexon/glyph-arena-reset";
 import { visibleColumns } from "@fogrexon/glyph-arena-tilemap";
 import { approach } from "@fogrexon/glyph-arena-tween";
 
@@ -123,10 +124,19 @@ let cameraX = 0;
 const worldWidth = levelColumns() * TILE;
 const worldHeight = levelRows() * TILE;
 
-/** Put the slice back to its first frame. Called on boot and on retry. */
-function reset(): void {
+/**
+ * Put the slice back to its first frame. One registration per piece of state, written **next to the
+ * state it resets** — the old version was a function that listed all fifteen by hand, and it had
+ * already lost one (`dodge`: dying mid-roll came back mid-roll, still invulnerable). Boot and retry
+ * call the same `run()`; two paths is how one of them goes stale.
+ */
+const reset = createReset();
+
+reset.add("player", () => {
   const spawn = spawnPoint();
   player = createBody({ x: spawn.x + 6, y: spawn.y, w: 20, h: 28 }, PLAYER_CONFIG);
+});
+reset.add("enemies", () => {
   enemies = enemySpawns().map((point) => ({
     body: createBody({ x: point.x + 6, y: point.y, w: 20, h: 28 }, ENEMY_CONFIG),
     hp: ENEMY_STATS.hp,
@@ -136,20 +146,48 @@ function reset(): void {
     modeMs: 0,
     facing: -1,
   }));
+});
+reset.add("attack", () => {
   attack = { elapsedMs: -1, hasHit: false, facing: 1 };
+});
+reset.add("dodge", () => {
+  dodge = { elapsedMs: -1, cooldownMs: 0, facing: 1 };
+});
+reset.add("facing", () => {
   facing = 1;
+});
+reset.add("phase", () => {
   phase = "play";
+});
+reset.add("hearts", () => {
   hearts = PLAYER_STATS.hearts;
+});
+reset.add("invulnerable", () => {
   invulnerableMs = 0;
+});
+reset.add("hitstop", () => {
   hitstopMs = 0;
+});
+reset.add("shake", () => {
   shakeMs = 0;
+});
+reset.add("hits", () => {
   hits = 0;
+});
+reset.add("kills", () => {
   kills = 0;
+});
+reset.add("simMs", () => {
   simMs = 0;
+});
+reset.add("commitClock", () => {
   lastCommitMs = -Infinity;
+});
+reset.add("camera", () => {
   cameraX = 0;
-}
-reset();
+});
+
+reset.run();
 
 function boxOf(body: Body) {
   return { left: body.x, top: body.y, right: body.x + body.w, bottom: body.y + body.h };
@@ -411,6 +449,8 @@ type CampState = {
   blade: string;
   dodge: "roll" | "idle" | "cooldown";
   hitstopMs: number;
+  /** Milliseconds of the last commit, or `null` before the first one (JSON has no `-Infinity`). */
+  lastCommitMs: number | null;
   enemy: { x: number; y: number; hp: number; alive: boolean; mode: string } | null;
   enemies: Array<{ x: number; y: number; hp: number; alive: boolean; mode: string }>;
   cameraX: number;
@@ -430,6 +470,8 @@ function publish(): void {
     blade: attackPhase(attack.elapsedMs),
     dodge: dodgeRolling(dodge.elapsedMs) ? "roll" : dodgeReady(dodge) ? "idle" : "cooldown",
     hitstopMs: Math.round(hitstopMs),
+    // `-Infinity` is the first-frame value and JSON cannot carry it: `null` means "no commit yet".
+    lastCommitMs: Number.isFinite(lastCommitMs) ? Math.round(lastCommitMs) : null,
     enemy: first === undefined ? null : { x: first.body.x, y: first.body.y, hp: first.hp, alive: first.alive, mode: first.mode },
     enemies: enemies.map((each) => ({ x: each.body.x, y: each.body.y, hp: each.hp, alive: each.alive, mode: each.mode })),
     cameraX,
@@ -444,7 +486,7 @@ const loop = createLoop({
     const query = actions.tick(new Set(input.snapshot().keys));
 
     if (query.pressed("retry") && (phase === "down" || phase === "clear")) {
-      reset();
+      reset.run();
     }
 
     const jumping = query.pressed("jump");
