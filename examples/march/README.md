@@ -150,8 +150,8 @@ the tell retreating swings backwards and lands nothing (20 swings, 0 kills).
 - **62–66 s is not a minute.** The careful crossing is honest but long. Cutting course length would
   cut the number of decisions, so the lever is `ENEMY_STATS.hp` — and the line to stop at is a
   person saying it feels unfair, not a bot taking fewer hits. The bot's numbers prove *there is a
-  choice*; they cannot prove *it is fun*. **Nobody has played this yet who can say which it
-  is** — three people's `died at x` is the next measurement, and it outranks every number here.
+  choice*; they cannot prove *it is fun*. **Nobody has played this yet who can say which it is** —
+  three people's `died at x` is the next measurement, and it outranks every number on this page.
 - **The pairs are the only thing that makes the roll unsafe.** Every guard is the same body; the
   beats differ in count. A second guard type is the obvious next content, and it is also the thing
   that would make "roll the singles" a worse rule than it is.
