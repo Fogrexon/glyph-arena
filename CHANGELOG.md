@@ -8,6 +8,19 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Added
 
+- **MARCH: the mixed hand — roll the singles, fight the pairs — and the post it needs to say which is
+  which.** `scripts/play-bot.mjs march mixed` spends the roll on a guard who is alone and fights one
+  who is not; the pair test reads **posts**, because a guard mid-lunge is 138 px from his post and a
+  version that measured bodies turned every pair into two singles for the length of the tell (it
+  rolled past the first pair and stalled at x 709 for the full two minutes — measured, then fixed).
+  So `homeX` is published with the rest of the state: the post is the thing a plan is made against.
+  Measured on the same build, three runs: **clear 11/11, 41.0–51.9 s, 0 hits**, five guards passed
+  and six killed, 10 rolls and 32 swings a run. That is **faster and untouched** next to the careful
+  65–73 s, so the road still has one best line rather than two: going by costs nothing, and the
+  pursuit's single commit is answered by the roll the crossing already spends. The pair threshold is
+  gated against the level's own spacing (`scripts/play-bot.test.mjs`: the widest in-beat gap must be
+  under `PAIR_PX` and the narrowest beat break over it), reverse-tested by moving it to 90.
+
 - **MARCH: two more hands in the harness, because "can you clear by running" was two questions.**
   `scripts/play-bot.mjs march` now takes `run` (never swings, never rolls) and `rush` (walks, spends
   the roll on every cooldown), next to `careful` and `bold`. They split what one probe had been asked
