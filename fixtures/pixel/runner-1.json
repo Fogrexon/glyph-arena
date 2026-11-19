@@ -1,7 +1,7 @@
 {
   "scene": "runner-1",
   "environment": {
-    "chromium": "156.0.8078.79",
+    "chromium": "157.0.8103.78",
     "platform": "linux",
     "viewport": "900x540",
     "deviceScaleFactor": 1,

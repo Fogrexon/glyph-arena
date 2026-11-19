@@ -5,6 +5,7 @@ import { describe, it } from "node:test";
 import {
   SCENES,
   compareSamples,
+  describeEnvironment,
   environmentOf,
   environmentProblem,
   formatMismatch,
@@ -52,6 +53,16 @@ describe("environmentProblem", () => {
     assert.match(environmentProblem(golden({ platform: "darwin" }).environment, ENVIRONMENT), /darwin/);
     assert.match(environmentProblem(golden({ viewport: "800x540" }).environment, ENVIRONMENT), /800x540/);
     assert.match(environmentProblem(golden({ deviceScaleFactor: 2 }).environment, ENVIRONMENT), /deviceScaleFactor 2/);
+  });
+});
+
+describe("describeEnvironment", () => {
+  it("names every field, so a refusal cannot hide a second difference behind the first", () => {
+    const line = describeEnvironment(ENVIRONMENT);
+
+    for (const part of ["156.0.8078.79", "linux", "900x540", "dpr 1", "201.373046875"]) {
+      assert.ok(line.includes(part), `the environment line is missing ${part}: ${line}`);
+    }
   });
 });
 

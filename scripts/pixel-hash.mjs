@@ -106,6 +106,17 @@ export function environmentOf({ chromium: chromiumVersion, platform, viewport, d
 const majorOf = (version) => String(version ?? "").split(".")[0] ?? "";
 
 /**
+ * The environment as one line, for a failure that has to say *what* differs.
+ *
+ * The refusal prints this whole line rather than the one field that disagreed: a second difference
+ * behind the first is otherwise invisible until the first is fixed, and that costs a round trip
+ * through CI to discover.
+ */
+export function describeEnvironment(environment) {
+  return `chromium ${environment.chromium} · ${environment.platform} · ${environment.viewport} · dpr ${environment.deviceScaleFactor} · font ${environment.font}`;
+}
+
+/**
  * Why this run must not be compared with the golden at all, or `null` when it can be.
  *
  * A different Chromium **major** is the case the design names: the same pixels are not promised
@@ -367,7 +378,8 @@ async function main() {
 
     if (golden === null) {
       console.error(`FAIL ${sceneName}: no golden at ${goldenFile.replace(`${ROOT}/`, "")} — write one with \`pnpm e2e:pixel --write\``);
-      console.error(`     this run measured (chromium ${first.environment.chromium}):`);
+      console.error(`     this run is ${describeEnvironment(first.environment)}`);
+      console.error("     and it measured:");
       for (const sample of first.samples) console.error(`     frame ${sample.frame}: ${sample.sha256}`);
       process.exitCode = 1;
       return;
@@ -378,7 +390,8 @@ async function main() {
     if (problem !== null) {
       console.error(`FAIL ${sceneName}: not compared — ${problem}`);
       console.error(`     re-generate in this environment with \`pnpm e2e:pixel --write\` (the diff shows the new numbers)`);
-      console.error(`     this run measured (chromium ${first.environment.chromium}):`);
+      console.error(`     this run is ${describeEnvironment(first.environment)}`);
+      console.error("     and it measured:");
       for (const sample of first.samples) console.error(`     frame ${sample.frame}: ${sample.sha256}`);
       process.exitCode = 1;
       return;
