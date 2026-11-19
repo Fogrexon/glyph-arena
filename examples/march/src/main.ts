@@ -280,7 +280,7 @@ function stepWorld(dt: number, dtMs: number, moveLeft: boolean, moveRight: boole
     if (enemy.mode === "walk") {
       // **A guard holds his post.** CAMP's enemy walks you down, which is right in a room and wrong
       // on a road: measured, a bot playing the proven waiting game was walked from the first
-      // guard back into the spawn wall in two cycles and died there, four hearts قبل the first
+      // guard back into the spawn wall in two cycles and died there, four hearts before the first
       // kill. It never lost a fight it could retreat from — it ran out of road. Standing still
       // bounds the retreat to one commit's length, keeps every fight where it started, and makes
       // "go past" a question about his body rather than about his legs.
@@ -452,7 +452,7 @@ function drawHud(): void {
 
   if (phase === "play") {
     ctx.fillStyle = "#6b7688";
-    ctx.fillText("A/D run · Space jump · J attack · Shift roll · touch anything and it hurts", 12, VIEW_H - 22);
+    ctx.fillText("A/D run · Space jump · J attack · Shift roll · touching a body hurts", 12, VIEW_H - 22);
   }
   if (phase === "clear" || phase === "down") {
     const total = hits.length;
