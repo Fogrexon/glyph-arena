@@ -6,6 +6,29 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+### Added
+
+- **MARCH: the second sample, and the first one that is not a room.** `examples/march` is eleven
+  guards on a 92-column road — one minute, death, and a one-frame retry — played by
+  `pnpm march:bot march bold|careful`. The question it exists to ask is *fight it or go by it*, and
+  the answer is a measured split rather than a claim: `careful` clears **11/11 in 74.3 s with 0
+  hits**, while `bold` rolls through everything and **dies at 9/11 in 8.3 s with 4 hits, every one
+  of them logged as taken while running at the goal**. Rolling past the first of a pair lands the
+  body inside the second guard's reach 96 px later with the window already spent — that is where
+  the fast road ends, at the same four places on every run — so "go by everything" is not a plan.
+  Four rules carry the game, each with the measurement that produced it: **a body is a wall**;
+  **pushing into a body** costs a heart, while standing next to one is free (the first version
+  damaged on any contact and the fight it produced was not a fight — a bot playing CAMP's proven
+  waiting game lost four hearts before its first kill); **a roll crosses a body for its whole
+  180 ms**, not just the 140 ms window (exempting the window alone had the last 40 ms shoved back
+  out, so no roll ever finished a crossing); and **every beat is roofed** to 64 px, so a 28 px body
+  can hop 36 px and never clear a 44 px guard — without the roof a 111 px jump clears any guard at
+  any point, and going by would have been free. Six tests hold the level: both edge columns solid
+  on every row, the road walkable from spawn to goal, every guard on ground, the goal past the last
+  guard, the beats' grouping derived from the layout, and the roof-versus-jump relationship derived
+  from `src/sizes.ts`. `scripts/play-bot.mjs` grew a `march` mode, and measuring the retry is what
+  caught a one-frame keyboard pulse the game's tick never samples.
+
 ### Fixed
 
 - **The P6 wait no longer paints a red annotation on a green run.** `tsc` prints
