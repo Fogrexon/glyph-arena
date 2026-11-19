@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>March — Glyph Arena</title>
+    <link rel="icon" href="data:," />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; overflow: hidden; background: #0b0e13; }
+      body { display: grid; place-items: center; }
+      canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+      /* The gallery's pages, always one tap apart. The links are injected by
+         scripts/assemble-site.mjs from every example's `glyphArenaPage`; this page only says
+         where the bar goes. Sits in the bottom 20px, below every touch control (those inset
+         themselves at least 24px from the edge) and away from the HUD, drawn top-left. */
+      .gallery-nav {
+        position: fixed;
+        inset: auto 0 0 0;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 12px;
+        padding: 0 10px;
+        font: 500 11px/1 ui-sans-serif, system-ui, sans-serif;
+        background: rgba(15, 17, 21, 0.78);
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        z-index: 10;
+        pointer-events: none;
+      }
+
+      .gallery-nav a {
+        color: rgba(226, 232, 240, 0.7);
+        text-decoration: none;
+        pointer-events: auto;
+        padding: 0 2px;
+      }
+
+      .gallery-nav a:hover,
+      .gallery-nav a:focus-visible {
+        color: #f8fafc;
+        text-decoration: underline;
+      }
+
+      .gallery-nav a[aria-current="page"] {
+        color: #f8fafc;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="screen"></canvas>
+    <nav class="gallery-nav" data-glyph-nav aria-label="Glyph Arena demos"></nav>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -17,6 +17,7 @@
     "e2e:readme": "node scripts/e2e-readme.mjs",
     "e2e:runner": "node scripts/e2e-runner.mjs",
     "e2e:tutorial": "node scripts/e2e-tutorial.mjs && node scripts/e2e-tutorial-phone.mjs",
+    "march:bot": "node scripts/play-bot.mjs march",
     "measure:parry-run": "node scripts/measure-parry-run.mjs",
     "publish:npm": "node scripts/publish-npm.mjs",
     "readme:extract": "node scripts/extract-readme.mjs",

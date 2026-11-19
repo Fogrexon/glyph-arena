@@ -1,0 +1,28 @@
+{
+  "name": "@fogrexon/glyph-arena-march-demo",
+  "glyphArenaPage": {
+    "path": "/march/",
+    "label": "March"
+  },
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && node ../../scripts/stamp-dist.mjs march",
+    "preview": "vite preview",
+    "test": "tsx --test test/**/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@fogrexon/glyph-arena-actions": "workspace:*",
+    "@fogrexon/glyph-arena-body": "workspace:*",
+    "@fogrexon/glyph-arena-input": "workspace:*",
+    "@fogrexon/glyph-arena-loop": "workspace:*",
+    "@fogrexon/glyph-arena-tilemap": "workspace:*",
+    "@fogrexon/glyph-arena-tween": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5"
+  }
+}
