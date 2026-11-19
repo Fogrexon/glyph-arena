@@ -47,6 +47,17 @@ export const ENEMY_AI = {
    * Read by the game through `canCommit`; the value belongs to this game, not to a library.
    */
   commitSpacingMs: 300,
+  /**
+   * How fast a guard walks back to his post after a commit, px/s.
+   *
+   * The lunge moves the body 138 px and, until this existed, the body stayed where the lunge left
+   * it: measured on 11-19, a player who only held right carried the first guard's post 454 → 329 →
+   * 204 → 79 and was killed at the spawn wall in 4.2 s without a decision being taken — the road
+   * under him was being rewritten by the guard he was trying to get past. A commit is a step out,
+   * not a move, so he steps back. At the player's own 300 px/s the walk home cannot be chased down,
+   * so it costs the fight nothing: the window after the lunge is still the window.
+   */
+  returnPxPerSecond: 300,
 } as const;
 
 /**
@@ -58,6 +69,20 @@ export const ENEMY_AI = {
  */
 export function canCommit(nowMs: number, lastCommitMs: number): boolean {
   return nowMs - lastCommitMs >= ENEMY_AI.commitSpacingMs;
+}
+
+/**
+ * One step of a guard walking back to the post he committed from.
+ *
+ * Pure so the rule can be read without a fight: the commit is a step out, and the step back covers
+ * the same ground in the other direction, ending **exactly** on the post rather than near it — a
+ * guard who stops 0.3 px short is a guard who is, by his own trigger, off his post forever.
+ */
+export function stepToPost(x: number, homeX: number, speedPxPerSecond: number, dtSeconds: number): number {
+  const delta = homeX - x;
+  const step = speedPxPerSecond * dtSeconds;
+  if (Math.abs(delta) <= step) return homeX;
+  return x + Math.sign(delta) * step;
 }
 
 /** Should a walking enemy stop and start the tell? */
