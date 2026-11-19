@@ -59,6 +59,9 @@ draw.setView(null);
   which shifts every line down by its ascent on some screens and not others.
 - `rect` with neither `fill` nor `stroke` draws **nothing** rather than throwing. This runs every
   frame; an exception there does not report a mistake, it stops the game.
+- `rect` without a radius is `fillRect` / `strokeRect`, not a path. On a fractional coordinate the
+  two rasterise differently (measured: 2 pixels on a fill, 12 on a stroke), so the native call is
+  what keeps a game's edges exactly where its hand-written `ctx.fillRect` put them.
 
 ## Scrolling without a camera
 

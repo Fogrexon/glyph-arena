@@ -268,31 +268,49 @@ export function createDraw({ context }: CreateDrawOptions): Draw {
   /**
    * Nothing is drawn when there is neither a fill nor a stroke — not an error. This runs every
    * frame, and a throw there does not report a mistake, it stops the game.
+   *
+   * Without a radius this is `fillRect` / `strokeRect`, not a path: the native call rasterises a
+   * rectangle on a fractional coordinate slightly differently from `rect()` + `fill()` (measured,
+   * 2 pixels on a fill and 12 on a stroke), and a game switching to `draw` must not see its edges
+   * change. It is also the faster of the two, and this is the call a frame makes hundreds of times.
    */
   const rect = ({ x, y, w, h, fill, stroke, lineWidth, radius }: RectOptions): void => {
     if (fill === undefined && stroke === undefined) return;
 
     context.save();
-    context.beginPath();
+
     if (radius !== undefined && radius > 0) {
+      context.beginPath();
       if (typeof context.roundRect === "function") {
         context.roundRect(x, y, w, h, radius);
       } else {
         roundedRectPath(context, x, y, w, h, radius);
       }
-    } else {
-      context.rect(x, y, w, h);
+
+      if (fill !== undefined) {
+        context.fillStyle = fill;
+        context.fill();
+      }
+
+      if (stroke !== undefined) {
+        context.strokeStyle = stroke;
+        context.lineWidth = lineWidth ?? DEFAULT_LINE_WIDTH;
+        context.stroke();
+      }
+
+      context.restore();
+      return;
     }
 
     if (fill !== undefined) {
       context.fillStyle = fill;
-      context.fill();
+      context.fillRect(x, y, w, h);
     }
 
     if (stroke !== undefined) {
       context.strokeStyle = stroke;
       context.lineWidth = lineWidth ?? DEFAULT_LINE_WIDTH;
-      context.stroke();
+      context.strokeRect(x, y, w, h);
     }
 
     context.restore();

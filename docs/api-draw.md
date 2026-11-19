@@ -82,3 +82,11 @@ draw.text({ text: "SCORE 0", x: 12, y: 12, size: 16, fill: "#fff" });
 A projection is the matrix `[scale, 0, 0, scale, offsetX, offsetY]`.
 
 `round` rounds the offset, never a point. Two tiles at 0.4 and 0.6 stay 0.2 apart; rounding each point instead puts them on the same edge, and a wall built from tiles then shows a seam at every join. A game that scrolls rounds its camera once and subtracts it — which is what this option is.
+
+## Rectangles and text
+
+- `rect` without a radius is `fillRect` / `strokeRect`; with a radius it is a path.
+- A rectangle with neither `fill` nor `stroke` draws nothing rather than throwing.
+- `text` puts `y` at the top of the text, not the baseline.
+
+The native calls are not an optimisation detail: on a fractional coordinate a path fill differs from `fillRect` by 2 pixels and a path stroke from `strokeRect` by 12 (measured in Chromium). A game moving from hand-written `ctx.fillRect` to `draw.rect` keeps its edges exactly.

@@ -50,6 +50,7 @@ function createContext(options: { roundRect?: boolean } = {}): {
     fillText: record("fillText"),
     clearRect: record("clearRect"),
     fillRect: record("fillRect"),
+    strokeRect: record("strokeRect"),
     drawImage: record("drawImage"),
     setTransform: record("setTransform"),
     measureText: (value: string) => {
@@ -74,16 +75,18 @@ describe("rect", () => {
   it("fills, strokes, or both — and draws nothing at all when given neither", () => {
     const filled = createContext();
     createDraw({ context: filled.context }).rect({ x: 1, y: 2, w: 3, h: 4, fill: "#fff" });
-    assert.deepEqual(methods(filled.calls).filter((m) => m === "fill" || m === "stroke"), ["fill"]);
-    assert.deepEqual(argsOf(filled.calls, "fill").length, 1);
+    assert.deepEqual(argsOf(filled.calls, "fillRect"), [[1, 2, 3, 4]]);
 
     const stroked = createContext();
     createDraw({ context: stroked.context }).rect({ x: 1, y: 2, w: 3, h: 4, stroke: "#000" });
-    assert.deepEqual(methods(stroked.calls).filter((m) => m === "fill" || m === "stroke"), ["stroke"]);
+    assert.deepEqual(argsOf(stroked.calls, "strokeRect"), [[1, 2, 3, 4]]);
 
     const both = createContext();
     createDraw({ context: both.context }).rect({ x: 0, y: 0, w: 1, h: 1, fill: "#fff", stroke: "#000" });
-    assert.deepEqual(methods(both.calls).filter((m) => m === "fill" || m === "stroke"), ["fill", "stroke"]);
+    assert.deepEqual(
+      methods(both.calls).filter((m) => m === "fillRect" || m === "strokeRect"),
+      ["fillRect", "strokeRect"],
+    );
 
     // The shape of "no colour": not an exception, and not a stray path either.
     const none = createContext();
@@ -109,12 +112,20 @@ describe("rect", () => {
     assert.deepEqual(argsOf(calls, "arcTo")[0], [40, 0, 40, 8, 8]);
   });
 
-  it("uses a plain rect when the radius is zero or absent", () => {
+  it("uses fillRect and strokeRect when the radius is zero or absent", () => {
     const { calls, context } = createContext();
-    createDraw({ context }).rect({ x: 0, y: 0, w: 10, h: 10, fill: "#fff", radius: 0 });
+    const draw = createDraw({ context });
 
-    assert.deepEqual(argsOf(calls, "rect"), [[0, 0, 10, 10]]);
-    assert.deepEqual(argsOf(calls, "roundRect"), []);
+    draw.rect({ x: 0, y: 0, w: 10, h: 10, fill: "#fff", stroke: "#000", radius: 0 });
+
+    // Measured in Chromium: on a fractional coordinate, a path fill differs from `fillRect` by 2
+    // pixels and a path stroke from `strokeRect` by 12. A game moving to `draw` must not see its
+    // edges change, so the plain case is the native call — this test is that decision, not a
+    // detail of the implementation.
+    assert.deepEqual(argsOf(calls, "fillRect"), [[0, 0, 10, 10]]);
+    assert.deepEqual(argsOf(calls, "strokeRect"), [[0, 0, 10, 10]]);
+    assert.deepEqual(argsOf(calls, "rect"), []);
+    assert.deepEqual(argsOf(calls, "beginPath"), []);
   });
 });
 
@@ -198,7 +209,7 @@ function deviceRects(
 ): { x: number; y: number; w: number; h: number }[] {
   const [a, b, c, d, e, f] = argsOf(calls, "setTransform")[transformIndex] as number[];
 
-  return argsOf(calls, "rect").map(([x, y, w, h]) => ({
+  return argsOf(calls, "fillRect").map(([x, y, w, h]) => ({
     x: a * x + c * y + e,
     y: b * x + d * y + f,
     w: a * w,
@@ -249,7 +260,7 @@ describe("setView with a projection", () => {
       `the rounded gap is ${gap(roundedRects)} — rounding the points would make it 0 or 1`,
     );
     assert.deepEqual(
-      argsOf(rounded.calls, "rect"),
+      argsOf(rounded.calls, "fillRect"),
       [
         [0.4, 0, 1, 1],
         [0.6, 0, 1, 1],
