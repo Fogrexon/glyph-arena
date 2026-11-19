@@ -6,6 +6,14 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-19
+
+The version that adds a module — `@fogrexon/glyph-arena-reset` — so that a retry cannot inherit
+the previous round. Adding exported names is a minor under 0.x, so this is `0.5.0` and not `0.4.1`;
+the umbrella now re-exports 21 modules. It is also the release that ships MARCH, the second sample
+and the first one that is not a room, and the README table of samples together with the gate that
+reads it back against what the deploy publishes.
+
 ### Added
 
 - **`@fogrexon/glyph-arena-reset` — one list of "put this back", run where it was written.** Every
