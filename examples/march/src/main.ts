@@ -689,6 +689,10 @@ function publish(): void {
     enemies: enemies.map((each) => ({
       x: each.body.x,
       y: each.body.y,
+      // The post he commits from, published because it is the thing a plan is made against: a
+      // body mid-lunge is 138 px from where he started, so "is this guard alone" read off bodies
+      // changes with the moment, and read off posts it is a property of the road.
+      homeX: each.homeX,
       hp: each.hp,
       alive: each.alive,
       mode: each.mode,

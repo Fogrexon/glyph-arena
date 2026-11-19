@@ -15,7 +15,7 @@
  *   node scripts/play-bot.mjs camp bold   [--runs 2] [--json]
  *   node scripts/play-bot.mjs camp careful [--runs 2] [--json]
  *   node scripts/play-bot.mjs runner      [--runs 1] [--json]
- *   node scripts/play-bot.mjs march bold|careful|run|rush [--runs 2] [--json]
+ *   node scripts/play-bot.mjs march bold|careful|run|rush|mixed [--runs 2] [--json]
  *
  * Needs a built slice (`pnpm -r build`). `E2E_CHROMIUM=/path/to/chrome` picks the browser, the
  * same variable the e2e scripts read. Exit code is 0 only when every run met its expectation:
@@ -324,13 +324,17 @@ async function playCamp(page, strategy) {
 }
 
 /* -------------------------------------------------------------------------------------------- *
- * March: the same road four ways — fight every guard, roll through all of them, just walk, or    *
- * run with the roll spent on every cooldown.                                                    *
+ * March: the same road five ways — fight every guard, roll through all of them, just walk, run    *
+ * with the roll spent on every cooldown, or roll the singles and fight the pairs.                *
  *                                                                                               *
  * `run` and `rush` exist to split one sentence into two measurements, because "can you clear by  *
  * running" is two questions: does walking pass a body at all (`run`: no swing, no roll), and is   *
  * the roll enough when it is always available (`rush`: roll on cooldown). `bold` answers neither  *
  * — it rolls only when a body is 22 px away, so its 7.4 s death at the pairs could be timing.     *
+ *                                                                                               *
+ * `mixed` is the policy a player converges on: a guard who is alone is a roll, a guard with a     *
+ * partner is a fight. It is the only hand that answers "is there a line to the goal between       *
+ * fighting everything and dying at the pairs".                                                   *
  * -------------------------------------------------------------------------------------------- */
 
 async function playMarch(page, strategy) {
@@ -371,6 +375,18 @@ async function playMarch(page, strategy) {
         // of gap to have margin. Later and it ends touching; earlier and the window is spent in
         // the air before the bodies meet.
         const ROLL_GAP = 22;
+        // Two guards whose **posts** are closer than this are a pair, and a pair is the one place a
+        // roll does not
+        // finish the job: 73 px of travel lands the body between the two, with the window spent and
+        // the second guard's commit already started. Posts, not bodies: a guard mid-lunge is 138 px
+        // from his post, so measuring bodies turns a pair into two singles for the whole tell — that
+        // is what made the first version of this hand roll past the first pair and stall at 709. On this road the singles stand 320–448 px
+        // apart and the pairs 96 (and the triples 64), so anything that separates those two
+        // populations is the right number — 130 is not tuned, it is the middle of a gap.
+        // `scripts/play-bot.test.mjs` derives both edges from the level, so moving a guard until
+        // the threshold stops separating them turns the gate red instead of quietly mislabelling
+        // a pair as a single.
+        const PAIR_PX = 130;
         // The fight has to answer one thing CAMP's fight never asked: a body you push into costs a
         // heart, so the line you hold between commits is a distance the next tell has to cross
         // badly. The lunge covers 138 px from a 70 px trigger, so 110 px held is 40 px of margin.
@@ -483,9 +499,21 @@ async function playMarch(page, strategy) {
           }
           const gap = target.x - (s.x + 20);
 
-          if (mode === "bold") {
-            // Go by everything: never swing, never stop. The roll is the only way through a body,
-            // so this run is "is the fast road affordable" and its hearts are the answer.
+          // `mixed` is the hand a player actually finds: spend the roll on a guard who is alone,
+          // fight the ones who are not. It is one line of policy over the two hands that already
+          // exist, and it is the only hand that can answer the question the others cannot — is
+          // there a line between "fight every guard, 65 s, untouched" and "roll through all of
+          // them, 7.8 s, dead at the pairs" that actually gets to the goal.
+          const partner =
+            mode === "mixed" &&
+            s.enemies.some(
+              (enemy) => enemy.alive && enemy !== target && Math.abs(enemy.homeX - target.homeX) < PAIR_PX,
+            );
+          const goingBy = mode === "bold" || (mode === "mixed" && !partner);
+
+          if (goingBy) {
+            // Go by everything you can: never swing, never stop. The roll is the only way through a
+            // body, so this run is "is the fast road affordable" and its hearts are the answer.
             key("ArrowRight", true);
             // Roll at any mode: the window starts on the frame the roll does, so crossing a
             // commit and crossing a standing guard are the same 73 px of travel. Refusing the
@@ -676,13 +704,13 @@ async function main() {
   const json = process.argv.includes("--json");
   if (game !== "camp" && game !== "runner" && game !== "march") {
     console.error(
-      "usage: play-bot.mjs camp <bold|careful> [--runs N] [--json] | play-bot.mjs runner [--runs N] [--json] | play-bot.mjs march <bold|careful|run|rush> [--runs N] [--json]",
+      "usage: play-bot.mjs camp <bold|careful> [--runs N] [--json] | play-bot.mjs runner [--runs N] [--json] | play-bot.mjs march <bold|careful|run|rush|mixed> [--runs N] [--json]",
     );
     process.exit(2);
   }
   // A strategy the game does not have is a silently different measurement: `march rum` would fall
   // through every branch to "walk to the next guard and hold", which is `careful` without a sword.
-  const MARCH_HANDS = ["bold", "careful", "run", "rush"];
+  const MARCH_HANDS = ["bold", "careful", "run", "rush", "mixed"];
   if (game === "march" && !MARCH_HANDS.includes(strategy)) {
     console.error(`march has no hand called "${strategy}": ${MARCH_HANDS.join(", ")}`);
     process.exit(2);
