@@ -24,7 +24,7 @@ not rewritten here turns the gate red instead of the page quietly lying.
    line he commits from, so the strike is a thing your hands can do from where you are standing.
 3. After the lunge he is open for 450 ms. That is when you swing.
 4. Decide, at every guard, which of the two things you are doing: **fight** (safe, slow) or **go
-   by** (fast, and it costs a heart unless the roll is spent well).
+   by** (fast — but going by a body is the roll, not the walk: see the wall rule below).
 5. Reach the goal past the last guard, or run out of hearts.
 
 ## The two ways past, and what each costs
@@ -32,12 +32,18 @@ not rewritten here turns the gate red instead of the page quietly lying.
 | way | keys | cost | what it buys |
 | --- | --- | --- | --- |
 | fight | `J` / `X` | 300 ms locked in place per swing, and three swings per guard | the guard is gone, and the next one starts from a clean line |
-| go by | `Shift` / `L` | a heart if the body is pushed into, nothing if the roll's window is spent right | the whole guard, in about a fifth of a second |
+| go by | `Shift` / `L` | the roll, and a heart every 900 ms you spend pushing into a body — **walking into one never gets you past it** | the whole guard, in about a fifth of a second |
 | hop over | `Space` | — | **nothing, on this road**: every beat is roofed |
 
 That third row is the point of the roof. Without it a 28 px body clears a guard at any point of a
 111 px jump, so "go by all eleven" would have been free and the fight would have been the slow path
 nobody takes. The level says the rule instead of a tutorial: **under rock you fight, or you roll.**
+
+The second row's first cost is measured, not assumed. A hand that only walks — no swing, no roll —
+**dies at the first guard in 4.6 s having passed 0 of 11** (three runs, 11-19): the body is a wall,
+the push resolves away from it every frame, and pushing costs a heart every 900 ms. "Go by for a
+heart" was not a thing you could do; the roll is not a discount on the walk, it is the only way
+through a body.
 
 ## The numbers
 
@@ -50,7 +56,7 @@ nobody takes. The level says the rule instead of a tutorial: **under rock you fi
 | `ENEMY_AI.lungeSpeedPxPerSecond` | 460 | 300 ms at 460 px/s = the 138 px the tell promises |
 | `ENEMY_AI.restMs` | 450 | must outlast the answer it asks for: the swing is 300 ms and a late start leaves the recovery out when the next tell begins. **A floor, not a dial** — CAMP measured 380 as 0/6 clears |
 | `ENEMY_AI.commitSpacingMs` | 300 | **no two commits inside this window.** The unfair thing was the queue, not the body: with three, the gap between lunges was min 116 ms, shorter than the roll's 180 ms lockout, so no verb could answer the second one |
-| `ENEMY_AI.chaseSpeedPxPerSecond` | 330 | **passing is a loan.** A guard you walked past follows, 30 px/s faster than you run, while you are inside his sight — get 260 px away and he gives up. **One commit and he is spent**, so a guard can cost at most one heart in a run and eleven guards cannot become eleven hits. Slower than you and passing is free again (measured 11-19: run-only cleared in 15.0 s against the careful 28.5 s, which is why this exists); much faster and the road is a chase nobody survives |
+| `ENEMY_AI.chaseSpeedPxPerSecond` | 330 | **passing is a loan.** A guard you walked past follows, 30 px/s faster than you run, while you are inside his sight — get 260 px away and he gives up. **One commit and he is spent**, so a guard can cost at most one heart in a run and eleven guards cannot become eleven hits. Slower than you and passing is free again; much faster and the road is a chase nobody survives. Measured 11-19: this is **not** what stops a runner — the roll hands die at the pairs first, and the hand that only walks never passes a body at all |
 | `ENEMY_AI.returnPxPerSecond` | 300 | **a commit is a step out, not a move.** The lunge carries the body 138 px; without this the body kept it, and holding right at the first guard walked the post 454 → 329 → 204 → 79 and killed the walker at the spawn wall in 4.2 s without a decision. At your own 300 px/s the walk home cannot be chased down, so the window after the lunge is still the window |
 | `ENEMY_STATS.hp` | 3 | three swings per guard, played eleven times, lands the careful crossing inside a minute. Four is 44 swings and 84.5 s (measured); three is 33 swings and 74.3 s, with no timing changed |
 | `ENEMY_STATS.contactDamage` | 1 | one heart, once per 900 ms of invulnerability — and **only while the body is being pushed into**, see below |
@@ -137,33 +143,52 @@ land a swing from the line the guard commits from), and the careful crossing mov
 **61.8–66.5 s → 66.3–74.4 s**, still 0 hits. A longer blade is not a faster fight here — the careful
 line swings on the rest window either way, and the reach changed which swings land, so "advance,
 hold, swing" settled onto a different rhythm. What is worth keeping is the shape: careful clears
-with no hits, bold bleeds four and dies at the same four places.
+with no hits, and no hand that goes by ends the road.
 
 | bot | result | time | hearts left | hits taken |
 | --- | --- | --- | --- | --- |
-| careful (fight every guard) | **clear 11/11, 3 of 3 runs** | 66.3–74.4 s | 4 | **0** |
-| bold (roll through every guard) | **down at 9/11, 3 of 3 runs** | 7.80–7.86 s | 0 | 4, **all four while running at the goal** |
+| careful (fight every guard) | **clear 11/11, 6 of 6 runs** | 65.0–72.8 s | 4 | **0** |
+| bold (roll when a body is 22 px away) | **down at 9/11, 6 of 6 runs** | 7.76–7.83 s | 0 | 4, **all four while running at the goal** |
+| rush (run, roll on every cooldown) | **down at 8/11, 3 of 3 runs** | 7.28–7.31 s | 0 | 4, same reason |
+| run (walk, never roll) | **down at 0/11, 3 of 3 runs** | 4.60–4.62 s | 0 | 4, **all on the first guard** |
 
-**bold dies at the same four places on every run** (`x 851`, `1267`, `1843`, `2291`): the roll carries
-73 px and the pairs stand 96 px apart, so rolling past the first of a pair lands the body inside the
-second guard's reach with the window already spent. "Roll through everything" is therefore not a
-plan — the plan is *roll the singles, fight the groups*, which is what a player finds. That is the
-decision the level is built to ask, and it is the reason the beats are grouped instead of evenly
-spaced.
+The counts differ because the hands are not the same age: `careful` and `bold` are quoted over six
+runs each — the three from the pursuit change and the three from the run hand — on the **same build**
+(`index-BO-GvoxH.js`), while `rush` and `run` are the three runs that introduced them. The range is
+still the point; six runs of the same build say more about the road than three do.
+
+**The two roll hands die in the same four places** (`x 851`, `1267`, `1843`, `2291` for `bold`;
+`854`, `1270`, `1843`, `2227` for `rush`): the roll carries 73 px and the pairs stand 96 px apart, so
+rolling past the first of a pair lands the body inside the second guard's reach with the window
+already spent. `rush` spends the roll on every cooldown (32 rolls a run) and it changes nothing —
+**the death is geometry, not timing.** "Roll through everything" is therefore not a plan; the plan is
+*roll the singles, fight the groups*, which is what a player finds. That is the decision the level is
+built to ask, and it is the reason the beats are grouped instead of evenly spaced.
+
+**And `run` is the row that redefines the second way past.** It never swings and never rolls, so it
+is the honest version of "just run": it dies at the **first** guard in 4.6 s with 0 of 11 passed, on
+every run. The body is a wall and the roll is the only thing that removes it, so there is no
+"go by for a heart" walk — the roll is not a discount on the road, it is the road.
 
 ## Measuring it
 
 ```sh
 pnpm -r build
-E2E_CHROMIUM=/usr/bin/chromium pnpm march:bot march bold     --runs 3
 E2E_CHROMIUM=/usr/bin/chromium pnpm march:bot march careful  --runs 3
+E2E_CHROMIUM=/usr/bin/chromium pnpm march:bot march bold     --runs 3
+E2E_CHROMIUM=/usr/bin/chromium pnpm march:bot march rush     --runs 3
+E2E_CHROMIUM=/usr/bin/chromium pnpm march:bot march run      --runs 3
 ```
 
-`scripts/play-bot.mjs march` prints, per run, the phase, hearts, how many guards were passed and how
+Four hands, because the fast line is two questions and one hand cannot answer both. `run` never
+swings and never rolls, so it answers *does walking pass a body*; `rush` walks and spends the roll on
+every cooldown, so it answers *is the roll enough when it is always available*. `bold` rolls only
+when a body is 22 px away, so its death at the pairs could be a timing mistake; `rush` takes the
+timing out of the question. Each of them prints the phase, hearts, how many guards were passed and how
 many killed, the clock, the hits **with the mode each one landed in and whether it was taken while
-running at the goal**, and `retry N frame(s)` — the number a one-minute game lives on. It exits 0
-when every run ended either way and could be restarted in a frame; the win is a number, not an exit
-code.
+running at the goal**, the rolls and swings a hand actually spent, and `retry N frame(s)` — the number
+a one-minute game lives on. It exits 0 when every run ended either way and could be restarted in a
+frame; the win is a number, not an exit code.
 
 Measuring this exposed two bugs in the instrument rather than the game, both now fixed:
 **a keydown released inside one frame is a press the game never samples** (a one-frame `R` looked
@@ -172,15 +197,15 @@ the tell retreating swings backwards and lands nothing (20 swings, 0 kills).
 
 ## What is still open
 
-- **The pass line is still not measurable, and the reason is not the pursuit.** The line to prove is
-  "you can clear by running, but not untouched". Every run line this repository can measure dies at
-  the **pairs** first — `bold` (roll through everything) and a run-and-roll probe both went down at
-  `x 2226`, 9/11, in 7.4–7.8 s, before the pursuit had time to cost a heart. A 15.0 s clear by
-  running was reported on 11-19 and does not reproduce with either line here, so **the fast line
-  needs a strategy of its own in `scripts/play-bot.mjs`** before that sentence can be checked. Until
-  then the honest statement is: the pursuit is in and visible (eight chasers in one run), and the
-  pairs are what stops a runner, not the guards behind him.
-- **66–74 s is not a minute.** The careful crossing is honest but long. Cutting course length would
+- **The pass line is now measured, and it fails — but not at the pursuit.** The line to prove is "you
+  can clear by running, but not untouched". Two hands answer it and both say no: walking dies at the
+  **first** guard (0 of 11 passed), and rolling as fast as it comes back still dies at the pairs
+  (8 of 11). The pursuit never gets to be the thing that costs a runner. So the fast road is not
+  "expensive", it is **unavailable**, and the only clear this page can measure is the careful one.
+  What to do about it is a design choice, not a bug fix: **open the pairs' spacing** (then running
+  clears and bleeds, and the line holds), or accept that "roll the singles, fight the groups" is the
+  fast line and measure *that* — a mixed hand, which no hand here does yet.
+- **65–73 s is not a minute.** The careful crossing is honest but long. Cutting course length would
   cut the number of decisions, so the lever is `ENEMY_STATS.hp` — and the line to stop at is a
   person saying it feels unfair, not a bot taking fewer hits. The bot's numbers prove *there is a
   choice*; they cannot prove *it is fun*. **Nobody has played this yet who can say which it is** —
