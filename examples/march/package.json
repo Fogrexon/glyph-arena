@@ -18,6 +18,7 @@
     "@fogrexon/glyph-arena-body": "workspace:*",
     "@fogrexon/glyph-arena-input": "workspace:*",
     "@fogrexon/glyph-arena-loop": "workspace:*",
+    "@fogrexon/glyph-arena-reset": "workspace:*",
     "@fogrexon/glyph-arena-tilemap": "workspace:*",
     "@fogrexon/glyph-arena-tween": "workspace:*"
   },
