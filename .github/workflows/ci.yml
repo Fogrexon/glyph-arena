@@ -124,3 +124,15 @@ jobs:
       # other gate resolves the umbrella to `src/` through `tsconfig` paths; a false green has
       # already come from exactly that gap (the docs described exports a released version lacked).
       - run: pnpm e2e:published
+
+      # 13. The pixels, not the state. Every step above reads a contract or a DOM property; none of
+      # them reads the picture, and the change this exists for keeps every number identical while
+      # moving 172 pixels: a game's hand-written `Math.round(cameraX)` becoming
+      # `draw.setView({ round: true })`. Time is taken away from the page (rAF, performance.now,
+      # Date.now, Math.random, devicePixelRatio), input is applied at frame numbers, and the RGBA
+      # bytes of the canvas are hashed — three times over, so a scene that reads the wall clock is
+      # caught before it is compared. The golden carries its environment; a run whose Chromium
+      # **major** or font probe differs refuses to compare rather than producing a red that means
+      # "the browser changed". Start here with one runner scene; add camp and march only after this
+      # has gone red once on purpose.
+      - run: pnpm e2e:pixel
