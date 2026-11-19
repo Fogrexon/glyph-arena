@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { ENEMY_AI, stepToPost } from "../src/enemy.ts";
+import { PLAYER_RUN_PX_PER_SECOND } from "../src/sizes.ts";
 
 const STEP_MS = 1000 / 60;
 
@@ -37,4 +38,21 @@ test("the post is reached exactly, from either side", () => {
   assert.equal(stepToPost(316, 316, ENEMY_AI.returnPxPerSecond, dt), 316, "a guard on his post stands on it");
   // A long frame (a tab that was asleep) must not teleport him past the post or through the road.
   assert.equal(stepToPost(316, 454, ENEMY_AI.returnPxPerSecond, 0.25), 391, "a 250 ms frame is one long step, not a jump");
+});
+
+test("a guard you walked past can close the gap — and only slowly", () => {
+  // The two halves of the same rule. **Slower than the player and passing is free**: measured on
+  // 11-19, "run and never swing" cleared the road in 15.0 s against the careful line's 28.5 s, so
+  // there was no choice to make. **Much faster and the road is a chase nobody survives.** The gap
+  // is the design: he gains 30 px/s, so across one beat nothing happens and across a road you have
+  // a decision to make.
+  assert.ok(
+    ENEMY_AI.chaseSpeedPxPerSecond > PLAYER_RUN_PX_PER_SECOND,
+    `a guard who follows at ${ENEMY_AI.chaseSpeedPxPerSecond} px/s cannot catch a ${PLAYER_RUN_PX_PER_SECOND} px/s player: passing is free again`,
+  );
+  const closing = ENEMY_AI.chaseSpeedPxPerSecond - PLAYER_RUN_PX_PER_SECOND;
+  assert.ok(
+    closing <= PLAYER_RUN_PX_PER_SECOND * 0.2,
+    `he closes at ${closing} px/s with one commit per pass — that is a chase, not a cost`,
+  );
 });

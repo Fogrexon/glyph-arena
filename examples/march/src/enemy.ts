@@ -58,6 +58,21 @@ export const ENEMY_AI = {
    * so it costs the fight nothing: the window after the lunge is still the window.
    */
   returnPxPerSecond: 300,
+  /**
+   * How fast a guard **you walked past** follows you, px/s.
+   *
+   * Passing a guard used to cost nothing at all: he kept his post and the road behind you was
+   * empty, so "run and never swing" cleared the whole road in 15.0 s with one heart lost — faster
+   * than fighting, and safer, which is not a choice (measured on 11-19, three players: 15.0 s by
+   * running, 28.5 s by fighting). A guard who has been walked past now turns and follows.
+   *
+   * 330 is `PLAYER_RUN_PX_PER_SECOND` + 30: he closes the gap at 30 px/s, which over one beat is
+   * nothing and over a road is a decision. **He chases while you are within `sightPx`** — get 260 px
+   * away and he gives up and walks back to his post — and **one commit is all he gets**: after it he
+   * is spent and returns, so a guard can cost at most one heart in a run and eleven guards cannot
+   * become eleven hits.
+   */
+  chaseSpeedPxPerSecond: 330,
 } as const;
 
 /**
