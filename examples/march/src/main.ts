@@ -40,6 +40,7 @@ import {
   type Dodge,
 } from "./combat";
 import { ENEMY_AI, canCommit, canInterrupt, stepToPost, type EnemyMode } from "./enemy";
+import { PLAYER_RUN_PX_PER_SECOND } from "./sizes";
 import {
   TILE,
   currentMap,
@@ -63,7 +64,7 @@ const PLAYER_CONFIG: BodyConfig = {
   maxFall: 1200,
   coyoteSeconds: 0.09,
   jumpBufferSeconds: 0.12,
-  runSpeed: 300,
+  runSpeed: PLAYER_RUN_PX_PER_SECOND,
   runAccel: 2400,
   airAccel: 1600,
   groundFriction: 2600,
@@ -135,6 +136,8 @@ type Enemy = {
   facing: 1 | -1;
   /** Has the player ever been past this one? Decides whether a hit was fighting or passing. */
   passed: boolean;
+  /** A passed guard gets exactly one commit at your back; after it he is spent and walks home. */
+  spent: boolean;
 };
 
 let player: Body = createBody({ x: 0, y: 0, ...PLAYER_SIZE }, PLAYER_CONFIG);
@@ -194,6 +197,7 @@ reset.add("enemies", () => {
     modeMs: 0,
     facing: -1,
     passed: false,
+    spent: false,
   }));
 });
 reset.add("attack", () => {
@@ -343,15 +347,22 @@ function stepWorld(dt: number, dtMs: number, moveLeft: boolean, moveRight: boole
       // was not losing the fight, he was losing the road, guard by guard. So the guard steps back
       // to `homeX` and cannot commit until he is there: the thing he commits from is the thing the
       // player planned against.
-      const back = stepToPost(enemy.body.x, enemy.homeX, ENEMY_AI.returnPxPerSecond, dt);
-      if (back !== enemy.body.x && !solidAt(back, enemy.body.y, back + enemy.body.w, enemy.body.y + enemy.body.h)) {
-        enemy.body.x = back;
+      // **A guard you walked past turns and follows.** He closes at 30 px/s — nothing across one
+      // beat, a decision across a road — while you are inside his sight; leave that and he gives up
+      // and walks home. He gets one commit: spent, he returns. Without the turn, passing a guard
+      // cost literally nothing and the fast line was 15 s against the careful 28.5 s (11-19).
+      const pursuing = enemy.passed && !enemy.spent && chasing;
+      const targetX = pursuing ? player.x + player.w / 2 - enemy.body.w / 2 : enemy.homeX;
+      const speed = pursuing ? ENEMY_AI.chaseSpeedPxPerSecond : ENEMY_AI.returnPxPerSecond;
+      const stepX = stepToPost(enemy.body.x, targetX, speed, dt);
+      if (stepX !== enemy.body.x && !solidAt(stepX, enemy.body.y, stepX + enemy.body.w, enemy.body.y + enemy.body.h)) {
+        enemy.body.x = stepX;
       }
       enemy.body.vx = 0;
       stepBody(enemy.body, {}, dt, solidAt, { grid: TILE });
       const atPost = Math.abs(enemy.body.x - enemy.homeX) < 0.5;
       const inRange =
-        atPost && chasing && Math.abs(distance) <= ENEMY_AI.lungeRangePx && enemy.body.grounded;
+        (pursuing || atPost) && chasing && Math.abs(distance) <= ENEMY_AI.lungeRangePx && enemy.body.grounded;
       if (inRange && canCommit(simMs, lastCommitMs)) {
         enemy.mode = "windup";
         enemy.modeMs = 0;
@@ -374,6 +385,8 @@ function stepWorld(dt: number, dtMs: number, moveLeft: boolean, moveRight: boole
       if (enemy.modeMs >= ENEMY_AI.lungeMs) {
         enemy.mode = "rest";
         enemy.modeMs = 0;
+        // One commit per pass: the road behind you is not a queue of guards with unlimited tries.
+        if (enemy.passed) enemy.spent = true;
       }
     } else {
       enemy.body.vx = 0;
@@ -579,8 +592,16 @@ function draw(): void {
     if (!enemy.alive) continue;
     const x = enemy.body.x - fromX;
     const tell = enemy.mode === "windup" ? Math.floor(enemy.modeMs / 70) % 2 === 0 : false;
-    ctx.fillStyle = enemy.flashMs > 0 ? "#ffffff" : tell ? "#ff9c6e" : enemy.mode === "lunge" ? "#ff7a5c" : enemy.passed ? "#8a4a48" : "#e0574f";
+    const coming = enemy.passed && !enemy.spent && enemy.mode !== "lunge" && Math.abs(player.x - enemy.body.x) < ENEMY_AI.sightPx;
+    ctx.fillStyle = enemy.flashMs > 0 ? "#ffffff" : tell ? "#ff9c6e" : enemy.mode === "lunge" ? "#ff7a5c" : coming ? "#c2503f" : enemy.passed ? "#5a6478" : "#e0574f";
     ctx.fillRect(x, enemy.body.y, enemy.body.w, enemy.body.h);
+    if (coming) {
+      // A guard walking you down is not a wall: he is a thing that is following you, and the one cue
+      // that matters is that he is upright and moving. An outline keeps the silhouette readable.
+      ctx.strokeStyle = "#ffb4a2";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x - 2, enemy.body.y - 2, enemy.body.w + 4, enemy.body.h + 4);
+    }
     if (enemy.mode === "windup") {
       ctx.strokeStyle = "#ffd0a8";
       ctx.lineWidth = 2;
@@ -641,7 +662,7 @@ type MarchState = {
   runs: number;
   lastRunMs: number | null;
   hits: Hit[];
-  enemies: Array<{ x: number; y: number; hp: number; alive: boolean; mode: string; modeMs: number; passed: boolean }>;
+  enemies: Array<{ x: number; y: number; hp: number; alive: boolean; mode: string; modeMs: number; passed: boolean; spent: boolean }>;
 };
 
 function publish(): void {
@@ -673,6 +694,7 @@ function publish(): void {
       mode: each.mode,
       modeMs: Math.round(each.modeMs),
       passed: each.passed,
+      spent: each.spent,
     })),
   };
 }
