@@ -51,3 +51,38 @@ test("the march hand called `run` only runs: it never swings and never rolls", (
   const hands = /const MARCH_HANDS = \[([^\]]*)\]/.exec(source)?.[1] ?? "";
   assert.match(hands, /"run"/, "`march run` is no longer accepted on the command line");
 });
+
+test("the mixed hand's pair threshold still separates the road's pairs from its singles", () => {
+  // `mixed` rolls a guard who is alone and fights a guard who is not. Both halves of that rule are
+  // a single number, and a number typed once is exactly what goes stale when a guard moves: one
+  // pixel the wrong way and a pair is rolled like a single (the death `bold` measures) or a single
+  // is fought like a pair (the 65 s the fast line exists to avoid). So the road's own spacing
+  // decides the bound — pairs inside a beat, singles across the 6-tile walks between beats, the
+  // same derivation `march-readme.test.mjs` uses for "beats".
+  const level = readFileSync(join(ROOT, "examples/march/src/level.ts"), "utf8");
+  const block = /const TEXT: readonly string\[\] = \[([\s\S]*?)\n\];/.exec(level)?.[1] ?? "";
+  const rows = [...block.matchAll(/"([^"]*)"/g)].map((match) => match[1]);
+  const standing = rows.findIndex((row) => row.includes("@"));
+  assert.ok(standing >= 0, "no spawn row in the march level");
+  const tile = Number(/export const TILE = (\d+);/.exec(level)?.[1]);
+  const columns = [...rows[standing]].map((cell, column) => (cell === "e" ? column : -1)).filter((column) => column >= 0);
+  const px = columns.map((column) => column * tile);
+  const gaps = px.slice(1).map((x, i) => x - px[i]);
+  const walk = 6 * tile;
+  const insideBeat = gaps.filter((gap) => gap <= walk);
+  const acrossBeat = gaps.filter((gap) => gap > walk);
+  assert.ok(insideBeat.length > 0 && acrossBeat.length > 0, "the road no longer has both pairs and singles to separate");
+
+  const source = readFileSync(join(ROOT, "scripts/play-bot.mjs"), "utf8");
+  const pairPx = Number(/const PAIR_PX = (\d+);/.exec(source)?.[1]);
+  assert.ok(Number.isFinite(pairPx), "the mixed hand's PAIR_PX is gone");
+  assert.ok(
+    pairPx > Math.max(...insideBeat),
+    `PAIR_PX ${pairPx} does not cover the road's closest pair (${Math.max(...insideBeat)} px) — the mixed hand would roll a pair`,
+  );
+  assert.ok(
+    pairPx < Math.min(...acrossBeat),
+    `PAIR_PX ${pairPx} reaches across a beat break (${Math.min(...acrossBeat)} px) — the mixed hand would fight a single`,
+  );
+  assert.match(source, /mode === "mixed" && !partner/, "the mixed hand no longer tells a pair from a single");
+});
