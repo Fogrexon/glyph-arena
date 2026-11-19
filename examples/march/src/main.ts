@@ -140,6 +140,8 @@ type Enemy = {
   spent: boolean;
   /** Was this one woken by a guard who was passed? He commits from `alertRangePx`, not `lungeRangePx`. */
   alert: boolean;
+  /** When he was woken (`simMs`), or -1. The first `alertFlashMs` of it is drawn loud. */
+  alertAt: number;
 };
 
 let player: Body = createBody({ x: 0, y: 0, ...PLAYER_SIZE }, PLAYER_CONFIG);
@@ -201,6 +203,7 @@ reset.add("enemies", () => {
     passed: false,
     spent: false,
     alert: false,
+    alertAt: -1,
   }));
 });
 reset.add("attack", () => {
@@ -482,7 +485,10 @@ function stepWorld(dt: number, dtMs: number, moveLeft: boolean, moveRight: boole
       const posts = enemies.map((each) => each.homeX);
       const called = calledBy(posts, enemy.homeX, ENEMY_AI.callPartnerPx);
       for (const other of enemies) {
-        if (other.alive && !other.passed && called.includes(other.homeX)) other.alert = true;
+        if (other.alive && !other.passed && called.includes(other.homeX)) {
+          other.alert = true;
+          if (other.alertAt < 0) other.alertAt = simMs;
+        }
       }
     }
   }
@@ -624,8 +630,22 @@ function draw(): void {
       // before it is paid: he commits from 190 px, further out than a guard you walked up to, so
       // the cue is a mark that says *this one is already awake* rather than a colour that says
       // *this one is about to commit* — the tell is still the tell.
-      ctx.fillStyle = "#ffd0a8";
-      ctx.fillRect(x + enemy.body.w / 2 - 1, enemy.body.y - 16, 2, 7);
+      //
+      // The first `alertFlashMs` is loud — a wide mark and a halo — because a 2 px bar above a
+      // 20 x 44 body is only visible to someone who already knows to look, and a price nobody reads
+      // is not a price. After that it settles back to the quiet mark: an alert lasts the rest of
+      // the run, and a cue that never stops is scenery.
+      const age = enemy.alertAt < 0 ? Infinity : simMs - enemy.alertAt;
+      if (age < ENEMY_AI.alertFlashMs) {
+        ctx.strokeStyle = "#ffe2c4";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x - 4, enemy.body.y - 4, enemy.body.w + 8, enemy.body.h + 8);
+        ctx.fillStyle = "#ffe2c4";
+        ctx.fillRect(x + enemy.body.w / 2 - 3, enemy.body.y - 25, 6, 13);
+      } else {
+        ctx.fillStyle = "#ffd0a8";
+        ctx.fillRect(x + enemy.body.w / 2 - 1, enemy.body.y - 16, 2, 7);
+      }
     }
     ctx.fillStyle = enemy.flashMs > 0 ? "#ffd9d6" : "#8f3733";
     for (let i = 0; i < enemy.hp; i += 1) ctx.fillRect(x + i * 5, enemy.body.y - 7, 4, 3);
