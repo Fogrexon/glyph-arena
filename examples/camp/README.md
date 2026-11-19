@@ -1,5 +1,7 @@
 # Camp — one fight, three verbs, one queue
 
+**Play it:** [fogrexon.github.io/glyph-arena/camp/](https://fogrexon.github.io/glyph-arena/camp/)
+
 A side-on duel with two rooms. Walk right, meet a pair, clear them, walk twelve tiles, meet
 three under the rocks. The page is `/camp/`.
 
