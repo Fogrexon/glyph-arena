@@ -448,7 +448,10 @@ function drawHud(): void {
     ctx.fillRect(12 + i * 14, 26, 10, 10);
   }
   ctx.fillStyle = "#9aa5b8";
-  ctx.fillText(`${clockOf(simMs)}   passed ${passes}/${enemies.length}   killed ${kills}`, 12, 42);
+  // The run number, from the same counter the state publishes — a person counting their own
+  // retries is the measurement the numbers are waiting for, and a second counter would eventually
+  // disagree with the one the bot reads.
+  ctx.fillText(`${clockOf(simMs)}   run ${runs}   passed ${passes}/${enemies.length}   killed ${kills}`, 12, 42);
 
   if (phase === "play") {
     ctx.fillStyle = "#6b7688";
@@ -467,7 +470,7 @@ function drawHud(): void {
     ctx.fillStyle = "#9aa5b8";
     ctx.font = "12px ui-monospace, monospace";
     ctx.fillText(
-      `passed ${passes}/${enemies.length} · killed ${kills} · hits ${total} (${passing} from behind)`,
+      `run ${runs} · passed ${passes}/${enemies.length} · killed ${kills} · hits ${total} (${passing} from behind)`,
       VIEW_W / 2 - 170,
       VIEW_H / 2 - 6,
     );
