@@ -1,12 +1,13 @@
 /**
- * The HUD prints one number that is not a measurement of the game but of the player: **which run
- * this is**. Three people are about to play `/march/` and report where they died and how many times
- * they went again, and "how many times" is only usable if the screen says it.
+ * The HUD prints two numbers that are not measurements of the game but of the player: **which run
+ * this is**, and **where the last heart went**. Three people are about to play `/march/` and report
+ * where they died and how many times they went again, and neither number is usable from memory.
  *
- * This is a source check, and it is one on purpose: the number is drawn on a canvas, so node cannot
- * read it back, and a screenshot-and-OCR gate would be a worse test than the thing it guards. What
- * can rot is the *source of the number* — a second counter next to the first, or a HUD that prints a
- * copy that stops moving. Both are text, and both are what this looks at.
+ * This is a source check, and it is one on purpose: the numbers are drawn on a canvas, so node cannot
+ * read them back, and a screenshot-and-OCR gate would be a worse test than the thing it guards. What
+ * can rot is the *source* of each number — a second counter next to the first, a HUD that prints a
+ * copy that stops moving, or a death position read from a body the knockback has already moved.
+ * All three are text, and all three are what this looks at.
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -54,4 +55,17 @@ test("the run number on screen is the one the state publishes", () => {
   // And the result screen names it too, so a player who just died can say which run it was.
   const hud = bodyOf("drawHud");
   assert.match(hud, /`run \$\{runs\} · passed/, "the result screen no longer names the run");
+});
+
+test("the result screen says where the fatal hit landed, from the hit record", () => {
+  // The number three people are about to read off the screen and report. It has to be the position
+  // of the *hit*, not of the body afterwards: the knockback moves the player before the result is
+  // drawn, so `player.x` at that moment is where the slide ended — a different x, and one that
+  // would quietly disagree with the `hits[].x` the bot logs.
+  const hud = bodyOf("drawHud");
+  const shown = /died at x \$\{Math\.round\(([^)]+)\)\}/.exec(hud);
+
+  assert.ok(shown, "the result screen no longer prints the death position");
+  assert.notEqual(shown[1], "player.x", `the death position is \`${shown[1]}\`, which the knockback has already moved`);
+  assert.match(hud, /hits\.(?:at\(-1\)|\[hits\.length - 1\])/, "the death position is not read from the last hit");
 });

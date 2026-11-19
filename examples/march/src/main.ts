@@ -474,7 +474,18 @@ function drawHud(): void {
       VIEW_W / 2 - 170,
       VIEW_H / 2 - 6,
     );
-    if (lastRunMs !== null) {
+    if (phase === "down") {
+      // **Where the last heart went, from the hit record.** Not from `player.x`: the knockback has
+      // already moved the body by the time this is drawn, so the current x is where the slide ended,
+      // not where the hit landed. Three people are about to report this number by reading it off
+      // the screen, and "died at x 1267" has to be the same x the bot logs in `hits[].x`.
+      const fatal = hits.at(-1);
+      if (fatal !== undefined) {
+        ctx.fillStyle = "#e8edf6";
+        ctx.font = "13px ui-monospace, monospace";
+        ctx.fillText(`died at x ${Math.round(fatal.x)}  —  R to go again`, VIEW_W / 2 - 150, VIEW_H / 2 + 18);
+      }
+    } else if (lastRunMs !== null) {
       ctx.fillText(`R to go again — last run ${clockOf(lastRunMs)}`, VIEW_W / 2 - 130, VIEW_H / 2 + 18);
     }
   }
