@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { ENEMY_AI, calledBy, stepToPost } from "../src/enemy.ts";
+import { TILE } from "../src/level.ts";
 import { PLAYER_RUN_PX_PER_SECOND } from "../src/sizes.ts";
 
 const STEP_MS = 1000 / 60;
@@ -80,5 +81,22 @@ test("a called guard commits from past his own reach, so the body lands in the r
   assert.ok(
     ENEMY_AI.alertRangePx - commitPx < ENEMY_AI.lungeRangePx,
     `a called guard stops ${ENEMY_AI.alertRangePx - commitPx} px short, which is further than the ${ENEMY_AI.lungeRangePx} px a guard normally holds — he would be lunging at nothing`,
+  );
+});
+
+test("a call is announced for a glance, not for the rest of the run", () => {
+  // The mark is a price, and a price nobody reads is not a price — but a cue that never stops is
+  // scenery. Both ends are derivable: a person needs longer than a simple reaction to notice a
+  // shape change, and the flash must not outlive the walk between beats, or the guard who shouted
+  // and the guard who heard him are announcing themselves as one thing.
+  const BEAT_WALK_TILES = 6;
+  const beatWalkMs = ((BEAT_WALK_TILES * TILE) / PLAYER_RUN_PX_PER_SECOND) * 1000;
+  assert.ok(
+    ENEMY_AI.alertFlashMs > 250,
+    `the call flashes for ${ENEMY_AI.alertFlashMs} ms, shorter than a person needs to notice it`,
+  );
+  assert.ok(
+    ENEMY_AI.alertFlashMs <= beatWalkMs,
+    `the call flashes for ${ENEMY_AI.alertFlashMs} ms, longer than the ${Math.round(beatWalkMs)} ms it takes to walk a beat`,
   );
 });
