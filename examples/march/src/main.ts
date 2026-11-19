@@ -19,6 +19,7 @@ import { createActions } from "@fogrexon/glyph-arena-actions";
 import { createBody, stepBody, type Body, type BodyConfig } from "@fogrexon/glyph-arena-body";
 import { createInput } from "@fogrexon/glyph-arena-input";
 import { createLoop } from "@fogrexon/glyph-arena-loop";
+import { createReset } from "@fogrexon/glyph-arena-reset";
 import { visibleColumns } from "@fogrexon/glyph-arena-tilemap";
 import { approach } from "@fogrexon/glyph-arena-tween";
 
@@ -161,11 +162,24 @@ const worldWidth = levelColumns() * TILE;
 const worldHeight = levelRows() * TILE;
 const GOAL_X = goalX();
 
-/** Put the road back to its first frame. Called on boot, and on every retry — never by reload. */
-function reset(): void {
+/**
+ * Every field that belongs to a run, registered next to the state it resets.
+ *
+ * CAMP hand-wrote this and the hand-written version forgot `dodge`: dying mid-roll started the next
+ * run still rolling and still invulnerable. The audit that found it is now the shape here — the
+ * resets are written where the fields are declared, and `scripts/march-reset.test.mjs` walks the
+ * module's `let`s and fails when one of them is not reset (`lastRunMs` and `runs` are the two that
+ * are deliberately kept, and the test names them). Boot and retry both call `run()`: two paths is
+ * how one of them goes stale.
+ */
+const reset = createReset();
+
+reset.add("player", () => {
   const spawn = spawnPoint();
   // Bodies are placed by their feet: the cell is where the body *stands*, not where it starts.
   player = createBody({ x: spawn.x + 6, y: spawn.y + TILE - PLAYER_SIZE.h, ...PLAYER_SIZE }, PLAYER_CONFIG);
+});
+reset.add("enemies", () => {
   enemies = enemySpawns().map((point) => ({
     body: createBody({ x: point.x + 6, y: point.y + TILE - ENEMY_SIZE.h, ...ENEMY_SIZE }, ENEMY_CONFIG),
     homeX: point.x + 6,
@@ -177,23 +191,54 @@ function reset(): void {
     facing: -1,
     passed: false,
   }));
+});
+reset.add("attack", () => {
   attack = { elapsedMs: -1, hasHit: false, facing: 1 };
+});
+reset.add("dodge", () => {
   dodge = { elapsedMs: -1, cooldownMs: 0, facing: 1 };
+});
+reset.add("facing", () => {
   facing = 1;
+});
+reset.add("phase", () => {
   phase = "play";
+});
+reset.add("hearts", () => {
   hearts = PLAYER_STATS.hearts;
+});
+reset.add("invulnerable", () => {
   invulnerableMs = 0;
+});
+reset.add("hitstop", () => {
   hitstopMs = 0;
+});
+reset.add("shake", () => {
   shakeMs = 0;
-  kills = 0;
-  passes = 0;
-  simMs = 0;
-  restartMs = 0;
-  lastCommitMs = -Infinity;
-  cameraX = 0;
+});
+reset.add("hits", () => {
   hits = [];
-}
-reset();
+});
+reset.add("killCount", () => {
+  kills = 0;
+});
+reset.add("passCount", () => {
+  passes = 0;
+});
+reset.add("clock", () => {
+  simMs = 0;
+});
+reset.add("restartTimer", () => {
+  restartMs = 0;
+});
+reset.add("commitClock", () => {
+  lastCommitMs = -Infinity;
+});
+reset.add("camera", () => {
+  cameraX = 0;
+});
+
+reset.run();
 
 function boxOf(body: Body) {
   return { left: body.x, top: body.y, right: body.x + body.w, bottom: body.y + body.h };
@@ -621,8 +666,10 @@ const loop = createLoop({
       restartMs += dt * 1000;
       const mashes = query.pressed("attack") || query.pressed("jump") || query.pressed("dodge");
       if (query.pressed("retry") || (restartMs >= RESTART_AFTER_MS && mashes)) {
+        // `runs` is the one field a run does not own: it counts the retries, so it is incremented
+        // outside the reset rather than reset with everything else.
         runs += 1;
-        reset();
+        reset.run();
       }
     }
 
