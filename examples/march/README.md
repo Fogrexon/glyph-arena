@@ -229,10 +229,33 @@ the tell retreating swings backwards and lands nothing (20 swings, 0 kills).
   through everything dies at the pairs (9 of 11), and **mixed clears in 34–47 s taking one or two
   hearts** against the careful 68–73 s untouched. Half the time for a heart is a choice; the road
   no longer has one best answer. What made the difference was not the pursuit — it was the shout
-  ahead (`alertRangePx`). The called guard now announces himself — a 600 ms flash, then a quiet
-  mark — but **whether a person reads it is still unmeasured**: the bot knows a guard was called
-  because the state says so, and three first-time players have not played this build. That is the
-  measurement that decides whether the cue is enough or the cost needs to be somewhere else.
+  ahead (`alertRangePx`).
+- **Three first-time players, and the answer is not the one the numbers predicted** (11-19, this
+  bundle, each in their own Pod). All three finished their minute at **`passed 0/11`** — not one of
+  them rolled through a body. 宣伝 died 7 times (`died at x` 851 ×5, 754 ×2, 22% of the road);
+  QA died 3 times (1148–1202); リリース mashed `J` and **cleared in 105 s without dying, one heart
+  gone**. So the decision the last two bullets were built around was **never reached by anyone**:
+  the cost system was dead code for every player who did not already know the verb, which was all
+  of them. What a first-timer meets instead is the pair at 768/864 — the one place mashing stops
+  working — and that is a wall, not a choice.
+- **The controls line never said what the roll does.** `A/D run · Space jump · J attack · Shift roll`
+  reads as two ways to hit things. It now has a second row: `Shift rolls through a body — the guard
+  you pass wakes the next one`. That sentence is the whole game, and it was not on the screen.
+- **`hits N (N from behind)` was a lie, and it was mine.** The number behind it is
+  `player.vx > 60` — *were you running at the goal when it landed* — and nothing in the run measures
+  which side a guard was on. Two first-time players read it as a fact about the guard and reported
+  the cause of death as "4 from behind"; so did I, twice, while tuning against it. On those runs
+  `passed 0/11`, so every guard was in front. The field is now `"running" | "standing"`, the HUD
+  prints `hits 4 (4 while running)`, and `test/readout.test.ts` fails if a label names a side again.
+  **The same rule as the harness `kicks` correction: the instrument may not name a thing it did not
+  measure.**
+- **A cue off screen is absent, not quiet.** QA went over the first guard on purpose: the pair woke
+  on cue, but standing at `x 406` they were 368 and 464 px to the right, which on the 640 px view
+  with the player at 42% is **637 px and 733 px** — one on the last column of pixels, one past it.
+  QA had to crop a screenshot to see the mark at all. An alerted guard whose body is off screen now
+  draws a 4 px cream bar on the edge he is off of (`edgeMarkFor`), so the price of going by is on
+  screen even when the guard is not. The body keeps its own mark when it is visible: two marks for
+  one guard would read as two guards.
 - **65–73 s is not a minute.** The careful crossing is honest but long. Cutting course length would
   cut the number of decisions, so the lever is `ENEMY_STATS.hp` — and the line to stop at is a
   person saying it feels unfair, not a bot taking fewer hits. The bot's numbers prove *there is a
