@@ -19,7 +19,9 @@ not rewritten here turns the gate red instead of the page quietly lying.
 1. Walk right. A guard holds his post: he does not come to you, and after a lunge he walks back to it.
    **Walk past him and he turns and follows** — at 330 px/s against your 300, so he gains 30 px/s and
    gets one commit before he is spent and goes home. **He also shouts ahead**: the next post wakes
-   and commits from further out, so going by is paid for at the guard you meet next, not here.
+   and commits from further out, so going by is paid for at the guard you meet next, not here. The
+   guard who heard it flashes for 600 ms — the price is announced before it is charged — and then
+   wears a quiet mark for the rest of the run.
 2. Inside 70 px he commits — a tell, then a lunge that crosses 138 px. **The tell is your window**:
    strike it early (cancels the lunge) or leave. The blade reaches 52 px past your body, which is the
    line he commits from, so the strike is a thing your hands can do from where you are standing.
@@ -60,6 +62,7 @@ through a body.
 | `ENEMY_AI.chaseSpeedPxPerSecond` | 330 | **passing is a loan.** A guard you walked past follows, 30 px/s faster than you run, while you are inside his sight — get 260 px away and he gives up. **One commit and he is spent**, so a guard can cost at most one heart in a run and eleven guards cannot become eleven hits. Slower than you and passing is free again; much faster and the road is a chase nobody survives. Measured 11-19: this is **not** what stops a runner — the roll hands die at the pairs first, and the hand that only walks never passes a body at all |
 | `ENEMY_AI.alertRangePx` | 190 | **the price of going by.** A guard who was *called* — woken by the one you passed — commits from here instead of 70. 190 clears his own 138 px commit by 52, so he is not aiming at where you stood: he lunges **into the road**, and you meet his body with the roll still cooling down. With the pursuit alone the mixed line cleared in 41–52 s **untouched** (measured 11-19), which is faster *and* safer than fighting and so not a choice; with the shout it clears in 34–47 s **taking a heart**. The number is the distance at which a body becomes an obstacle rather than a hit — further and he lunges at nothing |
 | `ENEMY_AI.callPartnerPx` | 130 | **a call wakes a pair, not a queue.** Posts closer than this wake together when one of them is called. The road's pairs stand 96 px apart (triples 64) and the next beat is 320–448 away, so this separates the two populations instead of tuning a difficulty: `scripts/march-readme.test.mjs` derives both edges from `level.ts` |
+| `ENEMY_AI.alertFlashMs` | 600 | **a price nobody reads is not a price.** The called guard wears a loud mark — wide bar and halo — for 600 ms, then the quiet one for the rest of the run. Both ends are derivable: longer than a simple reaction to a shape change, shorter than the 640 ms it takes to walk a beat (6 tiles at 300 px/s), so the cue belongs to the guard who shouted rather than to the road |
 | `ENEMY_AI.returnPxPerSecond` | 300 | **a commit is a step out, not a move.** The lunge carries the body 138 px; without this the body kept it, and holding right at the first guard walked the post 454 → 329 → 204 → 79 and killed the walker at the spawn wall in 4.2 s without a decision. At your own 300 px/s the walk home cannot be chased down, so the window after the lunge is still the window |
 | `ENEMY_STATS.hp` | 3 | three swings per guard, played eleven times, lands the careful crossing inside a minute. Four is 44 swings and 84.5 s (measured); three is 33 swings and 74.3 s, with no timing changed |
 | `ENEMY_STATS.contactDamage` | 1 | one heart, once per 900 ms of invulnerability — and **only while the body is being pushed into**, see below |
@@ -226,9 +229,10 @@ the tell retreating swings backwards and lands nothing (20 swings, 0 kills).
   through everything dies at the pairs (9 of 11), and **mixed clears in 34–47 s taking one or two
   hearts** against the careful 68–73 s untouched. Half the time for a heart is a choice; the road
   no longer has one best answer. What made the difference was not the pursuit — it was the shout
-  ahead (`alertRangePx`). **The next question is whether that price is legible to a person**: the
-  bot knows a guard was called because the state says so, and a player has to see it. The called
-  guard is drawn, but nobody has played this build yet.
+  ahead (`alertRangePx`). The called guard now announces himself — a 600 ms flash, then a quiet
+  mark — but **whether a person reads it is still unmeasured**: the bot knows a guard was called
+  because the state says so, and three first-time players have not played this build. That is the
+  measurement that decides whether the cue is enough or the cost needs to be somewhere else.
 - **65–73 s is not a minute.** The careful crossing is honest but long. Cutting course length would
   cut the number of decisions, so the lever is `ENEMY_STATS.hp` — and the line to stop at is a
   person saying it feels unfair, not a bot taking fewer hits. The bot's numbers prove *there is a
@@ -237,6 +241,11 @@ the tell retreating swings backwards and lands nothing (20 swings, 0 kills).
 - **The pairs are the only thing that makes the roll unsafe.** Every guard is the same body; the
   beats differ in count. A second guard type is the obvious next content, and it is also the thing
   that would make "roll the singles" a worse rule than it is.
+- **The mixed line can deadlock behind a guard who is not coming.** Measured once on 11-19: a
+  regression run of `march mixed` sat at `x 2526` for the full two minutes with one heart taken, not
+  moving — the body pushed into a guard that never committed, and the road has no verb for "walk
+  around". It is a *player cannot progress* bug, not a tuning question, so it is filed in the
+  backlog rather than patched here. **This is the next unit**: a stall is worse than a hard fight.
 - **The road is flat.** No pits, no steps. Terrain is the next thing a road can use and none of it
   is here.
 - **No sound.** The hit has hitstop and shake; it has no noise.
