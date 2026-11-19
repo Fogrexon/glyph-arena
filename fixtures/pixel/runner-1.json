@@ -1,0 +1,29 @@
+{
+  "scene": "runner-1",
+  "environment": {
+    "chromium": "157.0.8103.78",
+    "platform": "linux",
+    "viewport": "900x540",
+    "deviceScaleFactor": 1,
+    "font": 201.373046875
+  },
+  "sampleFrames": [
+    60,
+    120,
+    180
+  ],
+  "samples": [
+    {
+      "frame": 60,
+      "sha256": "37f3ca1d909886bf2e44385d59403a7bc64fd428fa3f04a856343dfd1df35e8b"
+    },
+    {
+      "frame": 120,
+      "sha256": "eb4de4b3375266710687f857c1ccee92d765a143db1f97bfa3e06c4a81a3b29b"
+    },
+    {
+      "frame": 180,
+      "sha256": "004af59c728f0e12e0d4c07a169408c76b34916ec8a3120cf1fad828a5a8ab4b"
+    }
+  ]
+}
