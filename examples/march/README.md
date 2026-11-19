@@ -17,6 +17,8 @@ not rewritten here turns the gate red instead of the page quietly lying.
 ## The loop
 
 1. Walk right. A guard holds his post: he does not come to you, and after a lunge he walks back to it.
+   **Walk past him and he turns and follows** — at 330 px/s against your 300, so he gains 30 px/s and
+   gets one commit before he is spent and goes home.
 2. Inside 70 px he commits — a tell, then a lunge that crosses 138 px. **The tell is your window**:
    strike it early (cancels the lunge) or leave. The blade reaches 52 px past your body, which is the
    line he commits from, so the strike is a thing your hands can do from where you are standing.
@@ -48,6 +50,7 @@ nobody takes. The level says the rule instead of a tutorial: **under rock you fi
 | `ENEMY_AI.lungeSpeedPxPerSecond` | 460 | 300 ms at 460 px/s = the 138 px the tell promises |
 | `ENEMY_AI.restMs` | 450 | must outlast the answer it asks for: the swing is 300 ms and a late start leaves the recovery out when the next tell begins. **A floor, not a dial** — CAMP measured 380 as 0/6 clears |
 | `ENEMY_AI.commitSpacingMs` | 300 | **no two commits inside this window.** The unfair thing was the queue, not the body: with three, the gap between lunges was min 116 ms, shorter than the roll's 180 ms lockout, so no verb could answer the second one |
+| `ENEMY_AI.chaseSpeedPxPerSecond` | 330 | **passing is a loan.** A guard you walked past follows, 30 px/s faster than you run, while you are inside his sight — get 260 px away and he gives up. **One commit and he is spent**, so a guard can cost at most one heart in a run and eleven guards cannot become eleven hits. Slower than you and passing is free again (measured 11-19: run-only cleared in 15.0 s against the careful 28.5 s, which is why this exists); much faster and the road is a chase nobody survives |
 | `ENEMY_AI.returnPxPerSecond` | 300 | **a commit is a step out, not a move.** The lunge carries the body 138 px; without this the body kept it, and holding right at the first guard walked the post 454 → 329 → 204 → 79 and killed the walker at the spawn wall in 4.2 s without a decision. At your own 300 px/s the walk home cannot be chased down, so the window after the lunge is still the window |
 | `ENEMY_STATS.hp` | 3 | three swings per guard, played eleven times, lands the careful crossing inside a minute. Four is 44 swings and 84.5 s (measured); three is 33 swings and 74.3 s, with no timing changed |
 | `ENEMY_STATS.contactDamage` | 1 | one heart, once per 900 ms of invulnerability — and **only while the body is being pushed into**, see below |
@@ -86,6 +89,14 @@ dropped input: the blade was on screen for 150 ms of a 300 ms swing and then not
 leaves the same box in the same place as the blade's window closes, grey and fading for 130 ms — the picture says *the blade went
 there and he was not in it*, which is the only way a player learns a distance. `whiff` is published
 with the rest of the state so a harness can tell a miss from a key the game never saw.
+
+**Passing is a loan, not a free pass.** A guard you walked past used to keep his post and let you
+go: the road behind you was empty, so the fast line was faster *and* safer and there was nothing to
+choose. He now turns and follows, and his one commit is what you pay with: a roll, or a heart. In a
+7.4 s run that rolled through nine guards, **eight of them chased and committed at the player's
+back** (`spent: 8` in `__marchState`); the player answered each with a roll, which is the point —
+the roll becomes a resource you cannot spend twice in 420 ms. A guard who is coming is drawn with an
+outline, because a thing that follows you has to be visible as one.
 
 **The guard's post does not move, only his body does.** The rule above — he does not come to you —
 was half true: the lunge carried him 138 px toward you and nothing carried him back, so the road
@@ -161,6 +172,14 @@ the tell retreating swings backwards and lands nothing (20 swings, 0 kills).
 
 ## What is still open
 
+- **The pass line is still not measurable, and the reason is not the pursuit.** The line to prove is
+  "you can clear by running, but not untouched". Every run line this repository can measure dies at
+  the **pairs** first — `bold` (roll through everything) and a run-and-roll probe both went down at
+  `x 2226`, 9/11, in 7.4–7.8 s, before the pursuit had time to cost a heart. A 15.0 s clear by
+  running was reported on 11-19 and does not reproduce with either line here, so **the fast line
+  needs a strategy of its own in `scripts/play-bot.mjs`** before that sentence can be checked. Until
+  then the honest statement is: the pursuit is in and visible (eight chasers in one run), and the
+  pairs are what stops a runner, not the guards behind him.
 - **66–74 s is not a minute.** The careful crossing is honest but long. Cutting course length would
   cut the number of decisions, so the lever is `ENEMY_STATS.hp` — and the line to stop at is a
   person saying it feels unfair, not a bot taking fewer hits. The bot's numbers prove *there is a

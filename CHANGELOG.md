@@ -6,6 +6,26 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+### Changed
+
+- **MARCH: a guard you walked past turns and follows — passing is a loan, not a free pass.** With the
+  guard holding his post the road behind you was empty, so the fast line was faster *and* safer:
+  measured on 11-19 by three players, 15.0 s to clear by running against 28.5 s by fighting, which is
+  not a choice. A passed guard now follows at `ENEMY_AI.chaseSpeedPxPerSecond` (330) — 30 px/s faster
+  than `PLAYER_RUN_PX_PER_SECOND` (300) — while you are inside his sight, **gets exactly one commit**,
+  and then walks home spent. So a guard can cost at most one heart in a run, and eleven guards cannot
+  become eleven hits. He is drawn with an outline while he is coming, because a thing that follows you
+  has to be visible as one, and `spent` is published with the rest of the state.
+  Measured on the same build, three runs each: careful **clear 11/11, 66.4–72.8 s, 0 hits** (the fight
+  line is untouched — a guard you kill never follows), bold **down at 9/11, 7.76–7.81 s, 4 hits** at
+  the same four places, and a run-and-roll probe that passed nine guards had **eight of them chase and
+  commit at its back** (`spent: 8`) — answered with rolls, which is what the roll budget is for.
+  **The pass line is still not proven, and the blocker is not the pursuit**: every run line this
+  repository can measure dies at the **pairs** first (9/11, 7.4–7.8 s) before the pursuit has time to
+  cost a heart. The reported 15.0 s clear by running does not reproduce with `bold` or with that
+  probe, so the fast line needs a strategy of its own in `scripts/play-bot.mjs` before "clear by
+  running, but not untouched" can be checked. That is the next measurement, not this change.
+
 ### Fixed
 
 - **MARCH: the blade now reaches the line the guard commits from, and a swing that hits nothing is
