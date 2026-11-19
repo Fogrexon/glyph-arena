@@ -39,7 +39,7 @@ import {
   type Attack,
   type Dodge,
 } from "./combat";
-import { ENEMY_AI, canCommit, canInterrupt, stepToPost, type EnemyMode } from "./enemy";
+import { ENEMY_AI, canCommit, canInterrupt, stepToPost, type EnemyMode, calledBy } from "./enemy";
 import { PLAYER_RUN_PX_PER_SECOND } from "./sizes";
 import {
   TILE,
@@ -138,6 +138,8 @@ type Enemy = {
   passed: boolean;
   /** A passed guard gets exactly one commit at your back; after it he is spent and walks home. */
   spent: boolean;
+  /** Was this one woken by a guard who was passed? He commits from `alertRangePx`, not `lungeRangePx`. */
+  alert: boolean;
 };
 
 let player: Body = createBody({ x: 0, y: 0, ...PLAYER_SIZE }, PLAYER_CONFIG);
@@ -198,6 +200,7 @@ reset.add("enemies", () => {
     facing: -1,
     passed: false,
     spent: false,
+    alert: false,
   }));
 });
 reset.add("attack", () => {
@@ -361,8 +364,10 @@ function stepWorld(dt: number, dtMs: number, moveLeft: boolean, moveRight: boole
       enemy.body.vx = 0;
       stepBody(enemy.body, {}, dt, solidAt, { grid: TILE });
       const atPost = Math.abs(enemy.body.x - enemy.homeX) < 0.5;
-      const inRange =
-        (pursuing || atPost) && chasing && Math.abs(distance) <= ENEMY_AI.lungeRangePx && enemy.body.grounded;
+      // A guard who was called by the one you passed does not wait for you to come to him: he
+      // commits from out past his own reach, so the body lands in the road you are running down.
+      const trigger = enemy.alert ? ENEMY_AI.alertRangePx : ENEMY_AI.lungeRangePx;
+      const inRange = (pursuing || atPost) && chasing && Math.abs(distance) <= trigger && enemy.body.grounded;
       if (inRange && canCommit(simMs, lastCommitMs)) {
         enemy.mode = "windup";
         enemy.modeMs = 0;
@@ -472,6 +477,13 @@ function stepWorld(dt: number, dtMs: number, moveLeft: boolean, moveRight: boole
     if (player.x > enemy.body.x + enemy.body.w) {
       enemy.passed = true;
       passes += 1;
+      // He shouts ahead. The next post wakes, and so does anyone close enough to be that guard's
+      // partner — the cost of going by is the encounter you arrive at, not a heart taken on the way.
+      const posts = enemies.map((each) => each.homeX);
+      const called = calledBy(posts, enemy.homeX, ENEMY_AI.callPartnerPx);
+      for (const other of enemies) {
+        if (other.alive && !other.passed && called.includes(other.homeX)) other.alert = true;
+      }
     }
   }
 
@@ -607,6 +619,14 @@ function draw(): void {
       ctx.lineWidth = 2;
       ctx.strokeRect(x - 3, enemy.body.y - 3, enemy.body.w + 6, enemy.body.h + 6);
     }
+    if (enemy.alert && !enemy.passed) {
+      // A called guard is the price of the guard you just went by, and a price has to be visible
+      // before it is paid: he commits from 190 px, further out than a guard you walked up to, so
+      // the cue is a mark that says *this one is already awake* rather than a colour that says
+      // *this one is about to commit* — the tell is still the tell.
+      ctx.fillStyle = "#ffd0a8";
+      ctx.fillRect(x + enemy.body.w / 2 - 1, enemy.body.y - 16, 2, 7);
+    }
     ctx.fillStyle = enemy.flashMs > 0 ? "#ffd9d6" : "#8f3733";
     for (let i = 0; i < enemy.hp; i += 1) ctx.fillRect(x + i * 5, enemy.body.y - 7, 4, 3);
   }
@@ -662,7 +682,7 @@ type MarchState = {
   runs: number;
   lastRunMs: number | null;
   hits: Hit[];
-  enemies: Array<{ x: number; y: number; hp: number; alive: boolean; mode: string; modeMs: number; passed: boolean; spent: boolean }>;
+  enemies: Array<{ x: number; y: number; hp: number; alive: boolean; mode: string; modeMs: number; passed: boolean; spent: boolean; alert: boolean }>;
 };
 
 function publish(): void {
@@ -699,6 +719,7 @@ function publish(): void {
       modeMs: Math.round(each.modeMs),
       passed: each.passed,
       spent: each.spent,
+      alert: each.alert,
     })),
   };
 }
