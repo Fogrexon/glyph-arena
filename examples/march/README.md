@@ -151,10 +151,11 @@ with no hits, and no hand that goes by ends the road.
 | bold (roll when a body is 22 px away) | **down at 9/11, 6 of 6 runs** | 7.76–7.83 s | 0 | 4, **all four while running at the goal** |
 | rush (run, roll on every cooldown) | **down at 8/11, 3 of 3 runs** | 7.28–7.31 s | 0 | 4, same reason |
 | run (walk, never roll) | **down at 0/11, 3 of 3 runs** | 4.60–4.62 s | 0 | 4, **all on the first guard** |
+| mixed (roll the singles, fight the pairs) | **clear 11/11, 3 of 3 runs** | 41.0–51.9 s | 4 | **0** |
 
 The counts differ because the hands are not the same age: `careful` and `bold` are quoted over six
-runs each — the three from the pursuit change and the three from the run hand — on the **same build**
-(`index-BO-GvoxH.js`), while `rush` and `run` are the three runs that introduced them. The range is
+runs each — the three from the pursuit change and the three from the run hand — while `rush`, `run`
+and `mixed` are the three runs that introduced them. The range is
 still the point; six runs of the same build say more about the road than three do.
 
 **The two roll hands die in the same four places** (`x 851`, `1267`, `1843`, `2291` for `bold`;
@@ -164,6 +165,15 @@ already spent. `rush` spends the roll on every cooldown (32 rolls a run) and it 
 **the death is geometry, not timing.** "Roll through everything" is therefore not a plan; the plan is
 *roll the singles, fight the groups*, which is what a player finds. That is the decision the level is
 built to ask, and it is the reason the beats are grouped instead of evenly spaced.
+
+**And `mixed` is the row that says the choice still is not there.** The policy is one line — a guard
+whose **post** has nobody within 130 px is a roll, otherwise fight — and it clears in **41–52 s with
+no hits**, passing five guards and killing six. That is not "faster, and it costs something": it is
+faster *and* untouched, so `mixed` strictly dominates `careful` and the road has one best line, not
+two. Rolling past a guard still costs nothing a careful player would not pay: the chaser's one commit
+is answered by the same roll the crossing already used. The reading is geometric because the road is
+read from posts, not bodies — a guard mid-lunge is 138 px from his post, and a first version that
+measured bodies turned each pair into two singles for the length of the tell.
 
 **And `run` is the row that redefines the second way past.** It never swings and never rolls, so it
 is the honest version of "just run": it dies at the **first** guard in 4.6 s with 0 of 11 passed, on
@@ -178,33 +188,40 @@ E2E_CHROMIUM=/usr/bin/chromium pnpm march:bot march careful  --runs 3
 E2E_CHROMIUM=/usr/bin/chromium pnpm march:bot march bold     --runs 3
 E2E_CHROMIUM=/usr/bin/chromium pnpm march:bot march rush     --runs 3
 E2E_CHROMIUM=/usr/bin/chromium pnpm march:bot march run      --runs 3
+E2E_CHROMIUM=/usr/bin/chromium pnpm march:bot march mixed    --runs 3
 ```
 
-Four hands, because the fast line is two questions and one hand cannot answer both. `run` never
+Five hands, because the fast line is two questions and one hand cannot answer both. `run` never
 swings and never rolls, so it answers *does walking pass a body*; `rush` walks and spends the roll on
 every cooldown, so it answers *is the roll enough when it is always available*. `bold` rolls only
 when a body is 22 px away, so its death at the pairs could be a timing mistake; `rush` takes the
-timing out of the question. Each of them prints the phase, hearts, how many guards were passed and how
+timing out of the question. `mixed` is the policy a player converges on — roll a guard who is alone,
+fight a guard who is not — and it is the hand that decides whether a middle line exists at all. Each of them prints the phase, hearts, how many guards were passed and how
 many killed, the clock, the hits **with the mode each one landed in and whether it was taken while
 running at the goal**, the rolls and swings a hand actually spent, and `retry N frame(s)` — the number
 a one-minute game lives on. It exits 0 when every run ended either way and could be restarted in a
 frame; the win is a number, not an exit code.
 
-Measuring this exposed two bugs in the instrument rather than the game, both now fixed:
+Measuring this exposed three bugs — two in the instrument, one in the measurement's idea of the road.
+The third is published with the rest of the state: a guard's **post** (`homeX`) is what a plan is made
+against, because a body mid-lunge is 138 px from where he started, so "is this guard alone" read off
+bodies changes with the moment and read off posts it is a property of the road.
+
+Both instrument bugs are fixed:
 **a keydown released inside one frame is a press the game never samples** (a one-frame `R` looked
 like a 31-frame retry), and the player's **facing** had to be published, because a bot that spends
 the tell retreating swings backwards and lands nothing (20 swings, 0 kills).
 
 ## What is still open
 
-- **The pass line is now measured, and it fails — but not at the pursuit.** The line to prove is "you
-  can clear by running, but not untouched". Two hands answer it and both say no: walking dies at the
-  **first** guard (0 of 11 passed), and rolling as fast as it comes back still dies at the pairs
-  (8 of 11). The pursuit never gets to be the thing that costs a runner. So the fast road is not
-  "expensive", it is **unavailable**, and the only clear this page can measure is the careful one.
-  What to do about it is a design choice, not a bug fix: **open the pairs' spacing** (then running
-  clears and bleeds, and the line holds), or accept that "roll the singles, fight the groups" is the
-  fast line and measure *that* — a mixed hand, which no hand here does yet.
+- **The pass line is measured, and it still does not hold — the reason has moved.** Walking cannot
+  pass a body at all (0 of 11), and rolling through everything dies at the pairs (8 of 11), so the
+  pure fast line does not exist. But the **mixed** line does: roll the singles, fight the pairs,
+  clear in **41–52 s with no hits**. That is faster *and* untouched next to the careful 65–73 s, so
+  the road still has one best line rather than a choice between two. **What is missing is a cost for
+  going by**, not a way through: the chaser's single commit is answered by the roll the crossing
+  already spends. The next lever is the pursuit's bite (or a guard type that punishes the roll), not
+  the pairs' spacing — the pairs already make the middle line interesting to find.
 - **65–73 s is not a minute.** The careful crossing is honest but long. Cutting course length would
   cut the number of decisions, so the lever is `ENEMY_STATS.hp` — and the line to stop at is a
   person saying it feels unfair, not a bot taking fewer hits. The bot's numbers prove *there is a
