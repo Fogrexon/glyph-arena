@@ -18,7 +18,8 @@ not rewritten here turns the gate red instead of the page quietly lying.
 
 1. Walk right. A guard holds his post: he does not come to you, and after a lunge he walks back to it.
    **Walk past him and he turns and follows** — at 330 px/s against your 300, so he gains 30 px/s and
-   gets one commit before he is spent and goes home.
+   gets one commit before he is spent and goes home. **He also shouts ahead**: the next post wakes
+   and commits from further out, so going by is paid for at the guard you meet next, not here.
 2. Inside 70 px he commits — a tell, then a lunge that crosses 138 px. **The tell is your window**:
    strike it early (cancels the lunge) or leave. The blade reaches 52 px past your body, which is the
    line he commits from, so the strike is a thing your hands can do from where you are standing.
@@ -57,6 +58,8 @@ through a body.
 | `ENEMY_AI.restMs` | 450 | must outlast the answer it asks for: the swing is 300 ms and a late start leaves the recovery out when the next tell begins. **A floor, not a dial** — CAMP measured 380 as 0/6 clears |
 | `ENEMY_AI.commitSpacingMs` | 300 | **no two commits inside this window.** The unfair thing was the queue, not the body: with three, the gap between lunges was min 116 ms, shorter than the roll's 180 ms lockout, so no verb could answer the second one |
 | `ENEMY_AI.chaseSpeedPxPerSecond` | 330 | **passing is a loan.** A guard you walked past follows, 30 px/s faster than you run, while you are inside his sight — get 260 px away and he gives up. **One commit and he is spent**, so a guard can cost at most one heart in a run and eleven guards cannot become eleven hits. Slower than you and passing is free again; much faster and the road is a chase nobody survives. Measured 11-19: this is **not** what stops a runner — the roll hands die at the pairs first, and the hand that only walks never passes a body at all |
+| `ENEMY_AI.alertRangePx` | 190 | **the price of going by.** A guard who was *called* — woken by the one you passed — commits from here instead of 70. 190 clears his own 138 px commit by 52, so he is not aiming at where you stood: he lunges **into the road**, and you meet his body with the roll still cooling down. With the pursuit alone the mixed line cleared in 41–52 s **untouched** (measured 11-19), which is faster *and* safer than fighting and so not a choice; with the shout it clears in 34–47 s **taking a heart**. The number is the distance at which a body becomes an obstacle rather than a hit — further and he lunges at nothing |
+| `ENEMY_AI.callPartnerPx` | 130 | **a call wakes a pair, not a queue.** Posts closer than this wake together when one of them is called. The road's pairs stand 96 px apart (triples 64) and the next beat is 320–448 away, so this separates the two populations instead of tuning a difficulty: `scripts/march-readme.test.mjs` derives both edges from `level.ts` |
 | `ENEMY_AI.returnPxPerSecond` | 300 | **a commit is a step out, not a move.** The lunge carries the body 138 px; without this the body kept it, and holding right at the first guard walked the post 454 → 329 → 204 → 79 and killed the walker at the spawn wall in 4.2 s without a decision. At your own 300 px/s the walk home cannot be chased down, so the window after the lunge is still the window |
 | `ENEMY_STATS.hp` | 3 | three swings per guard, played eleven times, lands the careful crossing inside a minute. Four is 44 swings and 84.5 s (measured); three is 33 swings and 74.3 s, with no timing changed |
 | `ENEMY_STATS.contactDamage` | 1 | one heart, once per 900 ms of invulnerability — and **only while the body is being pushed into**, see below |
@@ -147,11 +150,11 @@ with no hits, and no hand that goes by ends the road.
 
 | bot | result | time | hearts left | hits taken |
 | --- | --- | --- | --- | --- |
-| careful (fight every guard) | **clear 11/11, 6 of 6 runs** | 65.0–72.8 s | 4 | **0** |
-| bold (roll when a body is 22 px away) | **down at 9/11, 6 of 6 runs** | 7.76–7.83 s | 0 | 4, **all four while running at the goal** |
-| rush (run, roll on every cooldown) | **down at 8/11, 3 of 3 runs** | 7.28–7.31 s | 0 | 4, same reason |
-| run (walk, never roll) | **down at 0/11, 3 of 3 runs** | 4.60–4.62 s | 0 | 4, **all on the first guard** |
-| mixed (roll the singles, fight the pairs) | **clear 11/11, 3 of 3 runs** | 41.0–51.9 s | 4 | **0** |
+| careful (fight every guard) | **clear 11/11, 3 of 3 runs** | 68.1–72.6 s | 4 | **0** |
+| bold (roll when a body is 22 px away) | **down at 9/11, 3 of 3 runs** | 8.70–8.73 s | 0 | 4, **all four while running at the goal** |
+| rush (run, roll on every cooldown) | **down at 7/11, 3 of 3 runs** | 6.58–6.62 s | 0 | 4, same reason |
+| run (walk, never roll) | **down at 0/11, 3 of 3 runs** | 4.58–4.62 s | 0 | 4, **all on the first guard** |
+| mixed (roll the singles, fight the pairs) | **clear 11/11, 3 of 3 runs** | 34.1–47.1 s | 2–3 | **1–2** |
 
 The counts differ because the hands are not the same age: `careful` and `bold` are quoted over six
 runs each — the three from the pursuit change and the three from the run hand — while `rush`, `run`
@@ -166,14 +169,19 @@ already spent. `rush` spends the roll on every cooldown (32 rolls a run) and it 
 *roll the singles, fight the groups*, which is what a player finds. That is the decision the level is
 built to ask, and it is the reason the beats are grouped instead of evenly spaced.
 
-**And `mixed` is the row that says the choice still is not there.** The policy is one line — a guard
-whose **post** has nobody within 130 px is a roll, otherwise fight — and it clears in **41–52 s with
-no hits**, passing five guards and killing six. That is not "faster, and it costs something": it is
-faster *and* untouched, so `mixed` strictly dominates `careful` and the road has one best line, not
-two. Rolling past a guard still costs nothing a careful player would not pay: the chaser's one commit
-is answered by the same roll the crossing already used. The reading is geometric because the road is
-read from posts, not bodies — a guard mid-lunge is 138 px from his post, and a first version that
-measured bodies turned each pair into two singles for the length of the tell.
+**`mixed` is the row the pass line finally lands on.** The policy is one line — a guard whose
+**post** has nobody within 130 px is a roll, otherwise fight — and it clears in **34–47 s taking one
+or two hearts**, passing five guards and killing six. Against the careful 68–73 s and no hits, that
+is the choice the road was built to ask: **half the time for a heart**, and no way to have both.
+
+**It did not start that way.** With the pursuit alone, `mixed` cleared in 41–52 s with **zero** hits
+— faster *and* untouched, so it strictly dominated the careful line and there was still one best
+answer. The chaser's single commit cost nothing, because it was answered by the same roll the
+crossing had already spent. What gives going by a price is that the guard you pass **shouts ahead**:
+the next post wakes and commits from 190 px instead of 70, so the body lands **in the road** — 52 px
+past his own 138 px reach — and you arrive at it with the roll still cooling down. That is why every
+hit in the table lands in `walk` at `x 1281`/`1291`/`2305`: the called guard's body, met while
+running. The reading is geometric because the road is read from posts, not bodies.
 
 **And `run` is the row that redefines the second way past.** It never swings and never rolls, so it
 is the honest version of "just run": it dies at the **first** guard in 4.6 s with 0 of 11 passed, on
@@ -214,14 +222,13 @@ the tell retreating swings backwards and lands nothing (20 swings, 0 kills).
 
 ## What is still open
 
-- **The pass line is measured, and it still does not hold — the reason has moved.** Walking cannot
-  pass a body at all (0 of 11), and rolling through everything dies at the pairs (8 of 11), so the
-  pure fast line does not exist. But the **mixed** line does: roll the singles, fight the pairs,
-  clear in **41–52 s with no hits**. That is faster *and* untouched next to the careful 65–73 s, so
-  the road still has one best line rather than a choice between two. **What is missing is a cost for
-  going by**, not a way through: the chaser's single commit is answered by the roll the crossing
-  already spends. The next lever is the pursuit's bite (or a guard type that punishes the roll), not
-  the pairs' spacing — the pairs already make the middle line interesting to find.
+- **The pass line holds, for the first time.** Walking cannot pass a body at all (0 of 11), rolling
+  through everything dies at the pairs (9 of 11), and **mixed clears in 34–47 s taking one or two
+  hearts** against the careful 68–73 s untouched. Half the time for a heart is a choice; the road
+  no longer has one best answer. What made the difference was not the pursuit — it was the shout
+  ahead (`alertRangePx`). **The next question is whether that price is legible to a person**: the
+  bot knows a guard was called because the state says so, and a player has to see it. The called
+  guard is drawn, but nobody has played this build yet.
 - **65–73 s is not a minute.** The careful crossing is honest but long. Cutting course length would
   cut the number of decisions, so the lever is `ENEMY_STATS.hp` — and the line to stop at is a
   person saying it feels unfair, not a bot taking fewer hits. The bot's numbers prove *there is a
