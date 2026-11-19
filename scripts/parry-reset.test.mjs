@@ -13,22 +13,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
+import { auditReset } from "./reset-audit.mjs";
+
 const ROOT = new URL("..", import.meta.url).pathname;
 const source = readFileSync(`${ROOT}examples/parry/src/main.ts`, "utf8");
-
-/** The slice's scope: `let`s at the top of `main()` (two spaces) and at module scope. */
-function runScopedState() {
-  return [...source.matchAll(/^( {0,2})let\s+(\w+)/gm)].map((match) => match[2]);
-}
-
-function resetRegion() {
-  const start = source.indexOf("const reset = createReset();");
-  assert.ok(start >= 0, "parry no longer registers its resets with createReset");
-  const rest = source.slice(start);
-  const next = /\n\s*function /.exec(rest);
-  assert.ok(next !== null, "the registrations are not followed by a function");
-  return rest.slice(0, next.index);
-}
 
 /**
  * What a run does not own, each with the reason it does not. A name here is a decision; a name
@@ -49,27 +37,11 @@ const KEPT = {
   touchDashHeld: "the DASH button's latch, which is input state",
 };
 
-test("every field a run owns is put back by the reset", () => {
-  const region = resetRegion();
-  const missed = [];
+const audit = auditReset(`${ROOT}examples/parry/src/main.ts`, KEPT);
 
-  for (const name of runScopedState()) {
-    if (name in KEPT) continue;
-    if (!new RegExp(`\\b${name}\\s*=`).test(region)) missed.push(name);
-  }
+test("every field a run owns is put back by the reset", () => audit.coversAll());
 
-  assert.deepEqual(missed, [], `the reset does not put back: ${missed.join(", ")}`);
-});
-
-test("the fields the reset keeps are the ones this file names, and they really are kept", () => {
-  const region = resetRegion();
-  const state = runScopedState();
-
-  for (const name of Object.keys(KEPT)) {
-    assert.ok(state.includes(name), `KEPT names \`${name}\`, which is not state this file declares`);
-    assert.doesNotMatch(region, new RegExp(`\\b${name}\\s*=`), `KEPT says \`${name}\` is kept, but the reset assigns it`);
-  }
-});
+test("the fields the reset keeps are the ones this file names, and they really are kept", () => audit.keepsKept());
 
 test("the two entry points into a run both go through the reset", () => {
   // `startPlay()` is the boot, the R key is the restart, and a phone's tap on the result screen is
