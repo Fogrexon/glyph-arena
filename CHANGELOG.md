@@ -8,6 +8,17 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Changed
 
+- **pickup's camera goes through `draw.setView`, not through six numbers.** Its four world drawers
+  each composed the camera matrix with the node's world matrix and then called
+  `ctx.setTransform(a, b, c, d, e, f)` — the tuple existed only to feed that call. `multiplyMatrices`
+  already returns a `Matrix2D`, which is what `setView` takes, so the tuple, `matrixToArgs` and
+  `composeViewAndWorld` are gone, and the four screen-space resets are `setView(null)`.
+  Measured on one build pair (900x540, same input, frames 60/120/180, a frame-pumped harness that waits
+  for the title's `ready` handshake): **0 px differ on all three frames**, the same three hashes, and
+  `__pickupState` identical. This migration changes which function writes the transform, not the
+  numbers. **Nothing was missing from `draw`** for it — pickup already drew its sprites through `draw`,
+  and `setView` accepted the camera's matrix as it was.
+
 - **MARCH: the called guard announces himself for 600 ms before the quiet mark.** A price nobody
   reads is not a price: a 2 x 7 px bar above a 20 x 44 px body is only visible to someone who
   already knows to look, so a guard woken by the one you passed now wears a wide mark and a halo for
