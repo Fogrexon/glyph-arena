@@ -39,7 +39,7 @@ import {
   type Attack,
   type Dodge,
 } from "./combat";
-import { ENEMY_AI, canCommit, canInterrupt, type EnemyMode } from "./enemy";
+import { ENEMY_AI, canCommit, canInterrupt, stepToPost, type EnemyMode } from "./enemy";
 import {
   TILE,
   currentMap,
@@ -329,9 +329,22 @@ function stepWorld(dt: number, dtMs: number, moveLeft: boolean, moveRight: boole
       // kill. It never lost a fight it could retreat from — it ran out of road. Standing still
       // bounds the retreat to one commit's length, keeps every fight where it started, and makes
       // "go past" a question about his body rather than about his legs.
+      //
+      // **Standing still was only half of it.** The lunge moves the body, and nothing moved it
+      // back: measured on 11-19 by holding right at the first guard, the post walked 454 → 329 →
+      // 204 → 79 and the player was killed at the spawn wall in 4.2 s having decided nothing — he
+      // was not losing the fight, he was losing the road, guard by guard. So the guard steps back
+      // to `homeX` and cannot commit until he is there: the thing he commits from is the thing the
+      // player planned against.
+      const back = stepToPost(enemy.body.x, enemy.homeX, ENEMY_AI.returnPxPerSecond, dt);
+      if (back !== enemy.body.x && !solidAt(back, enemy.body.y, back + enemy.body.w, enemy.body.y + enemy.body.h)) {
+        enemy.body.x = back;
+      }
       enemy.body.vx = 0;
       stepBody(enemy.body, {}, dt, solidAt, { grid: TILE });
-      const inRange = chasing && Math.abs(distance) <= ENEMY_AI.lungeRangePx && enemy.body.grounded;
+      const atPost = Math.abs(enemy.body.x - enemy.homeX) < 0.5;
+      const inRange =
+        atPost && chasing && Math.abs(distance) <= ENEMY_AI.lungeRangePx && enemy.body.grounded;
       if (inRange && canCommit(simMs, lastCommitMs)) {
         enemy.mode = "windup";
         enemy.modeMs = 0;

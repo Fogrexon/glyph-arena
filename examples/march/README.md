@@ -16,7 +16,7 @@ not rewritten here turns the gate red instead of the page quietly lying.
 
 ## The loop
 
-1. Walk right. A guard holds his post; he does not come to you.
+1. Walk right. A guard holds his post: he does not come to you, and after a lunge he walks back to it.
 2. Inside 70 px he commits — a tell, then a lunge that crosses 138 px. **The tell is your window**:
    strike it early (cancels the lunge) or leave.
 3. After the lunge he is open for 450 ms. That is when you swing.
@@ -47,6 +47,7 @@ nobody takes. The level says the rule instead of a tutorial: **under rock you fi
 | `ENEMY_AI.lungeSpeedPxPerSecond` | 460 | 300 ms at 460 px/s = the 138 px the tell promises |
 | `ENEMY_AI.restMs` | 450 | must outlast the answer it asks for: the swing is 300 ms and a late start leaves the recovery out when the next tell begins. **A floor, not a dial** — CAMP measured 380 as 0/6 clears |
 | `ENEMY_AI.commitSpacingMs` | 300 | **no two commits inside this window.** The unfair thing was the queue, not the body: with three, the gap between lunges was min 116 ms, shorter than the roll's 180 ms lockout, so no verb could answer the second one |
+| `ENEMY_AI.returnPxPerSecond` | 300 | **a commit is a step out, not a move.** The lunge carries the body 138 px; without this the body kept it, and holding right at the first guard walked the post 454 → 329 → 204 → 79 and killed the walker at the spawn wall in 4.2 s without a decision. At your own 300 px/s the walk home cannot be chased down, so the window after the lunge is still the window |
 | `ENEMY_STATS.hp` | 3 | three swings per guard, played eleven times, lands the careful crossing inside a minute. Four is 44 swings and 84.5 s (measured); three is 33 swings and 74.3 s, with no timing changed |
 | `ENEMY_STATS.contactDamage` | 1 | one heart, once per 900 ms of invulnerability — and **only while the body is being pushed into**, see below |
 | `PLAYER_STATS.hearts` | 4 | three passes and one mistake. Five survived CAMP because a room ends; a road charges per guard |
@@ -65,7 +66,7 @@ nobody takes. The level says the rule instead of a tutorial: **under rock you fi
 | `PLAYER_SIZE.h` | 28 | the body that has to fit under the roof |
 | `ENEMY_SIZE.h` | 44 | taller than the 36 px a body can rise under the rock, so the roof closes the jump |
 
-### The two rules that are not numbers
+### The three rules that are not numbers
 
 **A body is a wall, and only pushing into one costs a heart.** The player is pushed out of a guard
 in every frame except a roll; contact damages only while `vx` is toward the guard at over 60 px/s.
@@ -78,6 +79,15 @@ question is *can I get by*, not *may I stand next to you*.
 the last 40 ms being shoved back out of the guard, so no roll ever finished a crossing: measured, the
 fast bot spent two rolls per guard, was pushed back out of every one, and died on the tenth. The
 window is what stops damage; the roll is what stops the wall.
+
+**The guard's post does not move, only his body does.** The rule above — he does not come to you —
+was half true: the lunge carried him 138 px toward you and nothing carried him back, so the road
+under the fight was rewritten, guard by guard. Measured by holding right at the first guard (no
+attack, no roll): post 454 → 329 → 204 → 79, the walker's body pushed from 434 → 309 → 184 → 59, and
+dead at the spawn wall in 4.2 s having decided nothing. He had not lost a fight; he had lost the
+road. So a guard walks back to the post he committed from, and may not start a tell until he is
+standing on it — the thing he commits from is the thing you planned against, whether you plan to
+fight him there or to go by him.
 
 ## The road
 
@@ -98,10 +108,16 @@ that should not work.
 The line is **the careful play clears with no hits, and the fast play bleeds** — one strategy must
 not be free.
 
+Three runs each, on the build this page describes, quoted as a range. **The range is the point.** The
+first version of this table quoted one run — `clear, 0 hits, 74.3 s` — and the run it left out took a
+heart at `x 34` on the first guard. Chasing that hit is what found that a guard's post moved with
+every lunge (the third rule, above). A table written as a single number cannot tell a fix from a
+lucky run.
+
 | bot | result | time | hearts left | hits taken |
 | --- | --- | --- | --- | --- |
-| careful (fight every guard) | **clear 11/11** | 74.3 s | 4 | **0** |
-| bold (roll through every guard) | **down at 9/11** | 8.3 s | 0 | 4, **all four while running at the goal** |
+| careful (fight every guard) | **clear 11/11, 3 of 3 runs** | 61.8–66.5 s | 4 | **0** |
+| bold (roll through every guard) | **down at 9/11, 3 of 3 runs** | 7.77–7.81 s | 0 | 4, **all four while running at the goal** |
 
 **bold dies at the same four places on every run** (`x 851`, `1267`, `1843`, `2291`): the roll carries
 73 px and the pairs stand 96 px apart, so rolling past the first of a pair lands the body inside the
@@ -131,10 +147,11 @@ the tell retreating swings backwards and lands nothing (20 swings, 0 kills).
 
 ## What is still open
 
-- **74.3 s is not a minute.** The careful crossing is honest but long. Cutting course length would
+- **62–66 s is not a minute.** The careful crossing is honest but long. Cutting course length would
   cut the number of decisions, so the lever is `ENEMY_STATS.hp` — and the line to stop at is a
   person saying it feels unfair, not a bot taking fewer hits. The bot's numbers prove *there is a
-  choice*; they cannot prove *it is fun*.
+  choice*; they cannot prove *it is fun*. **Nobody has played this yet who can say which it is** —
+  three people's `died at x` is the next measurement, and it outranks every number on this page.
 - **The pairs are the only thing that makes the roll unsafe.** Every guard is the same body; the
   beats differ in count. A second guard type is the obvious next content, and it is also the thing
   that would make "roll the singles" a worse rule than it is.
