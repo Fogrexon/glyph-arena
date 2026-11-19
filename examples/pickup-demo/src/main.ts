@@ -8,6 +8,7 @@ import { createWorld, type Entity } from "@fogrexon/glyph-arena-ecs";
 import { createGamepad, type GamepadState } from "@fogrexon/glyph-arena-gamepad";
 import { createInput } from "@fogrexon/glyph-arena-input";
 import { createLoop } from "@fogrexon/glyph-arena-loop";
+import { createReset } from "@fogrexon/glyph-arena-reset";
 import { fitToWindow, measureCanvas, toCanvasPoint } from "@fogrexon/glyph-arena-screen";
 import { createForest, type Node } from "@fogrexon/glyph-arena-scene";
 import { createTimer } from "@fogrexon/glyph-arena-timer";
@@ -693,6 +694,51 @@ async function main(): Promise<void> {
   /** `scheduleSeconds` when the current round was armed; the hazard grace window is measured from here. */
   let roundStartedAt = 0;
 
+  /**
+   * What a **round** owns, registered next to the state it resets.
+   *
+   * There were two entry points into a round — `beginPlayFromTitle` and `restart` — and each wrote
+   * its own list of the same assignments. They had already drifted: the title path cleared `paused`
+   * and the restart path did not, and only the restart path cancelled a punch tween in flight. That
+   * is the shape CAMP lost `dodge` to, twice over. Both paths call `reset.run()` now.
+   *
+   * `armRoundTimer` is the last entry on purpose: it is the round's own start (it clears `failed`,
+   * `roundRemaining`, `roundStartedAt` and the last-clear line, then starts the clock), so it has to
+   * run after the fields it reads.
+   */
+  const reset = createReset();
+  reset.add("round", () => {
+    clearInvulnerability();
+    cancelPickupPunchTweens();
+    punchX = 0;
+    punchY = 0;
+    score = 0;
+    lives = INITIAL_LIVES;
+    cleared = false;
+    failed = false;
+    paused = false;
+    dashUntil = 0;
+    baseZoom = 1;
+    baseRotation = 0;
+    camera.set({ zoom: 1, rotation: 0 });
+  });
+  reset.add("clock", () => {
+    armRoundTimer();
+  });
+  reset.add("effects", () => {
+    // The title path never cleared these: a zoom tween left over from the last round would drive
+    // the first frame of the next one. The teardown in `restart()` clears them too; the reset is
+    // what makes clearing them the *same* act on both paths.
+    if (pickupZoomHandle !== null) {
+      tween.cancel(pickupZoomHandle);
+      pickupZoomHandle = null;
+    }
+    if (cameraZoomResetTimerHandle !== null) {
+      timer.cancel(cameraZoomResetTimerHandle);
+      cameraZoomResetTimerHandle = null;
+    }
+  });
+
   function cancelRoundTimer(): void {
     if (roundTimerHandle !== null) {
       timer.cancel(roundTimerHandle);
@@ -1107,9 +1153,6 @@ async function main(): Promise<void> {
       timer.cancel(cameraZoomResetTimerHandle);
       cameraZoomResetTimerHandle = null;
     }
-    cancelPickupPunchTweens();
-    punchX = 0;
-    punchY = 0;
 
     for (const fx of midFxGems) {
       world.despawn(fx.entity);
@@ -1170,14 +1213,7 @@ async function main(): Promise<void> {
     );
     transform.set(playerDrawable.node, { scaleX: 1, scaleY: 1, rotation: 0 });
 
-    score = 0;
-    lives = INITIAL_LIVES;
-    cleared = false;
-    dashUntil = 0;
-    baseZoom = 1;
-    baseRotation = 0;
-    camera.set({ zoom: 1, rotation: 0 });
-    armRoundTimer();
+    reset.run();
   }
 
   function destroyTitleSubtree(): void {
@@ -1204,19 +1240,9 @@ async function main(): Promise<void> {
 
   function beginPlayFromTitle(): void {
     destroyTitleSubtree();
-    paused = false;
-    cleared = false;
-    failed = false;
-    clearInvulnerability();
-    dashUntil = 0;
-    score = 0;
-    lives = INITIAL_LIVES;
-    baseZoom = 1;
-    baseRotation = 0;
-    camera.set({ zoom: 1, rotation: 0 });
     applyLayout(0);
     createPlaySubtree();
-    armRoundTimer();
+    reset.run();
     phase = "play";
   }
 
