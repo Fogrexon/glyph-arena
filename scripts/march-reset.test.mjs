@@ -11,22 +11,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
+import { auditReset } from "./reset-audit.mjs";
+
 const ROOT = new URL("..", import.meta.url).pathname;
 const source = readFileSync(`${ROOT}examples/march/src/main.ts`, "utf8");
-
-/** The fields a run owns: module-scope `let`s. A `const` cannot go stale. */
-function runScopedState() {
-  return [...source.matchAll(/^let\s+(\w+)/gm)].map((match) => match[1]);
-}
-
-/** Everything between `createReset()` and the first `reset.run()` — the registrations. */
-function resetRegion() {
-  const start = source.indexOf("const reset = createReset();");
-  assert.ok(start >= 0, "main.ts no longer registers its resets with createReset");
-  const end = source.indexOf("reset.run();", start);
-  assert.ok(end > start, "no `reset.run()` after the registrations");
-  return source.slice(start, end);
-}
 
 /**
  * The two fields a run does not own. Each one has to be written here with its reason, so making a
@@ -37,29 +25,11 @@ const KEPT = {
   runs: "counts the retries, so it is incremented outside the reset",
 };
 
-test("every field a run owns is put back by the reset", () => {
-  const region = resetRegion();
-  const missed = [];
+const audit = auditReset(`${ROOT}examples/march/src/main.ts`, KEPT);
 
-  for (const name of runScopedState()) {
-    if (name in KEPT) continue;
-    if (!new RegExp(`\\b${name}\\s*=`).test(region)) missed.push(name);
-  }
+test("every field a run owns is put back by the reset", () => audit.coversAll());
 
-  assert.deepEqual(missed, [], `the reset does not put back: ${missed.join(", ")}`);
-});
-
-test("the fields the reset keeps are the ones this file names, and they really are kept", () => {
-  const region = resetRegion();
-  const state = runScopedState();
-
-  for (const name of Object.keys(KEPT)) {
-    assert.ok(state.includes(name), `KEPT names \`${name}\`, which is not module-scope state`);
-    // Both directions: a name that is kept by exception and then also reset is an exception that
-    // stopped being true, and it hides the next one.
-    assert.doesNotMatch(region, new RegExp(`\\b${name}\\s*=`), `KEPT says \`${name}\` is kept, but the reset assigns it`);
-  }
-});
+test("the fields the reset keeps are the ones this file names, and they really are kept", () => audit.keepsKept());
 
 test("boot and retry are the same path", () => {
   // Two paths is how one of them goes stale — the package's own docs say so. Boot calls `run()`
