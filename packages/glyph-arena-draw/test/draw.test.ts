@@ -240,6 +240,7 @@ describe("createDraw", () => {
       "Draw",
       "DrawContext",
       "MeasureTextOptions",
+      "Projection",
       "RectOptions",
       "SpriteOptions",
       "TextMetricsSize",
