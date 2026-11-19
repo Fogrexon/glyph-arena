@@ -386,12 +386,15 @@ function stepWorld(dt: number, dtMs: number, moveLeft: boolean, moveRight: boole
   }
 
   if (attack.elapsedMs >= 0) {
-    const wasSwinging = attack.elapsedMs >= 0;
+    const phaseBefore = attackPhase(attack.elapsedMs);
     stepAttack(attack, dtMs);
-    // A swing that ends without landing is drawn for a moment, in the place it went: without it,
-    // "I pressed the key and nothing happened" is indistinguishable from a dropped input. A
-    // first-time player (11-19) learned nothing from their first swings because of exactly that.
-    if (wasSwinging && attack.elapsedMs < 0 && !attack.hasHit) {
+    const phaseAfter = attackPhase(attack.elapsedMs);
+    // **A swing that lands nothing is drawn as the blade leaves the picture**, not when the whole
+    // 300 ms is over. A miss is a fact about the active window, and a cue that arrives after the
+    // recovery has already ended is a cue about the wrong moment — measured on the deployed page:
+    // 90 ms after the press the blade was out and nothing was shown, and the miss did not appear
+    // until the swing had finished.
+    if (phaseBefore === "active" && phaseAfter !== "active" && !attack.hasHit) {
       whiffMs = WHIFF_MS;
     }
     if (attackPhase(attack.elapsedMs) === "active" && !attack.hasHit) {
