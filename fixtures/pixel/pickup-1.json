@@ -1,0 +1,29 @@
+{
+  "scene": "pickup-1",
+  "environment": {
+    "chromium": "157.0.8103.78",
+    "platform": "linux",
+    "viewport": "900x540",
+    "deviceScaleFactor": 1,
+    "font": 201.373046875
+  },
+  "sampleFrames": [
+    60,
+    120,
+    180
+  ],
+  "samples": [
+    {
+      "frame": 60,
+      "sha256": "af388b6e95596cac5ab5751d0c883b90c346261bf9335df44c143894eb9b9275"
+    },
+    {
+      "frame": 120,
+      "sha256": "9e552532102944f0c350b48642f7aa9a0c864625084440a64b4cfebd8603d0ec"
+    },
+    {
+      "frame": 180,
+      "sha256": "4ce79ea34ca683c8cb557e8271f756974a4ead535ca5528988f1e67850d7e5ef"
+    }
+  ]
+}
