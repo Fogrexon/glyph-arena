@@ -53,6 +53,7 @@ import {
   spawnPoint,
 } from "./level";
 import { ENEMY_SIZE, PLAYER_SIZE } from "./sizes";
+import { causeOf, controlsLines, edgeMarkFor, hitsLine, type HitCause } from "./readout";
 
 const VIEW_W = 640;
 const VIEW_H = 360;
@@ -120,10 +121,8 @@ actions.bind("retry", ["KeyR", "Enter"]);
 
 type Phase = "play" | "clear" | "down";
 
-/** How a heart was lost. The one number this game exists to produce. */
-type Cause = "passing" | "fighting";
-
-type Hit = { atMs: number; x: number; cause: Cause; mode: EnemyMode };
+/** How a heart was lost. The one number this game exists to produce. See `readout.ts`. */
+type Hit = { atMs: number; x: number; cause: HitCause; mode: EnemyMode };
 
 type Enemy = {
   body: Body;
@@ -295,13 +294,13 @@ function hitEnemy(enemy: Enemy, from: 1 | -1): void {
  */
 function hurtPlayer(enemy: Enemy): void {
   // Which way were you going when it landed? Read before the knockback, which overwrites `vx`.
-  const goingBy = player.vx > 60;
+  const cause = causeOf(player.vx);
   hearts -= ENEMY_STATS.contactDamage;
   invulnerableMs = PLAYER_STATS.invulnerableMs;
   player.vx = player.x + player.w / 2 < enemy.body.x + enemy.body.w / 2 ? -PLAYER_STATS.contactKnockback : PLAYER_STATS.contactKnockback;
   hitstopMs = ATTACK.hitstopMs;
   shakeMs = 160;
-  hits.push({ atMs: Math.round(simMs), x: Math.round(player.x), cause: goingBy ? "passing" : "fighting", mode: enemy.mode });
+  hits.push({ atMs: Math.round(simMs), x: Math.round(player.x), cause, mode: enemy.mode });
   if (hearts <= 0) {
     hearts = 0;
     endRun("down");
@@ -562,11 +561,16 @@ function drawHud(): void {
 
   if (phase === "play") {
     ctx.fillStyle = "#6b7688";
-    ctx.fillText("A/D run · Space jump · J attack · Shift roll · touching a body hurts", 12, VIEW_H - 22);
+    // Two rows, and the second one is the verb three first-time players never found. See
+    // `controlsLines` for the measurement.
+    const [keysLine, verbLine] = controlsLines();
+    ctx.fillText(keysLine, 12, VIEW_H - 34);
+    ctx.fillStyle = "#8b93a3";
+    ctx.fillText(verbLine, 12, VIEW_H - 18);
   }
   if (phase === "clear" || phase === "down") {
     const total = hits.length;
-    const passing = hits.filter((hit) => hit.cause === "passing").length;
+    const running = hits.filter((hit) => hit.cause === "running").length;
     ctx.fillStyle = phase === "clear" ? "#7ace9a" : "#e0574f";
     ctx.font = "16px ui-monospace, monospace";
     ctx.fillText(
@@ -577,8 +581,8 @@ function drawHud(): void {
     ctx.fillStyle = "#9aa5b8";
     ctx.font = "12px ui-monospace, monospace";
     ctx.fillText(
-      `run ${runs} · passed ${passes}/${enemies.length} · killed ${kills} · hits ${total} (${passing} from behind)`,
-      VIEW_W / 2 - 170,
+      `run ${runs} · passed ${passes}/${enemies.length} · killed ${kills} · ${hitsLine(total, running)}`,
+      VIEW_W / 2 - 190,
       VIEW_H / 2 - 6,
     );
     if (phase === "down") {
@@ -645,6 +649,16 @@ function draw(): void {
       } else {
         ctx.fillStyle = "#ffd0a8";
         ctx.fillRect(x + enemy.body.w / 2 - 1, enemy.body.y - 16, 2, 7);
+      }
+      // **And if the body is not on screen, the mark is on the edge instead.** A guard woken by a
+      // pass sits up to 130 px past the guard you went by, and the camera puts you at 42% of a
+      // 640 px view, so he lands at 637 px — the last column, or past it. Measured by QA (11-19):
+      // woken at 774 and 870 while standing at x 406, i.e. 368 and 464 px to the right, and neither
+      // mark was readable without cropping a screenshot. A cue off screen is absent, not quiet.
+      const edge = edgeMarkFor(x, enemy.body.w, enemy.body.y, enemy.body.h, VIEW_W);
+      if (edge !== null) {
+        ctx.fillStyle = "#ffe2c4";
+        ctx.fillRect(edge.x, edge.y, edge.w, edge.h);
       }
     }
     ctx.fillStyle = enemy.flashMs > 0 ? "#ffd9d6" : "#8f3733";
