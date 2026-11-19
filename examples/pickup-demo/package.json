@@ -25,6 +25,7 @@
     "@fogrexon/glyph-arena-gamepad": "workspace:*",
     "@fogrexon/glyph-arena-input": "workspace:*",
     "@fogrexon/glyph-arena-loop": "workspace:*",
+    "@fogrexon/glyph-arena-reset": "workspace:*",
     "@fogrexon/glyph-arena-scene": "workspace:*",
     "@fogrexon/glyph-arena-screen": "workspace:*",
     "@fogrexon/glyph-arena-timer": "workspace:*",
