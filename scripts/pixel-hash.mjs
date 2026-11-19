@@ -32,7 +32,7 @@
  * Usage:
  *   pnpm e2e:pixel                  # every scene, against fixtures/pixel/<scene>.json
  *   pnpm e2e:pixel --write          # replace the goldens with what this run measured
- *   pnpm e2e:pixel --scene runner-1 # one scene only (a red that names one cause)
+ *   pnpm e2e:pixel --scene pickup-1 # one scene only (a red that names one cause)
  *   E2E_CHROMIUM=/usr/bin/chromium pnpm e2e:pixel     # a browser outside the packaged one
  *   E2E_CHANNEL=chrome pnpm e2e:pixel                 # CI: the runner's preinstalled Chrome
  */
@@ -107,6 +107,31 @@ export const SCENES = {
     deviceScaleFactor: 1,
     sampleFrames: [60, 120, 180],
     inputs: RUNNER_INPUTS,
+  },
+  /**
+   * pickup starts on a title screen that refuses the start key until its images have decoded, and
+   * images decode on the real event loop while this gate has replaced `requestAnimationFrame`. So
+   * the scene declares a `ready` predicate: the gate advances one frame at a time and lets the loop
+   * breathe until the page says it is ready, and every frame number below is counted **from there**.
+   * Without it the scene would press Space into a screen that ignores it and photograph the title.
+   *
+   * The run is 3 seconds of right + up: the camera follows the player, which is the thing a
+   * projection change moves.
+   */
+  "pickup-1": {
+    kind: "pickup-demo",
+    dist: "examples/pickup-demo/dist",
+    viewport: { width: 900, height: 540 },
+    deviceScaleFactor: 1,
+    sampleFrames: [60, 120, 180],
+    ready: () => window.__pickupState?.ready === true,
+    inputs: [
+      { frame: 6, key: "Space", action: "down" },
+      { frame: 9, key: "Space", action: "up" },
+      { frame: 20, key: "ArrowRight", action: "down" },
+      { frame: 70, key: "ArrowUp", action: "down" },
+      { frame: 110, key: "ArrowUp", action: "up" },
+    ],
   },
 };
 
@@ -267,6 +292,26 @@ function launchOptions() {
 }
 
 /**
+ * Advance one frame at a time until the page says it is ready, and return the frame it said it on.
+ *
+ * One frame at a time, with a real pause between them, because the thing being waited for is a
+ * decode happening on the event loop this harness has otherwise taken over: pumping 600 frames in
+ * one go reaches frame 600 with the atlas still half loaded.
+ */
+async function waitUntilReady(page, scene) {
+  const limit = scene.readyFrames ?? 600;
+  let frame = 0;
+
+  while (frame < limit) {
+    frame = await page.evaluate((target) => window.__pump(target), frame + 1);
+    if (await page.evaluate(scene.ready)) return frame;
+    await page.waitForTimeout(15);
+  }
+
+  throw new Error(`the page never reported ready within ${limit} frames`);
+}
+
+/**
  * One run of a scene: load, pump to each frame in order, apply the inputs due at that frame, and
  * take the samples on the way. Returns the samples and the environment this page measured.
  */
@@ -283,6 +328,10 @@ async function runScene(browser, scene, url) {
   await page.goto(url, { waitUntil: "load" });
   await page.waitForSelector("canvas");
 
+  // A scene that has to load something first says so; the frame numbers it declares are counted
+  // from the frame it became ready. See the pickup scene for why this is not optional there.
+  const base = scene.ready === undefined ? 0 : await waitUntilReady(page, scene);
+
   const events = [...scene.inputs].sort((left, right) => left.frame - right.frame);
   const stops = [...new Set([...events.map((event) => event.frame), ...scene.sampleFrames])].sort(
     (left, right) => left - right,
@@ -295,7 +344,7 @@ async function runScene(browser, scene, url) {
       else await page.keyboard.up(event.key);
     }
 
-    await page.evaluate((target) => window.__pump(target), stop);
+    await page.evaluate((target) => window.__pump(target), base + stop);
 
     if (scene.sampleFrames.includes(stop)) {
       const sample = await page.evaluate(() => window.__sample());

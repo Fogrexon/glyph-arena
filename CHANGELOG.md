@@ -83,6 +83,18 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Added
 
+- **The pixel gate photographs pickup too, and it now waits for a page that loads before it starts.**
+  `pickup-1` runs three seconds of right + up at 900x540 and samples frames 60/120/180; the camera
+  follows the player, which is what a projection change moves. The scene needed the one thing the
+  runner did not: a `ready` predicate. Images decode on the event loop the harness has otherwise
+  taken over, so pumping 600 frames in one go reaches frame 600 with the atlas half loaded and the
+  title still up — pressing start into that screen photographs nothing. A scene that declares
+  `ready` is advanced **one frame at a time, with a real pause**, until the page says it is ready,
+  and its frame numbers are then counted from that frame.
+  Reverse check in a Pod: shifting pickup's camera by 0.4 px turns **`pickup-1` red on all three
+  frames** and leaves both runner scenes green — the scene steps on pickup's projection and on
+  nothing else. Restored, all three scenes pass.
+
 - **The pixel gate now paints a scale that is not 1.** `runner-scale` runs the same 180 frames, the
   same level and the same input column as `runner-1`, at 900×700 instead of 900×540 — `700 / 540 =
   1.296…`, so the world lands on fractional device pixels. The single scene was blind exactly where
