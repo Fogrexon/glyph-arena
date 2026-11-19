@@ -6,6 +6,16 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-19
+
+The version that moves `draw.setView` from a matrix to a projection — `{ scale, offsetX, offsetY,
+round? }`, the three numbers a scrolling game already has — and draws camp through it with a
+picture that did not move by a pixel, measured 9 checkpoints at a time rather than asserted. It is
+a minor and not a patch because `Projection` is a new exported type and `draw.setView` a new
+accepted shape; `draw.rect` also draws through `fillRect`/`strokeRect` when no radius is asked
+for, which is faster and lands the same pixels. Everything else in it is `reset` reaching its
+fourth, fifth and sixth user, and the holes that turned up on the way.
+
 ### Added
 
 - **`draw.setView` takes a projection — the three numbers a scrolling game already has — and camp
