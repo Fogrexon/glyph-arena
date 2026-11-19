@@ -31,7 +31,7 @@ const SITE = join(ROOT, "site");
 export const SITE_BASE = "/glyph-arena/";
 
 /** Pages in the nav that are not an example: the docs are part of the site, not a sample. */
-const EXTRA_NAV = [{ label: "API Docs", page: "/docs/" }];
+export const EXTRA_NAV = [{ label: "API Docs", page: "/docs/" }];
 
 /**
  * Every example that declares where it is published, as `{ name, package, page, label, dist }`.
