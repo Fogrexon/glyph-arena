@@ -83,7 +83,7 @@ window is what stops damage; the roll is what stops the wall.
 
 **A swing that lands nothing is drawn.** A press that goes through air used to look exactly like a
 dropped input: the blade was on screen for 150 ms of a 300 ms swing and then nothing. A miss now
-leaves the same box in the same place, grey and fading for 130 ms — the picture says *the blade went
+leaves the same box in the same place as the blade's window closes, grey and fading for 130 ms — the picture says *the blade went
 there and he was not in it*, which is the only way a player learns a distance. `whiff` is published
 with the rest of the state so a harness can tell a miss from a key the game never saw.
 
