@@ -30,7 +30,25 @@ export const ATTACK = {
   activeMs: 90,
   /** You cannot swing again until this is over. */
   recoveryMs: 150,
-  reachPx: 30,
+  /**
+   * How far past your own body the blade reaches, in px.
+   *
+   * **This number was wrong in a way only a player could see.** A guard commits at
+   * `ENEMY_AI.lungeRangePx` — 70 px, centre to centre, which is a 50 px gap between the two bodies —
+   * and at 30 px the blade could not touch him from the line the game invites you to stand on. The
+   * design says "the tell is your window: strike it early (cancels the lunge) or leave", and the
+   * strike half was not physically available: the only way to hit a tell was to walk inside the
+   * lunge first, which is the thing the tell exists to let you avoid.
+   *
+   * Reported by a first-time player on 11-19: three swings at range with `blade: active` on screen
+   * left the guard's hp untouched; two hits landed once the gap was down to 20 px. A key that is
+   * pressed and does nothing visible is not a lost fight, it is a rule nobody can see.
+   *
+   * 52 clears the 50 px line with 2 px to spare, so a swing begun when you see the tell arrives
+   * before the lunge does — which is what the 260 ms tell was always for. `test/combat.test.ts`
+   * derives the 50 from the two body widths and the lunge range instead of repeating it.
+   */
+  reachPx: 52,
   heightPx: 26,
   damage: 1,
   /** Enemy push on a hit, px/s. */
