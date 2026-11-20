@@ -36,7 +36,7 @@ export function hitsLine(total: number, running: number): string {
 }
 
 /**
- * The controls line, in two rows because the road's lesson does not fit in one.
+ * The controls line, and the one lesson that is only shown until it is learned.
  *
  * Measured 11-19 with three first-time players: **all three finished their minute with
  * `passed 0/11`**. Not one of them rolled through a body, because nothing on screen said that a
@@ -44,10 +44,26 @@ export function hitsLine(total: number, running: number): string {
  * let the player assume they were two ways to do the same thing. The cost system (the guard you go
  * by wakes the next one) was dead code for every player who never learned the verb, which was all
  * of them.
+ *
+ * **The tell is the second verb, and it was in the same position.** Two of those three players died
+ * to lunges they never interrupted: `hits 4 (4 while running)` on the run that took them from full
+ * hearts to none, at the pair at x 851 — the guard's tell is 260 ms of orange and the one thing the
+ * game asks you to do with it is hit him *inside* it, which cancels the lunge outright. Nothing on
+ * screen said so.
+ *
+ * So it is a third row, and **it goes away the first time the player kills or passes somebody** —
+ * by then they have met the mechanic. A hint that never leaves is scenery; a hint that leaves is a
+ * lesson. `test/readout.test.ts` holds both sides of that.
  */
-export function controlsLines(): [string, string] {
-  return ["A/D run · Space jump · J attack · Shift roll · touching a body hurts",
-    "Shift rolls through a body — the guard you pass wakes the next one"];
+export function controlsLines(progress: { kills: number; passes: number }): string[] {
+  const lines = [
+    "A/D run · Space jump · J attack · Shift roll · touching a body hurts",
+    "Shift rolls through a body — the guard you pass wakes the next one",
+  ];
+  if (progress.kills === 0 && progress.passes === 0) {
+    lines.push("the orange flash is his tell — hit him inside it and the lunge never happens");
+  }
+  return lines;
 }
 
 /** A rectangle to draw at the screen edge, or `null` when the body it belongs to is already there. */
