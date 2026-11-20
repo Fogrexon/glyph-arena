@@ -25,6 +25,12 @@
  * - **Write the golden by accident.** Only `--write` touches `fixtures/pixel/`, so a change to a
  *   scene shows up as a diff in the pull request instead of quietly becoming the new truth.
  *
+ * The other half of that rule belongs to whoever moves a picture on purpose: **the golden is
+ * regenerated in the same pull request as the change, never in a follow-up.** A golden updated a
+ * commit later means the red that named the change was read as "the gate is annoying" and turned
+ * off, which is how a gate dies. Re-generate it before asking for a review, and say in the pull
+ * request which frames moved and why.
+ *
  * A golden is worth nothing unless the scene steps on the change being made, so the gate also runs
  * the same input three times in one session and requires the three hashes to agree: if the picture
  * depended on the wall clock, that check fails first and the comparison is meaningless anyway.
@@ -131,6 +137,33 @@ export const SCENES = {
       { frame: 20, key: "ArrowRight", action: "down" },
       { frame: 70, key: "ArrowUp", action: "down" },
       { frame: 110, key: "ArrowUp", action: "up" },
+    ],
+  },
+  /**
+   * camp is the sample that draws **through `round: true`**, and the only stable one that does:
+   * march uses it too, but march's picture is being redesigned by its owner, so a golden here would
+   * turn every deliberate change into a red square. Camp is finished, so its picture can be pinned
+   * — and pinning it is what gives the rounding an answer in CI instead of only in a unit test.
+   *
+   * Two seconds of right with a swing and a roll, sampled on **every frame**: the camera follows the
+   * player, and the frames between two tile edges are exactly the ones where a rounded offset can
+   * land on the other side of a pixel. `round` is the only transform input that changes here, so a
+   * difference on frame 87 is the rounding and nothing else.
+   */
+  "camp-1": {
+    kind: "camp",
+    dist: "examples/camp/dist",
+    viewport: { width: 640, height: 360 },
+    deviceScaleFactor: 1,
+    sampleFrames: Array.from({ length: 120 }, (_, index) => index + 1),
+    inputs: [
+      { frame: 5, key: "ArrowRight", action: "down" },
+      { frame: 40, key: "KeyJ", action: "down" },
+      { frame: 43, key: "KeyJ", action: "up" },
+      { frame: 60, key: "ShiftLeft", action: "down" },
+      { frame: 63, key: "ShiftLeft", action: "up" },
+      { frame: 90, key: "KeyJ", action: "down" },
+      { frame: 93, key: "KeyJ", action: "up" },
     ],
   },
 };
