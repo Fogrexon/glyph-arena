@@ -546,11 +546,19 @@ async function playMarch(page, strategy) {
             if (stuckFrames > 30) {
               kicks += 1;
               if (stalls.length === 0) {
-                stalls.push({ frames: stuckFrames, atMs: s.simMs, x: s.x, gap: null, vx: s.vx, hearts: s.hearts, target: null });
+                stalls.push({ frames: stuckFrames, atMs: s.simMs, x: s.x, gap: null, vx: s.vx, hearts: s.hearts, keys: s.keys ?? [], target: null });
               }
               stuckFrames = 0;
               key("ArrowRight", false);
             }
+            // **Let go of the retreat key.** The fight branches back away with ArrowLeft and every
+            // one of them releases it — except this branch, which is entered when the last guard
+            // ahead dies or is passed. Measured 11-20: `march mixed` froze at x 2295 for 120 s with
+            // `kicks 165` and `game sees ArrowLeft+ArrowRight`, because left and right cancel and
+            // the body stands while the hand "holds right". The game was right; the hand was
+            // holding two keys. This is #294's freeze as well — the re-send never helped because
+            // the key that mattered was the one nobody released.
+            key("ArrowLeft", false);
             key("ArrowRight", true);
             return requestAnimationFrame(tick);
           }
@@ -658,9 +666,10 @@ async function playMarch(page, strategy) {
  */
 export function formatStandstill(stall, kicks = stall.kicks ?? 0) {
   if (stall.target == null) {
+    const seen = (stall.keys ?? []).length === 0 ? "none" : (stall.keys ?? []).join("+");
     return (
       `still ${stall.frames} frame(s) at x ${Math.round(stall.x)} — road clear, vx ${Math.round(stall.vx)}, ` +
-      `hearts ${stall.hearts}, keys re-sent ${kicks}x`
+      `hearts ${stall.hearts}, keys re-sent ${kicks}x, game sees ${seen}`
     );
   }
   const target = stall.target;

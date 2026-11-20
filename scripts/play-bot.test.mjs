@@ -119,11 +119,23 @@ test("the stall that reproduced on 11-20 is named as a clear road with keys re-s
   // the harness re-sent the key 173 times and the body did not move. That is not a hand that
   // stopped — the hand was holding right — so the line has to say what the *world* was doing.
   const line = formatStandstill(
-    { frames: 31, x: 2526, gap: null, vx: 0, hearts: 3, target: null },
+    { frames: 31, x: 2526, gap: null, vx: 0, hearts: 3, keys: [], target: null },
     173,
   );
   assert.match(line, /road clear/);
   assert.match(line, /vx 0/, "the body is not moving, which is what the game cannot produce from input it heard");
   assert.match(line, /keys re-sent 173x/, "the kick count is the proof the harness did its part");
   assert.match(line, /hearts 3/);
+  assert.match(line, /game sees none/, "an empty key set is the input's fault, and the line says so");
+});
+
+test("a body that has the key but does not move is a different bug, and reads as one", () => {
+  // The other half of the same symptom: the game has ArrowRight and still stands. That is movement,
+  // not input, and the two must never be confused again.
+  const line = formatStandstill(
+    { frames: 31, x: 2526, gap: null, vx: 0, hearts: 3, keys: ["ArrowRight"], target: null },
+    12,
+  );
+  assert.match(line, /game sees ArrowRight/);
+  assert.match(line, /vx 0/);
 });

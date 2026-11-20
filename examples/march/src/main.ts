@@ -163,6 +163,8 @@ let hitstopMs = 0;
 let shakeMs = 0;
 /** How long a swing that hit nothing stays visible, in ms. */
 let whiffMs = 0;
+/** The keys the game actually saw on the last frame, for the run that stops. */
+let frameKeys: string[] = [];
 let kills = 0;
 let passes = 0;
 let simMs = 0;
@@ -734,6 +736,8 @@ type MarchState = {
   runs: number;
   lastRunMs: number | null;
   hits: Hit[];
+  /** The keys the game saw on this frame. Empty while a hand holds one is the input's fault. */
+  keys: string[];
   enemies: Array<{ x: number; y: number; hp: number; alive: boolean; mode: string; modeMs: number; passed: boolean; spent: boolean; alert: boolean }>;
 };
 
@@ -758,6 +762,7 @@ function publish(): void {
     runs,
     lastRunMs,
     hits,
+    keys: frameKeys,
     enemies: enemies.map((each) => ({
       x: each.body.x,
       y: each.body.y,
@@ -781,7 +786,11 @@ const loop = createLoop({
   maxDelta: 0.05,
   onFrame(time) {
     const dt = time.delta;
-    const query = actions.tick(new Set(input.snapshot().keys));
+    const snapshot = input.snapshot();
+    // Published because a body that will not move has two very different causes: the key never
+    // reached the game (`keys` empty), or it did and the movement did not follow (`keys` has it).
+    frameKeys = [...snapshot.keys];
+    const query = actions.tick(new Set(snapshot.keys));
 
     if (phase === "play") {
       if (query.pressed("attack") && attack.elapsedMs < 0) {

@@ -8,6 +8,19 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Fixed
 
+- **The freeze was the hand holding both arrows at once, and the game was right.** The new stall
+  record named it: `still 31 frame(s) at x 2295 — road clear, vx 0, hearts 4, keys re-sent 165x,
+  game sees ArrowLeft+ArrowRight`. `march mixed` backs away from a tell with `ArrowLeft` and
+  releases it in every branch except the one it enters when the last guard ahead is gone — so the
+  body stood with two keys held while the hand believed it was holding right, and left plus right
+  cancel to `vx 0`. Measured on main's road: **2 stalls in 14 runs** before the change, **0 in 10**
+  after. **#294's re-send never helped** because the key that mattered was the one nobody released;
+  the harness is what was wrong here, not the road, and `examples/march` did not change for it.
+- **`__marchState.keys` publishes the keys the game actually saw.** A body that will not move has
+  two very different causes — the key never reached the game (empty `keys`) or it arrived and the
+  movement did not follow (`keys` has it) — and until now neither was visible from outside. This is
+  the field that turned a 2-in-14 mystery into a one-line answer.
+
 - **The harness now says what a stopped hand was standing in front of — and the stall reproduced on
   main's own road.** `march mixed` froze at `x 2526` for 120 s of sim time in **1 run of 6** on
   11-20, on the road main ships, with no living guard within 400 px and **`kicks 173`**: the harness

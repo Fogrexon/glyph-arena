@@ -23,6 +23,7 @@ const source = readFileSync(`${ROOT}examples/march/src/main.ts`, "utf8");
 const KEPT = {
   lastRunMs: "the previous run's time, shown on the result screen",
   runs: "counts the retries, so it is incremented outside the reset",
+  frameKeys: "the keys of the last frame, rewritten every frame before anything can read them",
 };
 
 const audit = auditReset(`${ROOT}examples/march/src/main.ts`, KEPT);
