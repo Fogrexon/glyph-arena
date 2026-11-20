@@ -18,6 +18,7 @@
 import { createActions } from "@fogrexon/glyph-arena-actions";
 import { createBody, stepBody, type Body, type BodyConfig } from "@fogrexon/glyph-arena-body";
 import { createInput } from "@fogrexon/glyph-arena-input";
+import { createDraw } from "@fogrexon/glyph-arena-draw";
 import { createLoop } from "@fogrexon/glyph-arena-loop";
 import { createReset } from "@fogrexon/glyph-arena-reset";
 import { visibleColumns } from "@fogrexon/glyph-arena-tilemap";
@@ -108,6 +109,12 @@ if (context2d === null) {
   throw new Error("no 2d context");
 }
 const ctx: CanvasRenderingContext2D = context2d;
+/**
+ * The library owns the map from world to screen. Every world pixel below is drawn at its world
+ * coordinate and the projection subtracts the camera — this sample used to write `- fromX` at
+ * every call site, which is the same arithmetic done by hand.
+ */
+const paint = createDraw({ context: ctx });
 
 const input = createInput();
 input.attach(window);
@@ -514,22 +521,23 @@ function drawTiles(fromX: number): void {
       if (!isSolidTile(column, row)) continue;
       const above = row > 0 && isSolidTile(column, row - 1);
       ctx.fillStyle = above ? "#39414f" : "#4a5468";
-      ctx.fillRect(column * TILE - fromX, row * TILE, TILE, TILE);
+      ctx.fillRect(column * TILE, row * TILE, TILE, TILE);
       if (!above) {
         ctx.fillStyle = "#5c6880";
-        ctx.fillRect(column * TILE - fromX, row * TILE, TILE, 3);
+        ctx.fillRect(column * TILE, row * TILE, TILE, 3);
       }
     }
   }
 }
 
 function drawGoal(fromX: number): void {
-  const x = GOAL_X - fromX;
-  if (x < -8 || x > VIEW_W + 8) return;
+  // Culling is a screen-space question, so it keeps the camera in its arithmetic; the drawing
+  // itself is in world coordinates like everything else in this pass.
+  if (GOAL_X - fromX < -8 || GOAL_X - fromX > VIEW_W + 8) return;
   ctx.fillStyle = "rgba(122, 206, 154, 0.22)";
-  ctx.fillRect(x - 2, 0, 44, VIEW_H);
+  ctx.fillRect(GOAL_X - 2, 0, 44, VIEW_H);
   ctx.fillStyle = "#7ace9a";
-  ctx.fillRect(x, 0, 3, VIEW_H);
+  ctx.fillRect(GOAL_X, 0, 3, VIEW_H);
 }
 
 function drawHud(): void {
@@ -603,16 +611,25 @@ function drawHud(): void {
 }
 
 function draw(): void {
+  paint.setView(null);
   ctx.fillStyle = "#0b0e13";
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
   const shake = shakeMs > 0 ? Math.sin(simMs * 0.08) * 3 : 0;
+  // The rounding stays here, on the **camera**, and the projection is handed the already-rounded
+  // offset. `round: true` rounds the *offset*, which is negative: `Math.round(0.5)` is 1 and
+  // `Math.round(-0.5)` is -0, so a camera landing exactly on a half pixel would move the picture one
+  // pixel. No frame of the measured scene ties, so that is not what the 24 px in the changelog is —
+  // but a tie is a real frame, and this line keeps the rounding the camera already had.
+  // The library still owns the map from world to screen; `fromX` is only used by the two questions
+  // that are *about* the screen (the tile window and the goal's cull).
   const fromX = Math.round(cameraX + shake);
+  paint.setView({ scale: 1, offsetX: -fromX, offsetY: 0 });
   drawTiles(fromX);
   drawGoal(fromX);
 
   for (const enemy of enemies) {
     if (!enemy.alive) continue;
-    const x = enemy.body.x - fromX;
+    const x = enemy.body.x;
     const tell = enemy.mode === "windup" ? Math.floor(enemy.modeMs / 70) % 2 === 0 : false;
     const coming = enemy.passed && !enemy.spent && enemy.mode !== "lunge" && Math.abs(player.x - enemy.body.x) < ENEMY_AI.sightPx;
     ctx.fillStyle = enemy.flashMs > 0 ? "#ffffff" : tell ? "#ff9c6e" : enemy.mode === "lunge" ? "#ff7a5c" : coming ? "#c2503f" : enemy.passed ? "#5a6478" : "#e0574f";
@@ -668,16 +685,16 @@ function draw(): void {
   const rolling = dodgeRolling(dodge.elapsedMs);
   if (rolling) {
     ctx.fillStyle = "rgba(110, 168, 254, 0.28)";
-    ctx.fillRect(player.x - fromX - dodge.facing * 18, player.y + 2, 14, player.h - 4);
+    ctx.fillRect(player.x - dodge.facing * 18, player.y + 2, 14, player.h - 4);
   }
 
   const blinking = invulnerableMs > 0 && Math.floor(simMs / 90) % 2 === 0;
   if (rolling) ctx.globalAlpha = dodgeInvulnerable(dodge.elapsedMs) ? 0.55 : 0.9;
   if (!blinking) {
     ctx.fillStyle = "#6ea8fe";
-    ctx.fillRect(player.x - fromX, player.y, player.w, player.h);
+    ctx.fillRect(player.x, player.y, player.w, player.h);
     ctx.fillStyle = "#dbe9ff";
-    ctx.fillRect(facing === 1 ? player.x - fromX + player.w - 7 : player.x - fromX + 3, player.y + 6, 4, 4);
+    ctx.fillRect(facing === 1 ? player.x + player.w - 7 : player.x + 3, player.y + 6, 4, 4);
   }
   ctx.globalAlpha = 1;
 
@@ -685,14 +702,15 @@ function draw(): void {
   if (bladePhase === "windup" || bladePhase === "active") {
     const blade = attackBox(player, attack.facing);
     ctx.fillStyle = bladePhase === "active" ? "#ffe9a8" : "#5a5f6b";
-    ctx.fillRect(blade.left - fromX, blade.top + 4, blade.right - blade.left, blade.bottom - blade.top - 8);
+    ctx.fillRect(blade.left, blade.top + 4, blade.right - blade.left, blade.bottom - blade.top - 8);
   } else if (whiffMs > 0) {
     // The same box, in the same place, fading: this is where the blade went and it went through air.
     const blade = attackBox(player, facing);
     ctx.fillStyle = `rgba(200, 205, 215, ${0.32 * Math.min(1, whiffMs / WHIFF_MS)})`;
-    ctx.fillRect(blade.left - fromX, blade.top + 6, blade.right - blade.left, blade.bottom - blade.top - 12);
+    ctx.fillRect(blade.left, blade.top + 6, blade.right - blade.left, blade.bottom - blade.top - 12);
   }
 
+  paint.setView(null);
   drawHud();
 }
 
