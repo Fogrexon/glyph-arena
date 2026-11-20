@@ -241,6 +241,11 @@ the tell retreating swings backwards and lands nothing (20 swings, 0 kills).
 - **The controls line never said what the roll does.** `A/D run · Space jump · J attack · Shift roll`
   reads as two ways to hit things. It now has a second row: `Shift rolls through a body — the guard
   you pass wakes the next one`. That sentence is the whole game, and it was not on the screen.
+- **The death screen named a coordinate, not the thing that killed you.** `died at x 851` was all
+  the game said at the moment of failure, and 851 means nothing to a player — 宣伝 died there five
+  times in one minute without ever knowing it was the same pair. The screen now adds the road's own
+  word for it: `beat 2/5 · 2 guards`, derived from the posts by the same grouping `test/level.test.ts`
+  checks rather than typed.
 - **The tell is the second verb and it was in the same position.** Two of the three died to lunges
   they never interrupted: the guard's tell is 260 ms of orange, and striking him *inside* it
   cancels the lunge outright — the fight's whole defence, on no screen. It is now a third row,
