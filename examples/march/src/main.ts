@@ -54,7 +54,7 @@ import {
   spawnPoint,
 } from "./level";
 import { ENEMY_SIZE, PLAYER_SIZE } from "./sizes";
-import { causeOf, controlsLines, edgeMarkFor, hitsLine, type HitCause } from "./readout";
+import { beatAt, beatLine, causeOf, controlsLines, edgeMarkFor, hitsLine, type HitCause } from "./readout";
 
 const VIEW_W = 640;
 const VIEW_H = 360;
@@ -610,6 +610,12 @@ function drawHud(): void {
         ctx.fillStyle = "#e8edf6";
         ctx.font = "13px ui-monospace, monospace";
         ctx.fillText(`died at x ${Math.round(fatal.x)}  —  R to go again`, VIEW_W / 2 - 150, VIEW_H / 2 + 18);
+        // Which beat that x is. 851 is a number; `beat 2/5 · 2 guards` is the thing they were
+        // fighting, and it is the same beat five times in a row when a newcomer is stuck.
+        ctx.fillStyle = "#9aa5b8";
+        ctx.font = "12px ui-monospace, monospace";
+        const where = beatLine(beatAt(fatal.x, enemies.map((enemy) => enemy.homeX)));
+        ctx.fillText(where, VIEW_W / 2 - 150, VIEW_H / 2 + 36);
       }
     } else if (lastRunMs !== null) {
       ctx.fillText(`R to go again — last run ${clockOf(lastRunMs)}`, VIEW_W / 2 - 130, VIEW_H / 2 + 18);

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { ENEMY_SIZE, PLAYER_RUN_PX_PER_SECOND } from "../src/sizes.ts";
-import { RUNNING_CAUSE_VX, causeOf, controlsLines, edgeMarkFor, hitsLine } from "../src/readout.ts";
+import { RUNNING_CAUSE_VX, beatAt, beatLine, causeOf, controlsLines, edgeMarkFor, hitsLine } from "../src/readout.ts";
 
 /**
  * The HUD said `hits 4 (4 from behind)` next to every death on 11-19. Nothing measured a side: the
@@ -101,4 +101,37 @@ test("the edge mark is a bar, not a second body", () => {
   // A short body still gets a proportionate bar rather than a bar taller than the guard.
   const short = edgeMarkFor(700, ENEMY_SIZE.w, 200, 10, 640);
   assert.ok(short !== null && short.h === 10);
+});
+
+test("the death screen says which beat you died in, and the road says how many there are", async () => {
+  // `died at x 851` was the only thing the game said at the moment of failure, and 851 means
+  // nothing to a player. 宣伝 died there five times in one minute (11-19); `beat 2/5 · 2 guards`
+  // is the same fact in the road's words. The beats are derived from the level, not typed.
+  const { enemySpawns } = await import("../src/level.ts");
+  const posts = enemySpawns().map((point) => point.x);
+  const groups: number[] = [1];
+  posts.slice(1).forEach((x, index) => {
+    if (x - posts[index] > 6 * 32) groups.push(1);
+    else groups[groups.length - 1] += 1;
+  });
+  assert.ok(groups.length >= 3, `the road should have beats: ${groups.join("/")}`);
+
+  const first = beatAt(posts[0], posts);
+  assert.equal(first.index, 1, "the first post is in the first beat");
+  assert.equal(first.count, groups.length, "the count is the road's, not a typed number");
+
+  // Walking into the first pair is beat 2 when the road opens with a single, which is the shape of
+  // the run that ate seven of 宣伝's attempts.
+  const second = beatAt(posts[groups[0]], posts);
+  assert.equal(second.index, 2);
+  assert.equal(second.size, groups[1], `beat 2 is ${groups[1]} guard(s) on this road`);
+
+  // Before the first post you are still in beat 1: the walk-in is part of the first question.
+  assert.equal(beatAt(0, posts).index, 1, "dying on the walk-in is beat 1");
+  // And past the last post you are in the last beat, never an out-of-range one.
+  const last = beatAt(99999, posts);
+  assert.equal(last.index, groups.length);
+
+  assert.equal(beatLine({ index: 2, count: 5, size: 2 }), "beat 2/5 · 2 guards");
+  assert.equal(beatLine({ index: 1, count: 5, size: 1 }), "beat 1/5 · 1 guard", "a lone guard is singular");
 });
