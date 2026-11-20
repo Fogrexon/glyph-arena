@@ -51,6 +51,11 @@ export type Projection = {
    * The difference shows at a tile edge: a world coordinate of 0.4 and one of 0.6 are 0.2 apart,
    * and rounding every point instead puts them 1 apart, which is a seam at every join of a wall
    * made of tiles. A game that scrolls rounds its camera once and subtracts it — which is this.
+   *
+   * Halves go **away from zero**: `0.5` rounds to `1` and `-0.5` to `-1`, so a game that had been
+   * writing `-Math.round(cameraX)` gets the same picture from `offsetX: -cameraX` and one option.
+   * (`Math.round` sends those two to `1` and `-0` — the same number here, the opposite direction
+   * there — and a camera landing on a half pixel would paint one pixel off.)
    */
   round?: boolean;
 };
@@ -164,6 +169,18 @@ const DEFAULT_LINE_WIDTH = 1;
 
 /** The identity transform: what `setView(null)` restores. */
 const IDENTITY: ViewMatrix = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+
+/**
+ * Halves go **away from zero**, so `v` and `-v` round to numbers that are each other's negative.
+ *
+ * `Math.round` is not that: it sends `0.5` to `1` and `-0.5` to `-0` — the same number, but the
+ * other direction. A game that scrolls rounds its camera and then negates it (`-Math.round(cameraX)`),
+ * which at a camera of `10.5` is `-11`; `Math.round(-10.5)` is `-10`. One pixel, on the frames where
+ * the camera lands exactly on a half — which is why this is not `Math.round`.
+ */
+function roundAwayFromZero(value: number): number {
+  return Math.sign(value) * Math.round(Math.abs(value));
+}
 
 function fontOf(size: number, font?: string): string {
   return `${size}px ${font ?? DEFAULT_FONT}`;
@@ -362,8 +379,8 @@ export function createDraw({ context }: CreateDrawOptions): Draw {
     // A matrix names `a`..`f`; a projection names `scale`. One of the two is always there, and the
     // matrix' shape is the one `camera.view()` returns, so nothing else has to change.
     if ("scale" in view) {
-      const offsetX = view.round === true ? Math.round(view.offsetX) : view.offsetX;
-      const offsetY = view.round === true ? Math.round(view.offsetY) : view.offsetY;
+      const offsetX = view.round === true ? roundAwayFromZero(view.offsetX) : view.offsetX;
+      const offsetY = view.round === true ? roundAwayFromZero(view.offsetY) : view.offsetY;
       context.setTransform(view.scale, 0, 0, view.scale, offsetX, offsetY);
       return;
     }

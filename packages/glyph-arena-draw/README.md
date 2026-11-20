@@ -77,6 +77,7 @@ draw.text({ text: "SCORE 0", x: 12, y: 12, size: 16, fill: "#fff" }); // screen 
 
 - `Projection` is `{ scale, offsetX, offsetY, round? }`, applied as the matrix `[scale, 0, 0, scale, offsetX, offsetY]`.
 - `round` rounds the **offset**, once — never a point on its way through. Two tiles at 0.4 and 0.6 stay 0.2 apart; rounding each one instead lands both on the same edge, and a wall made of tiles then shows a seam at every join.
+- Halves go **away from zero**: `0.5` → `1`, `-0.5` → `-1`. That is what makes `offsetX: -cameraX` agree with the `-Math.round(cameraX)` it replaces on every frame, including the ones where the camera lands on a half pixel (`Math.round` sends `-10.5` to `-10`, a pixel short of the game's `-11`).
 - The last `setView` wins, so the HUD after `setView(null)` needs no `save`/`restore`.
 
 A canvas scaled by `scale: 2` draws a `w: 10` rect 20 pixels wide, and crisp text wants the HUD in screen coordinates rather than through the projection.

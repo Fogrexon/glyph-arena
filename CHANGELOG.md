@@ -8,6 +8,18 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Fixed
 
+- **`round` rounded a half pixel the wrong way, on exactly the frames it exists for.** `setView({
+  round: true })` called `Math.round`, which sends `0.5` to `1` and `-0.5` to `-0` — the same
+  number, the opposite direction. A game that had been writing `-Math.round(cameraX)` and handed the
+  projection `-cameraX` therefore painted one pixel off whenever the camera sat on a half:
+  `-Math.round(10.5)` is `-11`, `Math.round(-10.5)` is `-10`, and those are the same frame. Halves
+  go **away from zero** now (`Math.sign(v) * Math.round(Math.abs(v))`), so
+  `setView({ offsetX: -c, round: true })` is `setView({ offsetX: -Math.round(c) })` for every camera
+  at or past the world origin. The test asserts the property rather than a table — `10.5` → `-11`,
+  and `Math.round` put back in the same place fails it (`−0.5` → `-1`, not `-0`). **Not
+  `floor(v + 0.5)`**, which is what `Math.round` already is in JavaScript: measured over every
+  value, the two are the same function.
+
 - **MARCH's death screen said `hits 4 (4 from behind)`, and nothing measured a side.** The number
   behind the label was `player.vx > 60` — *were you running at the goal when it landed* — so two
   first-time players (11-19) reported "4 hits, all from behind" as the cause of death on runs that
@@ -29,16 +41,26 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Changed
 
+- **march hands its camera over whole, and the picture did not move.** `Math.round(cameraX + shake)`
+  is gone: the projection takes `-(cameraX + shake)` with `round: true`, so the sample holds no
+  opinion about whole pixels and `fromX` is only asked the two questions that are *about* the screen
+  (the tile window and the goal's cull, both of which carry a tile of margin). Measured against the
+  build that rounded the camera itself, at 640x360 with the same input: **all 180 frames of a three
+  second run hash the same — 0 pixels differ.** Camp, the other `round: true` user, likewise: **120
+  of 120 frames identical.** That is what makes deleting the line safe instead of a bet on the
+  frames nobody looked at; the two roundings only disagree on a frame where the camera lands exactly
+  on a half pixel, and a run that never rests on one cannot tell them apart. The 24 px recorded below
+  is untouched by this — it is a `strokeRect` corner, and this change moves nothing.
+
 - **march draws its road at world coordinates too — and a transform rasterises a stroke one pixel
   differently from pre-subtracted numbers.** The third sample to hand its camera to
   `draw.setView`: `paint.setView({ scale: 1, offsetX: -fromX, offsetY: 0 })` replaces `- fromX` at
   every drawing call, and the HUD goes back to `setView(null)`. `fromX` survives only for the two
   questions that are *about* the screen (the tile window and the goal's cull).
-  **`round: true` is not usable here**: it rounds the *offset*, which is negative, and
-  `Math.round(0.5)` is 1 while `Math.round(-0.5)` is -0 — a camera that lands exactly on a half
-  pixel would move the picture one pixel. The rounding therefore stays on the camera and the
-  projection is handed the already-rounded offset. (No frame of this scene ties, so the two forms
-  measured identically here; the line is about the frames that do.)
+  **`round: true` was not usable here at the time** — it rounded the *offset* with `Math.round`, and
+  a camera that lands exactly on a half pixel would have moved the picture one pixel — so the
+  rounding stayed on the camera and the projection was handed the already-rounded offset. (The
+  option was fixed on 11-20, see above, and march now hands the camera over whole.)
   Measured on one build pair (640x360 canvas, same input, frames 60/120/180): **frames 60 and 120 are
   0 px**; **frame 180 differs by 24 px in a 4x6 box (maxΔ 244)** at the corner of a 2 px `strokeRect`
   outline (a woken guard's mark), with `__marchState` identical. That is rasterisation, not geometry:

@@ -615,15 +615,15 @@ function draw(): void {
   ctx.fillStyle = "#0b0e13";
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
   const shake = shakeMs > 0 ? Math.sin(simMs * 0.08) * 3 : 0;
-  // The rounding stays here, on the **camera**, and the projection is handed the already-rounded
-  // offset. `round: true` rounds the *offset*, which is negative: `Math.round(0.5)` is 1 and
-  // `Math.round(-0.5)` is -0, so a camera landing exactly on a half pixel would move the picture one
-  // pixel. No frame of the measured scene ties, so that is not what the 24 px in the changelog is —
-  // but a tie is a real frame, and this line keeps the rounding the camera already had.
-  // The library still owns the map from world to screen; `fromX` is only used by the two questions
-  // that are *about* the screen (the tile window and the goal's cull).
-  const fromX = Math.round(cameraX + shake);
-  paint.setView({ scale: 1, offsetX: -fromX, offsetY: 0 });
+  // The camera goes over whole and `round: true` does the rounding, once. That option rounds halves
+  // away from zero, so `-camera` lands exactly where this sample's own `-Math.round(camera)` put it
+  // — including on a frame where the camera sits on a half pixel, which `Math.round(-camera)` would
+  // have moved one pixel (measured over every frame of a 3 second run: identical pixels).
+  // The library owns the map from world to screen; `fromX` is still the number the two questions
+  // that are *about* the screen ask (the tile window and the goal's cull), and both carry a tile of
+  // margin, so the fraction in it cannot change which tiles are drawn.
+  const fromX = cameraX + shake;
+  paint.setView({ scale: 1, offsetX: -fromX, offsetY: 0, round: true });
   drawTiles(fromX);
   drawGoal(fromX);
 

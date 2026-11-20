@@ -269,6 +269,47 @@ describe("setView with a projection", () => {
     );
   });
 
+  it("D13: round sends a half away from zero — a negated camera lands where the game put it", () => {
+    // The failure this exists for. A scrolling game writes `-Math.round(cameraX)`; the projection is
+    // handed `-cameraX`. At a camera of 10.5 the game painted `-11`, and `Math.round(-10.5)` is
+    // `-10` — one pixel, on exactly the frames where the camera sits on a half. Halves go outwards
+    // so the two agree.
+    const halves: [number, number][] = [
+      [0.5, 1],
+      [-0.5, -1],
+      [2.5, 3],
+      [-2.5, -3],
+      [-10.5, -11],
+      [-100.5, -101],
+      [100.5, 101],
+    ];
+
+    for (const [offset, expected] of halves) {
+      const { calls, context } = createContext();
+      createDraw({ context }).setView({ scale: 1, offsetX: offset, offsetY: 0, round: true });
+      assert.equal(
+        argsOf(calls, "setTransform")[0]![4],
+        expected,
+        `-${-offset} should round to ${expected}, not to ${Math.round(offset)}`,
+      );
+    }
+
+    // The property, not just the table: for a camera at or past the world origin — every scrolling
+    // camera — rounding the negated offset is the same picture as the game rounding the camera
+    // itself and negating that. (`-Math.round(c)` is not odd either: `c = -10.5` gives `10`, while
+    // rounding `10.5` outwards gives `11`. No single rule matches both signs, so the rule is stated
+    // for the side a world coordinate actually lives on, and both cameras below are `>= 0`.)
+    for (const camera of [0, 0.4, 0.5, 0.6, 10.5, 1234.5]) {
+      const { calls, context } = createContext();
+      createDraw({ context }).setView({ scale: 1, offsetX: -camera, offsetY: 0, round: true });
+      assert.equal(
+        argsOf(calls, "setTransform")[0]![4],
+        -Math.round(camera),
+        `camera ${camera}: the projection and -Math.round(camera) must agree`,
+      );
+    }
+  });
+
   it("D11: a projection after a matrix wins, and null still means screen coordinates", () => {
     const { calls, context } = createContext();
     const draw = createDraw({ context });
