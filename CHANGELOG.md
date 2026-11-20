@@ -29,6 +29,23 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Changed
 
+- **march draws its road at world coordinates too — and a transform rasterises a stroke one pixel
+  differently from pre-subtracted numbers.** The third sample to hand its camera to
+  `draw.setView`: `paint.setView({ scale: 1, offsetX: -fromX, offsetY: 0 })` replaces `- fromX` at
+  every drawing call, and the HUD goes back to `setView(null)`. `fromX` survives only for the two
+  questions that are *about* the screen (the tile window and the goal's cull).
+  **`round: true` is not usable here**: it rounds the *offset*, which is negative, and
+  `Math.round(0.5)` is 1 while `Math.round(-0.5)` is -0 — a camera that lands exactly on a half
+  pixel would move the picture one pixel. The rounding therefore stays on the camera and the
+  projection is handed the already-rounded offset. (No frame of this scene ties, so the two forms
+  measured identically here; the line is about the frames that do.)
+  Measured on one build pair (640x360 canvas, same input, frames 60/120/180): **frames 60 and 120 are
+  0 px**; **frame 180 differs by 24 px in a 4x6 box (maxΔ 244)** at the corner of a 2 px `strokeRect`
+  outline (a woken guard's mark), with `__marchState` identical. That is rasterisation, not geometry:
+  a canvas transform stores its matrix in float32, so a stroke edge can land on the other side of a
+  pixel from the same arithmetic done in plain doubles. Nothing else moved, and no scale, rotation or
+  culling changed.
+
 - **MARCH says what the roll does, because three first-time players never found it.** All three
   finished their minute at `passed 0/11`: `A/D run · Space jump · J attack · Shift roll` reads as two
   ways to hit things, so nobody learned that a roll is the only thing that crosses a body, and the
