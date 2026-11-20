@@ -6,6 +6,18 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
+### Added
+
+- **`march minute` plays a person's minute and prints it in the language the person reports in.**
+  Every hand in `scripts/play-bot.mjs` ends a run at the first death, because each one measures a
+  single line. A first-time player's minute is not that: 8 runs, seven deaths, the same pair of
+  guards, `R` in between (measured 11-19). The new mode plays 60 s with `mash` — hold right, swing
+  when a guard is in reach, never roll — and prints one line:
+  `minute 22.9 s · runs 1 · died nobody · passed 0/11 · rolled no · clear yes`.
+  Deaths are grouped by place and named by beat, so the line can be read next to a person's report
+  without anyone counting by hand. `__marchState.beat` is published for it (the same value the death
+  screen prints — one source, not two).
+
 ### Changed
 
 - **MARCH's death screen names the beat, not just the pixel.** `died at x 851` was everything the
