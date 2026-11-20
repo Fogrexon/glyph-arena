@@ -8,6 +8,12 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Changed
 
+- **MARCH's death screen names the beat, not just the pixel.** `died at x 851` was everything the
+  game said when a run ended, and 851 cannot be turned into "the pair" by the person reading it —
+  measured 11-19: 宣伝 died at 851 five times and 754 twice inside one minute, all of it the same two
+  guards. The screen adds `beat 2/5 · 2 guards`, derived from the posts with the same
+  walk-between-beats grouping `test/level.test.ts` already checks, so the line moves when the road
+  does.
 - **MARCH teaches the tell, and then stops.** Two of the three first-time players (11-19) died to
   lunges they never interrupted — `hits 4 (4 while running)` from full hearts to none at the pair at
   x 851. The tell is 260 ms of orange, and striking the guard *inside* it cancels the lunge
