@@ -135,6 +135,17 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Added
 
+- **The pixel gate pins CAMP's picture — the first scene for a sample that draws through
+  `round: true`.** `camp-1` is 640x360, two seconds of right with a swing and a roll, and it hashes
+  **every frame** rather than three samples: the camera follows the player, so the frames between
+  two tile edges are exactly the ones where a rounded offset can land on the other side of a pixel.
+  Camp is the stable half of the two `round: true` users — march has the option too, but its
+  picture is being redesigned, so a golden there would turn a deliberate change into a red square.
+  What this buys is that the rounding has an answer in **CI** and not only in a unit test: `round`
+  is the only transform input camp moves, so a frame that differs is the rounding and nothing else.
+  `examples/camp/README.md` carries the rule that keeps the gate alive — a deliberate picture change
+  regenerates the golden in the **same** pull request, never a follow-up.
+
 - **The pixel gate photographs pickup too, and it now waits for a page that loads before it starts.**
   `pickup-1` runs three seconds of right + up at 900x540 and samples frames 60/120/180; the camera
   follows the player, which is what a projection change moves. The scene needed the one thing the

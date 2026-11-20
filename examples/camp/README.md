@@ -10,6 +10,11 @@ which measurement made it change**. Every value below is the game's own — read
 `src/*.ts`, and the table is checked against the source by `scripts/camp-readme.test.mjs`, so a
 tuned number that is not re-written here turns the gate red instead of the page quietly lying.
 
+Camp is also the sample that draws **through `draw.setView({ round: true })`**, and its picture is
+pinned by `pnpm e2e:pixel` (`camp-1`, every frame of two seconds). If you move something on screen
+on purpose, regenerate `fixtures/pixel/camp-1.json` **in the same pull request** — a golden updated
+in a follow-up is a red that gets read as noise.
+
 ## The loop
 
 1. Close the distance. The enemy notices you inside 260 px and walks in.
