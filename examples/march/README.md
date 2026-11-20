@@ -241,6 +241,11 @@ the tell retreating swings backwards and lands nothing (20 swings, 0 kills).
 - **The controls line never said what the roll does.** `A/D run · Space jump · J attack · Shift roll`
   reads as two ways to hit things. It now has a second row: `Shift rolls through a body — the guard
   you pass wakes the next one`. That sentence is the whole game, and it was not on the screen.
+- **The tell is the second verb and it was in the same position.** Two of the three died to lunges
+  they never interrupted: the guard's tell is 260 ms of orange, and striking him *inside* it
+  cancels the lunge outright — the fight's whole defence, on no screen. It is now a third row,
+  `the orange flash is his tell — hit him inside it and the lunge never happens`, and **it leaves
+  after the player's first kill or first pass**: a hint that never leaves is scenery.
 - **`hits N (N from behind)` was a lie, and it was mine.** The number behind it is
   `player.vx > 60` — *were you running at the goal when it landed* — and nothing in the run measures
   which side a guard was on. Two first-time players read it as a fact about the guard and reported

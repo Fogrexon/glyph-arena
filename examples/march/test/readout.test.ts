@@ -40,7 +40,7 @@ test("the death line names what was measured and never a side", () => {
 });
 
 test("the controls line teaches the one verb three first-time players never found", () => {
-  const [keys, verb] = controlsLines();
+  const [keys, verb] = controlsLines({ kills: 0, passes: 0 });
   // 11-19: 宣伝, QA and リリース all finished their minute at `passed 0/11`. The old single line
   // listed `Shift roll` beside `J attack`, which reads as two ways to do the same thing; rolling is
   // the only thing in the game that crosses a body, and the line never said so.
@@ -48,10 +48,26 @@ test("the controls line teaches the one verb three first-time players never foun
   assert.match(verb, /roll/i);
   assert.match(verb, /through a body/i, "the line has to say what the roll does that walking does not");
   assert.match(verb, /wakes the next one/i, "and what it costs");
-  // Both rows have to fit the view: 12 px monospace is ~7.2 px a character on the 640 px canvas.
-  for (const line of [keys, verb]) {
+  // Every row has to fit the view: 12 px monospace is ~7.2 px a character on the 640 px canvas.
+  for (const line of controlsLines({ kills: 0, passes: 0 })) {
     assert.ok(line.length <= 84, `"${line}" is ${line.length} chars, past the 640 px view at 12 px`);
   }
+});
+
+test("the tell is taught until it is learned, and then it leaves", () => {
+  // Two of the three first-time players (11-19) died to lunges they never interrupted. The tell is
+  // 260 ms of orange and hitting him inside it cancels the lunge outright — the fight's whole
+  // defence, and it was on no screen. It shows while the player has not yet killed or passed
+  // anybody, and leaves after the first of either: a hint that never leaves is scenery.
+  const fresh = controlsLines({ kills: 0, passes: 0 });
+  assert.equal(fresh.length, 3, "a player who has done neither gets all three rows");
+  assert.match(fresh[2], /tell/i);
+  assert.match(fresh[2], /hit him inside it/i);
+  assert.match(fresh[2], /lunge never happens/i, "the line has to say what striking the tell buys");
+
+  assert.equal(controlsLines({ kills: 1, passes: 0 }).length, 2, "one kill and the lesson is over");
+  assert.equal(controlsLines({ kills: 0, passes: 1 }).length, 2, "one pass counts the same");
+  assert.equal(controlsLines({ kills: 3, passes: 2 }).length, 2);
 });
 
 test("a guard on screen keeps his mark on his body", () => {

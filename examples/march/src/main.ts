@@ -570,13 +570,18 @@ function drawHud(): void {
   ctx.fillText(`${clockOf(simMs)}   run ${runs}   passed ${passes}/${enemies.length}   killed ${kills}`, 12, 42);
 
   if (phase === "play") {
-    ctx.fillStyle = "#6b7688";
-    // Two rows, and the second one is the verb three first-time players never found. See
-    // `controlsLines` for the measurement.
-    const [keysLine, verbLine] = controlsLines();
-    ctx.fillText(keysLine, 12, VIEW_H - 34);
-    ctx.fillStyle = "#8b93a3";
-    ctx.fillText(verbLine, 12, VIEW_H - 18);
+    // The bottom rows: the keys, the verb three first-time players never found, and — until the
+    // player kills or passes somebody — the tell, which is the other half of the fight.
+    // See `controlsLines` for the measurements behind each.
+    const lines = controlsLines({ kills, passes });
+    // Rows are anchored to the bottom **of a three-row block, not to each other**: the third row
+    // leaves after the first kill or pass, and a HUD that slides 16 px at that moment moves the two
+    // lines the player is reading mid-fight. Measured in the Pod: with `kills 0` the rows sat at
+    // 310 / 326 / 342 and with `kills 1` the first two had dropped to 326 / 342.
+    lines.forEach((line, index) => {
+      ctx.fillStyle = index === 0 ? "#6b7688" : "#8b93a3";
+      ctx.fillText(line, 12, VIEW_H - 50 + index * 16);
+    });
   }
   if (phase === "clear" || phase === "down") {
     const total = hits.length;

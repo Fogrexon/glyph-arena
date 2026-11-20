@@ -6,7 +6,15 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ## [Unreleased]
 
-### Fixed
+### Changed
+
+- **MARCH teaches the tell, and then stops.** Two of the three first-time players (11-19) died to
+  lunges they never interrupted — `hits 4 (4 while running)` from full hearts to none at the pair at
+  x 851. The tell is 260 ms of orange, and striking the guard *inside* it cancels the lunge
+  outright: the fight's whole defence, and it was on no screen. A third controls row,
+  `the orange flash is his tell — hit him inside it and the lunge never happens`, shows while the
+  player has not yet killed or passed anybody and disappears after the first of either — a hint
+  that never leaves is scenery. `test/readout.test.ts` holds both sides (3 rows fresh, 2 after).
 
 - **The freeze was the hand holding both arrows at once, and the game was right.** The new stall
   record named it: `still 31 frame(s) at x 2295 — road clear, vx 0, hearts 4, keys re-sent 165x,
