@@ -15,7 +15,8 @@
  *   node scripts/play-bot.mjs camp bold   [--runs 2] [--json]
  *   node scripts/play-bot.mjs camp careful [--runs 2] [--json]
  *   node scripts/play-bot.mjs runner      [--runs 1] [--json]
- *   node scripts/play-bot.mjs march bold|careful|run|rush|mixed [--runs 2] [--json]
+ *   node scripts/play-bot.mjs march bold|careful|run|rush|mixed|mash [--runs 2] [--json]
+ *   node scripts/play-bot.mjs march minute      # one 60 s session, printed as a person reports it
  *
  * Needs a built slice (`pnpm -r build`). `E2E_CHROMIUM=/path/to/chrome` picks the browser, the
  * same variable the e2e scripts read. Exit code is 0 only when every run met its expectation:
@@ -421,6 +422,20 @@ async function playMarch(page, strategy) {
         // printed a position and nothing else — a position cannot say whether the guard in front
         // was asleep, off his post, or between commits. Same correction as `kicks`: the harness
         // names what it saw, or the next reader spends another hour guessing.
+        // **The minute.** A first-time player's whole session is one minute and several deaths
+        // (measured 11-19: 宣伝 8 runs in 60 s, QA 4, リリース 1 and a clear). The hands above end
+        // the run at the first death because that is what they measure; this mode does not — it
+        // plays the same minute a person plays and reports it in the shape a person reports it.
+        const MINUTE_MS = 60000;
+        // `mode` is the page's copy of the hand name; `minute` is a session, not a hand, so it
+        // becomes the hand a first-timer uses and keeps the rest of the loop unchanged.
+        const minute = mode === "minute";
+        if (minute) mode = "mash";
+        const startedAt = Date.now();
+        const deaths = [];
+        let sawRoll = false;
+        let bestPasses = 0;
+        let cleared = false;
         const STALL_FRAMES = 180;
         let stillFrames = 0;
         let lastTarget = null;
@@ -450,6 +465,11 @@ async function playMarch(page, strategy) {
             // on 11-19 and was wrong for all of them. See `examples/march/src/readout.ts`.
             hitsWhileRunning: s.hits.filter((hit) => hit.cause === "running").length,
             stalls,
+            minute,
+            deaths,
+            sawRoll,
+            bestPasses,
+            cleared,
             enemyCount: s.enemies.length,
             runs: s.runs,
             rolls,
@@ -462,6 +482,9 @@ async function playMarch(page, strategy) {
 
         const tick = () => {
           const s = window.__marchState;
+          if (s.dodge === "roll") sawRoll = true;
+          if (s.passes > bestPasses) bestPasses = s.passes;
+          if (s.phase === "clear") cleared = true;
           // What the hand asked for last frame, read against what the world did with it. Movement
           // keys are the hand's own intent; `s.vx` would be the game's answer, and the two
           // disagreeing is the thing `kicks` already covers.
@@ -498,6 +521,21 @@ async function playMarch(page, strategy) {
             return finish();
           }
           if (s.phase !== "play") {
+            if (minute) {
+              // One death is not the end of a person's minute — it is one line of it.
+              const fatal = s.hits.at(-1);
+              deaths.push({
+                x: Math.round(fatal?.x ?? s.x),
+                beat: s.beat ?? null,
+                simMs: Math.round(s.simMs),
+                clear: s.phase === "clear",
+              });
+              // A clear ends the minute: there is nothing left in it to learn, and a hand that
+              // clears three times in a row is a finding, not a longer report.
+              if (s.phase === "clear" || Date.now() - startedAt >= MINUTE_MS) return finish();
+              press("KeyR");
+              return requestAnimationFrame(tick);
+            }
             if (!pressedRetry) {
               ended = s;
               pressedRetry = true;
@@ -511,6 +549,7 @@ async function playMarch(page, strategy) {
 
           // A run that never ends is a measurement that lies: stop it and say so.
           if (s.simMs > 120000) return finish();
+          if (minute && Date.now() - startedAt >= MINUTE_MS) return finish();
 
           if (mode === "run") {
             // One key, for the whole road. This hand exists to answer exactly one question — can
@@ -520,6 +559,26 @@ async function playMarch(page, strategy) {
             // roll's fault, and a kill is a fight. If walking cannot clear the road, that is the
             // measurement, not a broken hand.
             key("ArrowRight", true);
+            return requestAnimationFrame(tick);
+          }
+
+          if (mode === "mash") {
+            // **The hand every newcomer played with** (11-19, all three of them): hold right and
+            // hit J. It never rolls, so it is not `bold`; it never waits for a tell, so it is not
+            // `careful`. What it measures is what a first-timer does before anyone teaches them
+            // anything.
+            //
+            // **Swing when a guard is in reach, not on every frame.** `stepWorld` sets
+            // `committed = attack.elapsedMs >= 0` and the body cannot steer while it is out — so a
+            // hand that presses J in an empty corridor pins itself to the spot. Measured 11-20:
+            // pressing whenever the blade was idle walked the player to x 350 and stopped there for
+            // 120 s, because 300 ms of swing per press is 300 ms of no walking.
+            key("ArrowLeft", false);
+            key("ArrowRight", true);
+            const next = s.enemies
+              .filter((enemy) => enemy.alive && enemy.x + 20 > s.x)
+              .sort((a, b) => a.x - b.x)[0];
+            if (next !== undefined && next.x - (s.x + 20) <= 60 && s.blade === "idle") press("KeyJ");
             return requestAnimationFrame(tick);
           }
 
@@ -683,6 +742,36 @@ export function formatStandstill(stall, kicks = stall.kicks ?? 0) {
   );
 }
 
+/**
+ * A first-time player's minute, in the shape a first-time player reports it.
+ *
+ * The hands in this file end a run at the first death, because each one is a measurement of a
+ * single line. A person's minute is not that: it is up to eight runs, the same pair of guards, and
+ * `R` in between (measured 11-19 — 宣伝 8 runs in 60 s, QA 4, リリース 1 and a clear). `march minute`
+ * plays that minute with the hand a newcomer actually uses and prints one line, so the next three
+ * people can be compared to it without anyone counting by hand.
+ */
+export function formatMinute(r) {
+  const byPlace = new Map();
+  for (const death of r.deaths) {
+    if (death.clear) continue;
+    const found = byPlace.get(death.x) ?? { x: death.x, beat: death.beat, n: 0 };
+    found.n += 1;
+    byPlace.set(death.x, found);
+  }
+  const died = [...byPlace.values()]
+    .sort((a, b) => b.n - a.n)
+    .map((place) => {
+      const beat = place.beat === null ? "" : ` (beat ${place.beat.index}/${place.beat.count} · ${place.beat.size} guard${place.beat.size === 1 ? "" : "s"})`;
+      return `${place.x}${beat} ×${place.n}`;
+    })
+    .join(", ");
+  return (
+    `minute ${(r.simMs / 1000).toFixed(1)} s · runs ${r.runs} · died ${died === "" ? "nobody" : died} · ` +
+    `passed ${r.bestPasses}/11 · rolled ${r.sawRoll ? "yes" : "no"} · clear ${r.cleared ? "yes" : "no"}`
+  );
+}
+
 const TILE = 32;
 
 /** Deadly hazards, pits and steps for one level, in world px, derived from its rows. */
@@ -798,13 +887,13 @@ async function main() {
   const json = process.argv.includes("--json");
   if (game !== "camp" && game !== "runner" && game !== "march") {
     console.error(
-      "usage: play-bot.mjs camp <bold|careful> [--runs N] [--json] | play-bot.mjs runner [--runs N] [--json] | play-bot.mjs march <bold|careful|run|rush|mixed> [--runs N] [--json]",
+      "usage: play-bot.mjs camp <bold|careful> [--runs N] [--json] | play-bot.mjs runner [--runs N] [--json] | play-bot.mjs march <bold|careful|run|rush|mixed|mash|minute> [--runs N] [--json]",
     );
     process.exit(2);
   }
   // A strategy the game does not have is a silently different measurement: `march rum` would fall
   // through every branch to "walk to the next guard and hold", which is `careful` without a sword.
-  const MARCH_HANDS = ["bold", "careful", "run", "rush", "mixed"];
+  const MARCH_HANDS = ["bold", "careful", "run", "rush", "mixed", "mash", "minute"];
   if (game === "march" && !MARCH_HANDS.includes(strategy)) {
     console.error(`march has no hand called "${strategy}": ${MARCH_HANDS.join(", ")}`);
     process.exit(2);
@@ -839,13 +928,16 @@ async function main() {
     game === "camp"
       ? results.every((r) => r.phase === "clear" && r.consoleErrors.length === 0)
       : game === "march"
-        ? results.every(
-            (r) =>
-              (r.phase === "clear" || r.phase === "down") &&
-              r.consoleErrors.length === 0 &&
-              r.retryFrames !== null &&
-              r.retryFrames <= 3 &&
-              r.runsAfter === r.runs + 1,
+        ? results.every((r) =>
+            r.minute === true
+              ? // A minute is a session, not a run: it passes when it played one — a clear, or at
+                // least one death to report — and never left a console error behind.
+                r.consoleErrors.length === 0 && (r.cleared === true || r.deaths.length > 0)
+              : (r.phase === "clear" || r.phase === "down") &&
+                r.consoleErrors.length === 0 &&
+                r.retryFrames !== null &&
+                r.retryFrames <= 3 &&
+                r.runsAfter === r.runs + 1,
           )
         : results.every((r) => r.phase === "goal" && r.level === r.levelCount && r.consoleErrors.length === 0);
 
@@ -873,6 +965,8 @@ async function main() {
           console.log(`   commit gap: median ${median} ms  min ${gaps[0]}  n ${gaps.length}`);
         }
         if (r.lost.length > 0) console.log(`   lost ${JSON.stringify(r.lost)}`);
+      } else if (game === "march" && r.minute) {
+        console.log(formatMinute(r));
       } else if (game === "march") {
         console.log(
           `run ${r.run}  ${r.phase}  hearts ${r.hearts}  passed ${r.passes}/${r.enemyCount}  killed ${r.killed}  ` +

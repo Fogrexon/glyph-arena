@@ -139,3 +139,27 @@ test("a body that has the key but does not move is a different bug, and reads as
   assert.match(line, /game sees ArrowRight/);
   assert.match(line, /vx 0/);
 });
+
+test("a minute reads like the report a person writes, not like a bot", async () => {
+  // 宣伝's minute, 11-19, verbatim: 8 runs, seven deaths, five of them at 851, never a roll, never a
+  // pass. The line has to be comparable to what a person writes, or the two records cannot be read
+  // side by side — which is the whole point of the mode.
+  const { formatMinute } = await import("./play-bot.mjs");
+  const beat = { index: 2, count: 5, size: 2 };
+  const deaths = [
+    ...Array.from({ length: 5 }, () => ({ x: 851, beat, simMs: 7000, clear: false })),
+    ...Array.from({ length: 2 }, () => ({ x: 754, beat, simMs: 6500, clear: false })),
+  ];
+  const line = formatMinute({ simMs: 60000, runs: 8, deaths, sawRoll: false, bestPasses: 0, cleared: false });
+  assert.match(line, /^minute 60\.0 s · runs 8 · died /);
+  assert.match(line, /851 \(beat 2\/5 · 2 guards\) ×5/, "the place with the most deaths is named first");
+  assert.match(line, /754 \(beat 2\/5 · 2 guards\) ×2/);
+  assert.match(line, /passed 0\/11/, "nobody passed a guard, which is what the minute is for");
+  assert.match(line, /rolled no/, "the hand that never rolls is the point: a newcomer does not");
+  assert.match(line, /clear no/);
+
+  const clean = formatMinute({ simMs: 41000, runs: 1, deaths: [], sawRoll: true, bestPasses: 5, cleared: true });
+  assert.match(clean, /died nobody/);
+  assert.match(clean, /rolled yes/);
+  assert.match(clean, /clear yes/);
+});

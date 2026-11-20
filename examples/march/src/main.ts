@@ -54,7 +54,7 @@ import {
   spawnPoint,
 } from "./level";
 import { ENEMY_SIZE, PLAYER_SIZE } from "./sizes";
-import { beatAt, beatLine, causeOf, controlsLines, edgeMarkFor, hitsLine, type HitCause } from "./readout";
+import { beatAt, beatLine, causeOf, controlsLines, edgeMarkFor, hitsLine, type Beat, type HitCause } from "./readout";
 
 const VIEW_W = 640;
 const VIEW_H = 360;
@@ -749,6 +749,8 @@ type MarchState = {
   hits: Hit[];
   /** The keys the game saw on this frame. Empty while a hand holds one is the input's fault. */
   keys: string[];
+  /** Which beat the player is in — the same value the death screen prints, published once. */
+  beat: Beat;
   enemies: Array<{ x: number; y: number; hp: number; alive: boolean; mode: string; modeMs: number; passed: boolean; spent: boolean; alert: boolean }>;
 };
 
@@ -774,6 +776,7 @@ function publish(): void {
     lastRunMs,
     hits,
     keys: frameKeys,
+    beat: beatAt(player.x, enemies.map((enemy) => enemy.homeX)),
     enemies: enemies.map((each) => ({
       x: each.body.x,
       y: each.body.y,
