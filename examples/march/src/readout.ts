@@ -1,3 +1,5 @@
+import { TILE } from "./level";
+
 /**
  * What the screen is allowed to say about a run, as pure functions.
  *
@@ -64,6 +66,44 @@ export function controlsLines(progress: { kills: number; passes: number }): stri
     lines.push("the orange flash is his tell — hit him inside it and the lunge never happens");
   }
   return lines;
+}
+
+/**
+ * Where a run died, in the road's own words.
+ *
+ * The death screen has always said `died at x 851`, and 851 is a number with no meaning: the player
+ * cannot turn it into "the pair". Measured 11-19 — 宣伝 died at 851 five times and 754 twice in one
+ * minute, all of it the same pair of guards — so the line the game prints at the moment of failure
+ * named a coordinate and not the thing they were fighting.
+ *
+ * A beat is the run of posts with a walk between them (the same grouping `test/level.test.ts`
+ * derives from the layout), so the same x becomes `beat 2/5 · 2 guards`.
+ */
+export const BEAT_WALK_PX = 6 * TILE;
+
+export type Beat = { index: number; count: number; size: number };
+
+export function beatAt(x: number, posts: readonly number[]): Beat {
+  const sorted = [...posts].sort((a, b) => a - b);
+  const groups: number[][] = [];
+  for (const post of sorted) {
+    const current = groups.at(-1);
+    if (current === undefined || post - current[current.length - 1] > BEAT_WALK_PX) groups.push([post]);
+    else current.push(post);
+  }
+  if (groups.length === 0) return { index: 1, count: 1, size: 1 };
+  // The beat you are in is the last one that starts at or before you; a run that dies before the
+  // first post is in the first beat, which is where the walk-in is.
+  let found = 0;
+  groups.forEach((group, index) => {
+    if (x >= group[0]) found = index;
+  });
+  return { index: found + 1, count: groups.length, size: groups[found].length };
+}
+
+/** The line the death screen adds: `beat 2/5 · 2 guards`. */
+export function beatLine(beat: Beat): string {
+  return `beat ${beat.index}/${beat.count} · ${beat.size} guard${beat.size === 1 ? "" : "s"}`;
 }
 
 /** A rectangle to draw at the screen edge, or `null` when the body it belongs to is already there. */
