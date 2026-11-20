@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { deriveRunPlan } from "./play-bot.mjs";
+import { deriveRunPlan, formatStandstill } from "./play-bot.mjs";
 
 const ROOT = join(import.meta.dirname ?? new URL(".", import.meta.url).pathname, "..");
 const levels = JSON.parse(readFileSync(join(ROOT, "examples/runner/src/levels.json"), "utf8"));
@@ -85,4 +85,45 @@ test("the mixed hand's pair threshold still separates the road's pairs from its 
     `PAIR_PX ${pairPx} reaches across a beat break (${Math.min(...acrossBeat)} px) — the mixed hand would fight a single`,
   );
   assert.match(source, /mode === "mixed" && !partner/, "the mixed hand no longer tells a pair from a single");
+});
+
+test("a stalled hand reports what it was standing in front of, not just where", () => {
+  // Measured 11-20: `march mixed` stood at x 1536 for 120 s of sim time and the run printed the
+  // position only. `walk 4600 ms` and `windup 120 ms` are different bugs with different fixes, and
+  // only the guard's state tells them apart.
+  const asleep = formatStandstill({
+    frames: 180,
+    x: 1536,
+    gap: 44,
+    target: { home: 1606, x: 1600, mode: "walk", ms: 4615, alert: true, passed: false },
+  });
+  assert.match(asleep, /still 180 frame\(s\) at x 1536/);
+  assert.match(asleep, /home 1606 body 1600 gap 44/);
+  assert.match(asleep, /walk 4615 ms/, "the guard's mode and how long it has held it");
+  assert.match(asleep, / alert/, "a guard who was woken behaves differently and the line says so");
+  assert.doesNotMatch(asleep, /passed/, "this one was not passed");
+
+  const dancing = formatStandstill({
+    frames: 180,
+    x: 900,
+    gap: 12,
+    target: { home: 902, x: 896, mode: "windup", ms: 120, alert: false, passed: true },
+  });
+  assert.match(dancing, /windup 120 ms/);
+  assert.match(dancing, / passed/);
+  assert.match(dancing, / offPost/, "a body 6 px off its post cannot commit, which is a third cause");
+});
+
+test("the stall that reproduced on 11-20 is named as a clear road with keys re-sent", () => {
+  // `march mixed` froze at x 2526 for 120 s on main's own road (1 run in 6, 11-20) with `kicks 173`:
+  // the harness re-sent the key 173 times and the body did not move. That is not a hand that
+  // stopped — the hand was holding right — so the line has to say what the *world* was doing.
+  const line = formatStandstill(
+    { frames: 31, x: 2526, gap: null, vx: 0, hearts: 3, target: null },
+    173,
+  );
+  assert.match(line, /road clear/);
+  assert.match(line, /vx 0/, "the body is not moving, which is what the game cannot produce from input it heard");
+  assert.match(line, /keys re-sent 173x/, "the kick count is the proof the harness did its part");
+  assert.match(line, /hearts 3/);
 });

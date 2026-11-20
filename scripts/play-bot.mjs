@@ -416,6 +416,16 @@ async function playMarch(page, strategy) {
         // that needed it is the evidence, not a guess.
         let stuckFrames = 0;
         let kicks = 0;
+        // A hand that stops is a measurement too. On 11-20 `march mixed` stood at x 1536 for
+        // 120 s of sim time on a road I was reshaping, with `hits 0` and `kicks 0`, and the run
+        // printed a position and nothing else — a position cannot say whether the guard in front
+        // was asleep, off his post, or between commits. Same correction as `kicks`: the harness
+        // names what it saw, or the next reader spends another hour guessing.
+        const STALL_FRAMES = 180;
+        let stillFrames = 0;
+        let lastTarget = null;
+        let lastGap = 0;
+        const stalls = [];
         let swings = 0;
         let ended = null;
         let pressedRetry = false;
@@ -439,6 +449,7 @@ async function playMarch(page, strategy) {
             // It has never meant "from behind": that label was read off this field by three people
             // on 11-19 and was wrong for all of them. See `examples/march/src/readout.ts`.
             hitsWhileRunning: s.hits.filter((hit) => hit.cause === "running").length,
+            stalls,
             enemyCount: s.enemies.length,
             runs: s.runs,
             rolls,
@@ -451,6 +462,30 @@ async function playMarch(page, strategy) {
 
         const tick = () => {
           const s = window.__marchState;
+          // What the hand asked for last frame, read against what the world did with it. Movement
+          // keys are the hand's own intent; `s.vx` would be the game's answer, and the two
+          // disagreeing is the thing `kicks` already covers.
+          if (held.has("ArrowRight") || held.has("ArrowLeft")) {
+            stillFrames = 0;
+          } else if (lastTarget !== null) {
+            stillFrames += 1;
+            if (stillFrames === STALL_FRAMES) {
+              stalls.push({
+                frames: stillFrames,
+                atMs: s.simMs,
+                x: s.x,
+                gap: lastGap,
+                target: {
+                  home: lastTarget.homeX,
+                  x: lastTarget.x,
+                  mode: lastTarget.mode,
+                  ms: lastTarget.modeMs,
+                  alert: lastTarget.alert,
+                  passed: lastTarget.passed,
+                },
+              });
+            }
+          }
           if (!s) return requestAnimationFrame(tick);
           runPulses();
 
@@ -510,6 +545,9 @@ async function playMarch(page, strategy) {
             else stuckFrames = 0;
             if (stuckFrames > 30) {
               kicks += 1;
+              if (stalls.length === 0) {
+                stalls.push({ frames: stuckFrames, atMs: s.simMs, x: s.x, gap: null, vx: s.vx, hearts: s.hearts, target: null });
+              }
               stuckFrames = 0;
               key("ArrowRight", false);
             }
@@ -517,6 +555,8 @@ async function playMarch(page, strategy) {
             return requestAnimationFrame(tick);
           }
           const gap = target.x - (s.x + 20);
+          lastTarget = target;
+          lastGap = gap;
 
           // `mixed` is the hand a player actually finds: spend the roll on a guard who is alone,
           // fight the ones who are not. It is one line of policy over the two hands that already
@@ -607,6 +647,32 @@ async function playMarch(page, strategy) {
 /* -------------------------------------------------------------------------------------------- *
  * Runner: three levels, taking off from windows derived from the level data.                    *
  * -------------------------------------------------------------------------------------------- */
+
+/**
+ * What a hand that stopped was standing in front of.
+ *
+ * The record carries the guard's *state*, not just the player's x: `walk` at 4600 ms means he has
+ * been asleep at his post the whole time (nothing will ever happen), `windup` means the hand is
+ * mid-dance, and `offPost` means he cannot commit at all until he has walked back. Three causes,
+ * three fixes, one line.
+ */
+export function formatStandstill(stall, kicks = stall.kicks ?? 0) {
+  if (stall.target == null) {
+    return (
+      `still ${stall.frames} frame(s) at x ${Math.round(stall.x)} — road clear, vx ${Math.round(stall.vx)}, ` +
+      `hearts ${stall.hearts}, keys re-sent ${kicks}x`
+    );
+  }
+  const target = stall.target;
+  const offPost = Math.abs(target.x - target.home) >= 0.5 ? " offPost" : "";
+  const alert = target.alert ? " alert" : "";
+  const passed = target.passed ? " passed" : "";
+  return (
+    `still ${stall.frames} frame(s) at x ${Math.round(stall.x)} — target home ${Math.round(target.home)} ` +
+    `body ${Math.round(target.x)} gap ${Math.round(stall.gap)} ${target.mode} ${Math.round(target.ms)} ms` +
+    `${alert}${passed}${offPost}`
+  );
+}
 
 const TILE = 32;
 
@@ -805,6 +871,7 @@ async function main() {
             `retry ${r.retryFrames} frame(s)  kicks ${r.kicks}  errors ${r.consoleErrors.length}  ${r.bundle}`,
         );
         if (r.hitLog !== undefined && r.hitLog.length > 0) console.log(`   hits by mode: ${r.hitLog.join(" | ")}`);
+        for (const stall of r.stalls ?? []) console.log(`   stalled — ${formatStandstill(stall, r.kicks)}`);
       } else {
         const jump = Object.entries(r.jumps).map(([kind, n]) => `${kind} ${n}`).join(" ");
         console.log(

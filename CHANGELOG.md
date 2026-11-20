@@ -8,6 +8,19 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Fixed
 
+- **The harness now says what a stopped hand was standing in front of — and the stall reproduced on
+  main's own road.** `march mixed` froze at `x 2526` for 120 s of sim time in **1 run of 6** on
+  11-20, on the road main ships, with no living guard within 400 px and **`kicks 173`**: the harness
+  re-sent the key 173 times and the body did not move. #294 read the same freeze as a lost key and
+  fixed the harness — that fix is still right, the re-send is what turns a two-minute dead stop into
+  a 33 s clear — but **it is not the whole story**: here the input arrives and the body stays at
+  `vx 0`. A run that stalls now prints
+  `stalled — still 31 frame(s) at x 2526 — road clear, vx 0, hearts 3, keys re-sent 173x`, and a
+  hand that stops *in front of a guard* (a different failure, same symptom) prints that guard's
+  `mode`, how long he has held it, and whether he is `offPost` — three causes with three different
+  fixes, where the old run printed only a position. Tracked in the backlog; no game code changed
+  here.
+
 - **`round` rounded a half pixel the wrong way, on exactly the frames it exists for.** `setView({
   round: true })` called `Math.round`, which sends `0.5` to `1` and `-0.5` to `-0` — the same
   number, the opposite direction. A game that had been writing `-Math.round(cameraX)` and handed the
