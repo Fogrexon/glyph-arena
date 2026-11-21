@@ -206,7 +206,8 @@ async function runPhoneViewport(browser, baseUrl) {
  * gate does not repeat that formula, it walks the pad and lets the zones speak.
  */
 async function runPadZones(browser, baseUrl) {
-  const page = await browser.newPage({ viewport: { ...PHONE }, hasTouch: true });
+  // The same ratio the phone runs at, so buildPad is given the canvas it will really be given.
+  const page = await browser.newPage({ viewport: { ...PHONE }, deviceScaleFactor: 3, hasTouch: true });
   try {
     await page.goto(`${baseUrl}/phone.html`, { waitUntil: "load" });
     await page.waitForFunction(() => typeof window.__buildPad === "function", undefined, { timeout: 10_000 });
@@ -243,7 +244,9 @@ async function runPadZones(browser, baseUrl) {
           return { width, spans, overlaps, firstOverlap };
         });
       },
-      { widths: PAD_WIDTHS, height: PHONE.height },
+      // Canvas pixels, because that is what buildPad is given: the pad converts a thumb's CSS pixels
+      // itself, so the probe hands it the bitmap a 3x phone would produce.
+      { widths: PAD_WIDTHS.map((width) => width * 3), height: PHONE.height * 3 },
     );
 
     for (const entry of measured) {
@@ -254,12 +257,12 @@ async function runPadZones(browser, baseUrl) {
 
       check(
         entry.overlaps === 0 && silent.length === 0,
-        `T11: at ${entry.width}px no point belongs to two pad zones`,
+        `T11: at ${entry.width / 3}px (x3) no point belongs to two pad zones`,
         entry.overlaps > 0
           ? `${entry.overlaps} point(s) answered twice, e.g. ${JSON.stringify(entry.firstOverlap)}`
           : `${silent.join(", ")} never answered`,
       );
-      console.log(`     ${entry.width}px: ${zones}`);
+      console.log(`     ${entry.width / 3}px CSS (${entry.width}px bitmap): ${zones}`);
     }
   } finally {
     await page.close();

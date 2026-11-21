@@ -19,6 +19,29 @@ import { createTween } from "@fogrexon/glyph-arena-tween";
 type Phase = "title" | "play" | "result";
 
 /**
+ * A view matrix, drawn into a bitmap that is `ratio` times its CSS box.
+ *
+ * `camera.view(w, h)` frames a `w x h` canvas; on a 2x display that canvas is twice the CSS pixels
+ * but the player still expects the same field of view, so the frame is measured in CSS and the
+ * matrix is scaled up to the bitmap. `ratio: 1` returns the matrix untouched, which is every
+ * non-Retina frame and the frame the pixel gate measures.
+ */
+function scaleView(matrix: Matrix2D, ratio: number): Matrix2D {
+  if (ratio === 1) {
+    return matrix;
+  }
+
+  return {
+    a: matrix.a * ratio,
+    b: matrix.b * ratio,
+    c: matrix.c * ratio,
+    d: matrix.d * ratio,
+    e: matrix.e * ratio,
+    f: matrix.f * ratio,
+  };
+}
+
+/**
  * Read-only mirror of the run in `window.__pickupState`, refreshed every frame.
  *
  * The HUD and the field are canvas pixels, so an E2E can only guess at them from colours and
@@ -276,17 +299,27 @@ function padHasInput(pad: GamepadState): boolean {
 }
 
 /**
+ * Bitmap pixels per CSS pixel.
+ *
+ * The pad's numbers below are **thumb-sized**, so they are CSS pixels; the canvas is device pixels.
+ * On a 3x phone a 64 canvas-pixel pad is a 21 CSS-pixel target — a finger cannot land on it — so
+ * every number that meets the canvas is multiplied by this.
+ */
+const screenRatio = (): number => (window.innerWidth === 0 ? 1 : canvas.width / window.innerWidth);
+
+/**
  * The zones, in canvas pixels — the same units `toCanvasPoint` puts the pointers in. `screen` is the
  * whole canvas: the title is "tap anywhere", and a phone user should not have to find a corner.
  */
 function touchZones(): Record<string, TouchZone> {
+  const u = screenRatio();
   return {
     move: {
       kind: "circle",
-      x: TOUCH_PAD_MARGIN,
-      y: canvas.height - TOUCH_PAD_MARGIN,
-      radius: TOUCH_PAD_REACH,
-      deadZone: TOUCH_PAD_DEADZONE,
+      x: TOUCH_PAD_MARGIN * u,
+      y: canvas.height - TOUCH_PAD_MARGIN * u,
+      radius: TOUCH_PAD_REACH * u,
+      deadZone: TOUCH_PAD_DEADZONE * u,
     },
     screen: { kind: "rect", x: 0, y: 0, w: canvas.width, h: canvas.height },
   };
@@ -642,7 +675,7 @@ async function main(): Promise<void> {
 
   // The zones are canvas pixels, so they change when the canvas does. Rebuilding throws away a press
   // in flight, which a resize can afford and a frame cannot.
-  fitToWindow(canvas, window, {
+  const fit = fitToWindow(canvas, window, {
     onResize: () => {
       touch = createTouchControls({ zones: touchZones(), holdMs: TOUCH_HOLD_MS });
     },
@@ -1312,10 +1345,14 @@ async function main(): Promise<void> {
       return;
     }
 
+    // Drawn in CSS pixels through a ratio transform: the pad is the same size to the thumb on any
+    // display, and it lands exactly on the zone above (which is the same numbers, times the ratio).
+    const u = screenRatio();
     const centerX = TOUCH_PAD_MARGIN;
-    const centerY = canvas.height - TOUCH_PAD_MARGIN;
+    const centerY = canvas.height / u - TOUCH_PAD_MARGIN;
 
     draw.setView(null);
+    ctx.setTransform(u, 0, 0, u, 0, 0);
     ctx.globalAlpha = 0.2;
     ctx.fillStyle = "#e8eaed";
     ctx.beginPath();
@@ -1621,9 +1658,13 @@ async function main(): Promise<void> {
         }
       }
 
-      const viewWidth = canvas.width;
-      const viewHeight = canvas.height;
-      const viewMatrix = camera.view(viewWidth, viewHeight);
+      // The bitmap is `ratio` device pixels per CSS pixel, so the camera frames the **CSS** box and
+      // the view is drawn at `ratio`: the player sees the same world as before, with more pixels
+      // behind it. Framing the bitmap instead would quietly zoom the game out on a Retina display.
+      const ratio = fit.ratio;
+      const viewWidth = canvas.width / ratio;
+      const viewHeight = canvas.height / ratio;
+      const viewMatrix = scaleView(camera.view(viewWidth, viewHeight), ratio);
 
       draw.setView(null);
       draw.clear("#0f1115");

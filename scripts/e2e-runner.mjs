@@ -1068,13 +1068,34 @@ async function runTouch(browser, baseUrl, errors) {
     // hold the release between frames would erase the press before the loop ever sampled it, which
     // is why every touch procedure in this file used to sleep 150 ms before lifting.
     await until(page, (s) => s.grounded && s.phase === "play", { timeoutMs: 3000 });
-    await oneFrameTap(page, pads.jump.x, pads.jump.y);
-    const tapSamples = await sample(page, 140, 16);
-    const tapMinVy = tapSamples.length > 0 ? Math.min(...tapSamples.map((s) => s.vy)) : Number.NaN;
+    // The minimum is collected **inside the page**, one sample per frame. Polling `__runnerState`
+    // from here costs a round trip per sample, and on the 3840x2160 canvas this context gets at
+    // ratio 3 each of those is slow enough to step over the 60 ms of a jump's rise — the gate then
+    // reads a body already coming down and calls a working tap "no jump". The page can sample its
+    // own state at frame rate; nothing about the assertion changes.
+    await pointer(page, "pointerdown", pads.jump.x, pads.jump.y);
+    const tapMinVy = await page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          let min = Number.POSITIVE_INFINITY;
+          let frames = 0;
+
+          const sample = () => {
+            const s = window.__runnerState;
+            if (s) min = Math.min(min, s.vy);
+            frames += 1;
+            if (frames < 8) requestAnimationFrame(sample);
+            else resolve(min);
+          };
+
+          requestAnimationFrame(sample);
+        }),
+    );
+    await pointer(page, "pointerup", pads.jump.x, pads.jump.y);
     check(
       tapMinVy <= -600,
       "R5 (③): a one-frame tap on the jump pad still jumps (no 150 ms hold)",
-      `minVy ${tapMinVy.toFixed(0)} px/s over ${tapSamples.length} samples`,
+      `minVy ${tapMinVy.toFixed(0)} px/s over 8 frames sampled in the page`,
     );
 
     if (process.env.E2E_KEEP) await page.screenshot({ path: join(ROOT, "e2e-runner-touch.png") });

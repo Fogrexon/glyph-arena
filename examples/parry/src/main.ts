@@ -140,6 +140,16 @@ const canvas: HTMLCanvasElement = canvasEl;
 const touchEnabled = typeof navigator !== "undefined" && navigator.maxTouchPoints > 0;
 
 const context = canvas.getContext("2d");
+
+/**
+ * Bitmap pixels per CSS pixel.
+ *
+ * The touch pad's numbers are **thumb-sized**, so they are CSS pixels; the canvas is device pixels,
+ * and on a 3x phone a 64 canvas-pixel pad is a 21 CSS-pixel target a finger cannot land on. Read from
+ * the canvas rather than from `fit`: the pad is built inside `fitToWindow`'s constructor and at
+ * module scope, and `fit` is not assigned yet at either of those moments.
+ */
+const screenRatio = (): number => (window.innerWidth === 0 ? 1 : canvas.width / window.innerWidth);
 if (context === null) {
   throw new Error("2D canvas context unavailable");
 }
@@ -561,12 +571,14 @@ async function main(): Promise<void> {
    * flight - which a resize can afford and a frame cannot.
    */
   function touchZones(): Record<string, TouchZone> {
-    const padX = TOUCH_CONTROL_INSET;
-    const padY = canvas.height - TOUCH_CONTROL_INSET;
+    // The numbers above are thumb-sized, so they are CSS pixels; the zones are canvas pixels.
+    const u = screenRatio();
+    const padX = TOUCH_CONTROL_INSET * u;
+    const padY = canvas.height - TOUCH_CONTROL_INSET * u;
     return {
-      move: { kind: "circle", x: padX, y: padY, radius: TOUCH_STICK_RADIUS, deadZone: TOUCH_STICK_DEAD_ZONE },
+      move: { kind: "circle", x: padX, y: padY, radius: TOUCH_STICK_RADIUS * u, deadZone: TOUCH_STICK_DEAD_ZONE * u },
       // A button, not a stick: nothing asks for its direction, so the dead zone is 0.
-      dash: { kind: "circle", x: canvas.width - padX, y: padY, radius: TOUCH_CONTROL_RADIUS, deadZone: 0 },
+      dash: { kind: "circle", x: canvas.width - padX, y: padY, radius: TOUCH_CONTROL_RADIUS * u, deadZone: 0 },
       // Title and result are "tap anywhere" - a phone user should not have to find a corner first.
       screen: { kind: "rect", x: 0, y: 0, w: canvas.width, h: canvas.height },
     };
@@ -576,7 +588,7 @@ async function main(): Promise<void> {
 
   // The bitmap is the window, and a zone is geometry in bitmap pixels - so the pads are rebuilt
   // after the new size is in place, not on the frame.
-  fitToWindow(canvas, window, {
+  const fit = fitToWindow(canvas, window, {
     onResize: () => {
       touch = createTouchControls({ zones: touchZones(), holdMs: TOUCH_HOLD_MS });
     },
@@ -586,9 +598,12 @@ async function main(): Promise<void> {
     if (!touchEnabled) {
       return;
     }
+    // Drawn in CSS pixels through a ratio transform, so the pad is the same size to the thumb on any
+    // display and lands exactly on the zone above (the same numbers, times the ratio).
+    const u = screenRatio();
     const centerX = TOUCH_CONTROL_INSET;
-    const centerY = canvas.height - TOUCH_CONTROL_INSET;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const centerY = canvas.height / u - TOUCH_CONTROL_INSET;
+    ctx.setTransform(u, 0, 0, u, 0, 0);
     ctx.globalAlpha = 0.2;
     ctx.fillStyle = "#e8eaed";
     ctx.beginPath();
@@ -606,8 +621,8 @@ async function main(): Promise<void> {
     ctx.stroke();
 
     // The dash button: a phone has no Shift, and parrying is the whole game.
-    const dashX = canvas.width - TOUCH_CONTROL_INSET;
-    const dashY = canvas.height - TOUCH_CONTROL_INSET;
+    const dashX = canvas.width / u - TOUCH_CONTROL_INSET;
+    const dashY = canvas.height / u - TOUCH_CONTROL_INSET;
     // Pressed state on purpose: "did my tap land?" was the question that cost an hour today.
     ctx.globalAlpha = touchDashHeld ? 0.55 : 0.2;
     ctx.fillStyle = "#fbbf24";
@@ -635,11 +650,14 @@ async function main(): Promise<void> {
   function drawScene(offsetX: number, offsetY: number): void {
     const playerCenter = centerOf(getAabb(playerEntity));
     camera.set({ x: playerCenter.x - offsetX, y: playerCenter.y - offsetY, zoom: 1 });
-    const view = camera.view(canvas.width, canvas.height);
+    // The camera frames the **CSS** box and the view is drawn at the device ratio: the arena holds
+    // the same amount of world on a Retina display, with more pixels behind it.
+    const { ratio } = fit;
+    const view = camera.view(canvas.width / ratio, canvas.height / ratio);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     draw.clear("#0f1115");
     const [a, b, c, d, e, f] = matrixToArgs(view);
-    ctx.setTransform(a, b, c, d, e, f);
+    ctx.setTransform(a * ratio, b * ratio, c * ratio, d * ratio, e * ratio, f * ratio);
     ctx.strokeStyle = "#2a2f38";
     ctx.lineWidth = 4;
     ctx.strokeRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);

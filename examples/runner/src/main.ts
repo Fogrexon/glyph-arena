@@ -18,6 +18,7 @@ import { createTouchControls, type TouchZone } from "@fogrexon/glyph-arena-touch
 import { TILE, chaseSpawnLane, currentLevel, currentMap, goalLineX, hazardWithin, isHazardTile, isSolidTile, levelColumns, levelCount, levelRows, loadLevel, patrolRange, solidAt, spawnPoint, surfaceBelow } from "./level";
 import { CHASE } from "./enemy";
 import { GRAVITY, createBody, jumpHeight, stepBody, type Body } from "./physics";
+import { logicalScale, logicalViewWidth } from "./view";
 
 type Phase = "title" | "play" | "dead" | "goal";
 
@@ -85,8 +86,9 @@ type RunnerState = {
  * The height the game is laid out in: HUD text, touch buttons and the camera's vertical framing are
  * sized against 540, and `scale()` maps that to whatever the window is.
  *
- * Not a screen scale — `screenScale` answers a different question (bitmap pixels per CSS pixel) and
- * is 1 on both axes here, because `fitToWindow` gives the canvas a bitmap the size of the window.
+ * Not a screen scale — `screenScale` answers a different question (bitmap pixels per CSS pixel).
+ * `scale()` is in **bitmap** space (`canvas.height / 540`), which is why the framed width stays the
+ * same on a Retina display; see `view.ts` for the property and `test/view.test.ts` for the proof.
  */
 const LOGICAL_HEIGHT = 540;
 const RESPAWN_SECONDS = 0.6;
@@ -286,8 +288,8 @@ const TOUCH = {
   holdMs: 150,
 };
 
-const scale = (): number => canvas.height / LOGICAL_HEIGHT;
-const viewWidth = (): number => canvas.width / scale();
+const scale = (): number => logicalScale(canvas.height, LOGICAL_HEIGHT);
+const viewWidth = (): number => logicalViewWidth(canvas.width, canvas.height, LOGICAL_HEIGHT);
 
 type Rect = { x: number; y: number; w: number; h: number };
 

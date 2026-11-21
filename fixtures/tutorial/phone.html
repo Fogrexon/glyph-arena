@@ -17,8 +17,16 @@
         overflow: hidden;
         background: #0d1626;
       }
+      /*
+       * The canvas fills the page, which is the point: a game is told its bitmap in device pixels
+       * and its CSS box by the page, and the two are the same only at ratio 1. `display: block`
+       * alone leaves the box at the bitmap's size, so a ratio-3 phone lays the pad out over three
+       * times the thumb's reach — 100% is what makes `units()` mean "the window".
+       */
       canvas {
         display: block;
+        width: 100%;
+        height: 100%;
         touch-action: none;
       }
     </style>

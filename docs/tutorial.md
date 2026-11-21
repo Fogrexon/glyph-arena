@@ -235,6 +235,20 @@ const CELL = 32;
 const COLS = 32;
 const ROWS = 6;
 
+/**
+ * Bitmap pixels per CSS pixel: 3 on a phone, 1 on this laptop.
+ *
+ * The canvas is counted in bitmap pixels and a thumb is measured in CSS pixels, so the two are only
+ * the same number at ratio 1. Read once here and used where they meet; the desktop program below
+ * gets 1, and the same lines are right on both.
+ */
+const units = (): number => (window.innerWidth === 0 ? 1 : canvas.width / window.innerWidth);
+
+/** A view matrix for a CSS-sized frame, drawn into a bitmap `u` times bigger. */
+function scaleView(view: { a: number; b: number; c: number; d: number; e: number; f: number }, u: number) {
+  return { a: view.a * u, b: view.b * u, c: view.c * u, d: view.d * u, e: view.e * u, f: view.f * u };
+}
+
 // phone-begin: canvas and pad
 const canvas = document.querySelector<HTMLCanvasElement>("#game")!;
 canvas.width = window.innerWidth;
@@ -296,8 +310,11 @@ createLoop({
 
     draw.clear("#0d1626");
 
-    camera.set({ x: player.x - canvas.width * 0.33, y: 0 });
-    draw.setView(camera.view(canvas.width, canvas.height));
+    // The camera frames the CSS box, so the same amount of world is on screen at every ratio, and
+    // the view is drawn into a bitmap `u` times bigger. Framing the bitmap would zoom the game out.
+    const u = units();
+    camera.set({ x: player.x - (canvas.width / u) * 0.33, y: 0 });
+    draw.setView(scaleView(camera.view(canvas.width / u, canvas.height / u), u));
 
     for (let row = 0; row < ROWS; row += 1) {
       for (let col = 0; col < COLS; col += 1) {
@@ -314,10 +331,12 @@ createLoop({
     // (a keyboard game: there is no pad to draw)
     // phone-end
 
+    // The HUD is sized in CSS pixels too, and drawn into the bigger bitmap.
+    draw.setView({ scale: u, offsetX: 0, offsetY: 0 });
     draw.text({ text: `x ${Math.round(player.x)}`, x: 16, y: 16, size: 16, fill: "#e8eaed" });
     draw.text({
       text: "SCORE 0",
-      x: canvas.width - 16,
+      x: canvas.width / u - 16,
       y: 16,
       size: 16,
       fill: "#e8eaed",
@@ -401,14 +420,32 @@ const CELL = 32;
 const COLS = 32;
 const ROWS = 6;
 
+/**
+ * Bitmap pixels per CSS pixel: 3 on a phone, 1 on this laptop.
+ *
+ * The canvas is counted in bitmap pixels and a thumb is measured in CSS pixels, so the two are only
+ * the same number at ratio 1. Read once here and used where they meet; the desktop program below
+ * gets 1, and the same lines are right on both.
+ */
+const units = (): number => (window.innerWidth === 0 ? 1 : canvas.width / window.innerWidth);
+
+/** A view matrix for a CSS-sized frame, drawn into a bitmap `u` times bigger. */
+function scaleView(view: { a: number; b: number; c: number; d: number; e: number; f: number }, u: number) {
+  return { a: view.a * u, b: view.b * u, c: view.c * u, d: view.d * u, e: view.e * u, f: view.f * u };
+}
+
 // phone-begin: canvas and pad
 const canvas = document.querySelector<HTMLCanvasElement>("#game")!;
 
 // The rectangles a finger is tested against are the ones the player sees, so the two cannot drift apart.
 function buildPad(width: number, height: number) {
-  const margin = 24;
-  const gap = 12;
-  const size = Math.min(120, Math.floor((width - margin * 2 - gap * 2) / 3));
+  // width and height are canvas pixels and a thumb is measured in CSS ones, so the width comes back
+  // to CSS before the size is chosen: Math.min(120, ...) is the thumb-sized rule, not a pixel one.
+  const u = units();
+  const cssWidth = width / u;
+  const margin = 24 * u;
+  const gap = 12 * u;
+  const size = Math.min(120, Math.floor((cssWidth - 24 * 2 - 12 * 2) / 3)) * u;
   const y = height - size - margin;
   const zones = {
     left: { kind: "rect", x: margin, y, w: size, h: size },
@@ -492,8 +529,11 @@ createLoop({
 
     draw.clear("#0d1626");
 
-    camera.set({ x: player.x - canvas.width * 0.33, y: 0 });
-    draw.setView(camera.view(canvas.width, canvas.height));
+    // The camera frames the CSS box, so the same amount of world is on screen at every ratio, and
+    // the view is drawn into a bitmap `u` times bigger. Framing the bitmap would zoom the game out.
+    const u = units();
+    camera.set({ x: player.x - (canvas.width / u) * 0.33, y: 0 });
+    draw.setView(scaleView(camera.view(canvas.width / u, canvas.height / u), u));
 
     for (let row = 0; row < ROWS; row += 1) {
       for (let col = 0; col < COLS; col += 1) {
@@ -529,10 +569,12 @@ createLoop({
     }
     // phone-end
 
+    // The HUD is sized in CSS pixels too, and drawn into the bigger bitmap.
+    draw.setView({ scale: u, offsetX: 0, offsetY: 0 });
     draw.text({ text: `x ${Math.round(player.x)}`, x: 16, y: 16, size: 16, fill: "#e8eaed" });
     draw.text({
       text: "SCORE 0",
-      x: canvas.width - 16,
+      x: canvas.width / u - 16,
       y: 16,
       size: 16,
       fill: "#e8eaed",

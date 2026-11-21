@@ -56,6 +56,8 @@ const PLAYER = [247, 179, 43]; // "#f7b32b"
 
 const PHONE = { width: 390, height: 844 };
 const WIDER = { width: 414, height: 844 };
+/** The device pixel ratio the phone contexts below are created with. */
+const RATIO = 3;
 
 const PHONE_USER_AGENT =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
@@ -183,10 +185,16 @@ async function touchHold(page, point, ms) {
   }
 }
 
-/** The centre of one probed zone — a point the pad itself said answers. */
+/**
+ * The centre of one probed zone, as a **CSS** point a thumb can be put on.
+ *
+ * The probe walks the pad in canvas pixels and `touchHold` presses in CSS pixels — on a 3× phone
+ * those differ by exactly the ratio, so a press aimed with the bitmap number lands three screens
+ * away. Dividing here is the whole conversion.
+ */
 function zoneCentre(probe, name) {
   const span = probe[name];
-  return { x: (span.minX + span.maxX) / 2, y: (span.minY + span.maxY) / 2 };
+  return { x: (span.minX + span.maxX) / 2 / RATIO, y: (span.minY + span.maxY) / 2 / RATIO };
 }
 
 /**
@@ -196,7 +204,8 @@ function zoneCentre(probe, name) {
  * where the boundaries are. Nothing here knows the size formula.
  */
 async function probeZones(browser, baseUrl) {
-  const page = await browser.newPage({ viewport: { ...PHONE }, hasTouch: true });
+  // The ratio matters: a probe page at 1 would build a pad a third of the size the phone builds.
+  const page = await browser.newPage({ viewport: { ...PHONE }, deviceScaleFactor: RATIO, hasTouch: true });
   try {
     await page.goto(`${baseUrl}/phone.html`, { waitUntil: "load" });
     await page.waitForFunction(() => typeof window.__buildPad === "function", undefined, { timeout: 10_000 });
@@ -232,7 +241,9 @@ async function probeZones(browser, baseUrl) {
           }),
         );
       },
-      { widths: [PHONE.width, WIDER.width], height: PHONE.height },
+      // Canvas pixels: that is what buildPad is given, and what its zones are in. The pad converts a
+      // thumb's CSS pixels itself; the probe's only job is to find where the boundaries are.
+      { widths: [PHONE.width * RATIO, WIDER.width * RATIO], height: PHONE.height * RATIO },
     );
   } finally {
     await page.close();
@@ -260,7 +271,7 @@ async function main() {
 
     const context = await browser.newContext({
       viewport: { ...PHONE },
-      deviceScaleFactor: 3,
+      deviceScaleFactor: RATIO,
       isMobile: true,
       hasTouch: true,
       userAgent: PHONE_USER_AGENT,
@@ -285,9 +296,11 @@ async function main() {
       }
       if (first?.error !== undefined) throw new Error(first.error);
 
+      // The bitmap is the window in device pixels: 390x844 CSS at 3x is 1170x2532. The CSS box is
+      // still the window's, which is what a reader sees; the canvas is what the GPU draws.
       check(
-        first.width === PHONE.width && first.height === PHONE.height,
-        "T13: the phone program's canvas is the window at 390×844",
+        first.width === PHONE.width * RATIO && first.height === PHONE.height * RATIO,
+        "T13: the phone program's canvas is the window at 390×844 in device pixels (×3)",
         `${first.width}×${first.height}`,
       );
       check(
@@ -305,7 +318,7 @@ async function main() {
         `${tickBefore.frames} → ${tickAfter.frames} rAF callbacks in 400 ms`,
       );
 
-      const pad390 = zones[PHONE.width];
+      const pad390 = zones[PHONE.width * RATIO];
 
       await page.waitForTimeout(300);
       const still = await page.evaluate(SAMPLE);
@@ -343,10 +356,10 @@ async function main() {
       // then blocked by geometry, so the check fails for a reason that has nothing to do with the
       // pad. That is exactly how this gate went red once on CI while green locally. A jump lifts
       // the body wherever it stands.
-      const pad414 = zones[WIDER.width];
+      const pad414 = zones[WIDER.width * RATIO];
       const grown = {
-        x: (pad390.jump.maxX + pad414.jump.maxX) / 2,
-        y: (pad414.jump.minY + pad414.jump.maxY) / 2,
+        x: (pad390.jump.maxX + pad414.jump.maxX) / 2 / RATIO,
+        y: (pad414.jump.minY + pad414.jump.maxY) / 2 / RATIO,
       };
 
       await page.setViewportSize({ ...WIDER });
@@ -359,8 +372,8 @@ async function main() {
       }
 
       check(
-        resized.width === WIDER.width && resized.height === WIDER.height,
-        "T18: the canvas follows the window after a resize",
+        resized.width === WIDER.width * RATIO && resized.height === WIDER.height * RATIO,
+        "T18: the canvas follows the window after a resize (device pixels)",
         `${first.width}×${first.height} → ${resized.width}×${resized.height}`,
       );
 
@@ -388,10 +401,17 @@ async function main() {
         document.querySelector("#game").style.width = "50%";
       });
 
-      const cssPoint = {
-        x: (pad414.right.minX + pad414.right.maxX) / 2 / 2,
-        y: (pad414.right.minY + pad414.right.maxY) / 2 / 2,
-      };
+      // Converted by the page's own box, not by arithmetic on the ratio: the style above changes the
+      // width only, so the two axes scale differently and a single divisor is wrong on one of them.
+      const cssPoint = await page.evaluate(
+        ([x, y]) => {
+          const canvas = document.querySelector("#game");
+          const rect = canvas.getBoundingClientRect();
+
+          return { x: (x * rect.width) / canvas.width, y: (y * rect.height) / canvas.height };
+        },
+        [(pad414.right.minX + pad414.right.maxX) / 2, (pad414.right.minY + pad414.right.maxY) / 2],
+      );
       const beforeScaled = await page.evaluate(SAMPLE);
       await touchHold(page, cssPoint, 700);
       const afterScaled = await page.evaluate(SAMPLE);
