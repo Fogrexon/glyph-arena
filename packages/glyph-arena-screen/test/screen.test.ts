@@ -150,4 +150,74 @@ describe("fitToWindow", () => {
     resizeTo(1024, 768);
     assert.deepEqual(canvas, { width: 800, height: 600 }, "a stopped fit does not follow");
   });
+
+  it("D9: the bitmap is the window times the device pixel ratio — a Retina page is not upscaled", () => {
+    // 800 CSS px on a 2x display is 1600 device px. A canvas given 800 is stretched by the browser,
+    // which is the blur this exists to remove: every sprite and every rect edge, every frame.
+    const { host } = createWindow(800, 600);
+    const withRatio = { ...host, devicePixelRatio: 2 };
+    const canvas = { width: 1, height: 1 };
+
+    const fit = fitToWindow(canvas, withRatio);
+
+    assert.deepEqual(canvas, { width: 1600, height: 1200 });
+    assert.equal(fit.ratio, 2, "the fit reports the ratio it applied, so a game can divide by it");
+  });
+
+  it("D10: a host without a ratio, or with 0 / NaN, draws at 1 and never a zero-sized bitmap", () => {
+    // A mocked window has no `devicePixelRatio`; a host that is not a browser can report 0 or NaN.
+    // Multiplying by either would make the bitmap nothing at all, and a blank page is not a warning.
+    for (const devicePixelRatio of [undefined, 0, NaN, -1]) {
+      const { host } = createWindow(800, 600);
+      const canvas = { width: 1, height: 1 };
+      const fit = fitToWindow(canvas, { ...host, devicePixelRatio });
+
+      assert.deepEqual(canvas, { width: 800, height: 600 }, `ratio ${devicePixelRatio}`);
+      assert.equal(fit.ratio, 1, `ratio ${devicePixelRatio}`);
+    }
+  });
+
+  it("D11: the ratio is read again on resize, because a window can move to another display", () => {
+    const { host, resizeTo } = createWindow(800, 600);
+    let devicePixelRatio = 2;
+    const canvas = { width: 1, height: 1 };
+    const fit = fitToWindow(canvas, {
+      ...host,
+      get devicePixelRatio() {
+        return devicePixelRatio;
+      },
+    });
+
+    assert.deepEqual(canvas, { width: 1600, height: 1200 });
+
+    devicePixelRatio = 1;
+    resizeTo(800, 600);
+
+    assert.deepEqual(canvas, { width: 800, height: 600 });
+    assert.equal(fit.ratio, 1);
+  });
+
+  it("HPD2: the reported ratio is the one applied, not the one requested — a canvas holds whole pixels", () => {
+    // 801 x 1.5 is 1201.5, and a canvas has to round it. A game that divides by 1.5 is then half a
+    // pixel out per frame, which accumulates into a seam; it must divide by 1202 / 801.
+    const { host } = createWindow(801, 600);
+    const canvas = { width: 1, height: 1 };
+
+    const fit = fitToWindow(canvas, host, { pixelRatio: 1.5 });
+
+    assert.equal(canvas.width, 1202);
+    assert.equal(fit.ratio, 1202 / 801);
+    assert.notEqual(fit.ratio, 1.5, "the requested ratio is not the applied one");
+  });
+
+  it("HPD3: pixelRatio overrides the host's devicePixelRatio, so a 2x path is testable anywhere", () => {
+    const { host } = createWindow(400, 300);
+    const canvas = { width: 1, height: 1 };
+    const retina = { ...host, devicePixelRatio: 3 };
+
+    const fit = fitToWindow(canvas, retina, { pixelRatio: 2 });
+
+    assert.deepEqual(canvas, { width: 800, height: 600 });
+    assert.equal(fit.ratio, 2);
+  });
 });

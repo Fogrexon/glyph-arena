@@ -43,7 +43,7 @@ fit.resize(); // size it now, without waiting for an event
 fit.stop();   // stop listening; safe to call twice
 ```
 
-`fitToWindow` sets the bitmap to `innerWidth x innerHeight` at construction and on every `resize`. Geometry kept in canvas pixels (a touch pad, a HUD layout) belongs in `onResize`: rebuilding it on the frame instead would throw away a press in flight, and a resize can afford that while a frame cannot.
+`fitToWindow` sets the bitmap to `innerWidth x innerHeight` **times the device pixel ratio** at construction and on every `resize`, and returns the `ratio` it applied (`canvas.width / innerWidth`, which is not the requested ratio when the canvas rounds). Geometry kept in canvas pixels (a touch pad, a HUD layout) belongs in `onResize`: rebuilding it on the frame instead would throw away a press in flight, and a resize can afford that while a frame cannot.
 
 ## What this package does not decide
 

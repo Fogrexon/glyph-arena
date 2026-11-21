@@ -118,9 +118,27 @@ export type CanvasSized = {
 export type WindowLike = {
   readonly innerWidth: number;
   readonly innerHeight: number;
+  /**
+   * The device pixel ratio, when the host has one. Optional because a mocked window does not, and
+   * because a browser without it is a browser that draws at ratio 1.
+   */
+  readonly devicePixelRatio?: number;
   addEventListener(type: "resize", listener: () => void): void;
   removeEventListener(type: "resize", listener: () => void): void;
 };
+
+/**
+ * The ratio the bitmap is drawn at, as a number above zero.
+ *
+ * `devicePixelRatio` is `1` on a normal display, `2` on a Retina one, and **`0` or `NaN` on a host
+ * that is not a browser** — a ratio of zero would make the bitmap zero pixels wide and the page a
+ * blank, so the fallback is 1 and not "whatever the host said".
+ */
+function ratioOf(host: WindowLike, options: FitOptions): number {
+  const ratio = options.pixelRatio ?? host.devicePixelRatio ?? 1;
+
+  return Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
+}
 
 export type FitOptions = {
   /**
@@ -130,6 +148,14 @@ export type FitOptions = {
    * the canvas changes, and rebuilding it on the frame instead would throw away a press in flight.
    */
   readonly onResize?: () => void;
+  /**
+   * The ratio to draw at, when the host's `devicePixelRatio` is not the answer.
+   *
+   * It is an override, not a hint: a test that wants to check the 2x path on a machine with no
+   * Retina display, or a canvas embedded in a page whose ratio is not the window's, passes it here.
+   * Omitted, the host's ratio is used and 1 is the fallback.
+   */
+  readonly pixelRatio?: number;
 };
 
 export type WindowFit = {
@@ -137,19 +163,47 @@ export type WindowFit = {
   resize(): void;
   /** Stop listening. Safe to call twice. */
   stop(): void;
+  /**
+   * The ratio **actually applied** to the bitmap, as `canvas.width / innerWidth` after rounding.
+   *
+   * This is not the requested ratio: a canvas holds whole pixels, so a 1.5 request on an 801 px
+   * window is 1202 / 801 = 1.5006…. A game divides by the ratio the bitmap is at, not by the one it
+   * asked for, or a 0.5 px error per frame accumulates into a visible seam.
+   *
+   * It is also **not** the box's ratio: when the canvas is letterboxed (a CSS box that is not the
+   * window), `measureCanvas(canvas).scale` is the ratio the picture is drawn at, and `ratio` is only
+   * the window-filling convenience. Do not treat the two as interchangeable.
+   */
+  readonly ratio: number;
 };
 
 /**
  * Make the canvas fill the window, and keep it that way.
  *
- * The bitmap is set to `innerWidth x innerHeight` — the CSS box is the page's business, and with no
- * style the two end up the same, which is what every sample wanted. `onResize` runs after the new
- * size is in place, so a zone built from `canvas.width` sees the new number.
+ * The **bitmap** is `innerWidth x innerHeight` **times the device pixel ratio**: a page that is
+ * 800 CSS px wide on a Retina display is 1600 device px, and a canvas given 800 is upscaled by the
+ * browser — every sprite, every edge of every rect, blurred. The **CSS box** is the page's business
+ * (the samples all style the canvas to `100%`), so nothing here writes a style.
+ *
+ * That doubles the numbers a game reads: `canvas.height / LOGICAL_HEIGHT` is not a scale any more,
+ * it is a scale times the ratio. So `ratio` is on the returned fit, and the rule is one line:
+ * **the game's logical size is counted in CSS pixels, the bitmap is counted in device pixels.**
+ *
+ * `onResize` runs after the new size is in place, so a zone built from `canvas.width` sees the new
+ * number — which is now a device-pixel number, because that is what `toCanvasPoint` produces.
  */
 export function fitToWindow(canvas: CanvasSized, host: WindowLike, options: FitOptions = {}): WindowFit {
+  // The ratio the bitmap is *at*, not the one that was asked for: `round` means the two differ, and
+  // a game that divides by the requested number drifts by up to half a pixel against the picture.
+  let applied = 1;
+
   const resize = () => {
-    canvas.width = host.innerWidth;
-    canvas.height = host.innerHeight;
+    const requested = ratioOf(host, options);
+
+    canvas.width = Math.round(host.innerWidth * requested);
+    canvas.height = Math.round(host.innerHeight * requested);
+    // A zero-width window has no ratio to derive; keep the request rather than dividing by zero.
+    applied = host.innerWidth === 0 ? requested : canvas.width / host.innerWidth;
     options.onResize?.();
   };
 
@@ -167,6 +221,9 @@ export function fitToWindow(canvas: CanvasSized, host: WindowLike, options: FitO
 
       stopped = true;
       host.removeEventListener("resize", resize);
+    },
+    get ratio() {
+      return applied;
     },
   };
 }

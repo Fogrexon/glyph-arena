@@ -20,6 +20,31 @@ Release tags are cut only when the shipped demo bundle (`index-*.js`) changes. D
 
 ### Changed
 
+- **A Retina page was drawn at half the pixels it had.** `fitToWindow` set the bitmap to
+  `innerWidth x innerHeight` — **CSS** pixels — so on a 2× display the browser upscaled the canvas
+  and every sprite and every rect edge was soft. The bitmap is now the window **in device pixels**
+  (`innerWidth × ratio`); the CSS box is still the page's, and nothing writes a style. The fit
+  returns `ratio`, and it is the **applied** ratio (`canvas.width / innerWidth`), not the requested
+  one: a canvas holds whole pixels, so 1.5 on an 801 px window is 1202 / 801 = 1.5006…, and a game
+  that divides by the number it asked for drifts half a pixel into a seam.
+  pickup and parry now frame the **CSS** box and draw the view at `ratio`
+  (`camera.view(canvas.width / ratio, canvas.height / ratio)`, then the matrix scaled up), so the
+  same world fills the screen with more pixels behind it — framing the bitmap instead would have
+  quietly zoomed both games out on a Retina display. **runner needed no change, and that is the one
+  to keep:** its `scale()` was already bitmap-space (`canvas.height / 540`), so
+  `viewWidth = canvas.width / scale()` is 720 logical units at ratio 1 and ratio 2 alike, and
+  `test/view.test.ts` now holds that with its reverse case.
+  **The touch pads moved with it.** Their numbers were thumb-sized but had been landing in canvas
+  pixels because at ratio 1 the two are the same number: at 3× the pad was 21 CSS px across, and the
+  demo gate's ±40 CSS px press fell 120 canvas px from a 64 px radius. The pad is drawn in CSS
+  pixels through a ratio transform and its zones are the same numbers × ratio.
+  **`docs/tutorial.md` too, and that is the part a reader copies.** Its phone program built a pad in
+  canvas pixels from thumb-sized numbers; it now reads one `units()` ratio and converts where the
+  two meet — the pad, the camera and the HUD. The desktop program gets `1` from the same code, so the
+  two files still differ only inside their marked segments. Its gates learned the same thing:
+  `T13`/`T18` compare the canvas to the window **in device pixels**, the probe page runs at the
+  phone's ratio, and a probed zone (canvas pixels) is divided before a thumb is put on it.
+
 - **MARCH's death screen names the beat, not just the pixel.** `died at x 851` was everything the
   game said when a run ended, and 851 cannot be turned into "the pair" by the person reading it —
   measured 11-19: 宣伝 died at 851 five times and 754 twice inside one minute, all of it the same two
